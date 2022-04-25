@@ -35,6 +35,122 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
+ 
+
+class LiDARCorrectorEmbreeROS : public LiDARCorrectorEmbree {
+public:
+
+    using Base = LiDARCorrectorEmbree;
+    using Base::setParams;
+
+    LiDARCorrectorEmbreeROS(EmbreeMapPtr map, std::string map_frame, std::string sensor_frame)
+    :Base(map), m_map_frame(map_frame), m_sensor_frame(sensor_frame)
+    {
+        
+    }
+
+    void setMapFrame(std::string map_frame)
+    {
+        m_map_frame = map_frame;
+    }
+
+    void setSensorFrame(std::string sensor_frame)
+    {
+        m_sensor_frame = sensor_frame;
+    }
+    
+    void setBaseFrame(std::string base_frame)
+    {
+        m_base_frame = base_frame;
+        m_has_base_frame = true;
+    }
+
+    void setOdomFrame(std::string odom_frame)
+    {
+        m_odom_frame = odom_frame;
+        m_has_odom_frame = true;
+    }
+
+private:
+
+    bool fetchTF()
+    {
+        bool ret = true;
+
+        if(m_has_base_frame)
+        {
+            try{
+                m_T_sensor_base = tfBuffer->lookupTransform(m_base_frame, m_sensor_frame, ros::Time(0));
+            }
+            catch (tf2::TransformException &ex) {
+                ROS_WARN("%s", ex.what());
+                ROS_WARN_STREAM("Source: " << m_base_frame << ", Target: " << m_sensor_frame);
+
+                ret = false;
+            }
+        } else {
+            m_T_sensor_base.header.frame_id = m_base_frame;
+            m_T_sensor_base.child_frame_id = m_sensor_frame;
+            m_T_sensor_base.transform.translation.x = 0.0;
+            m_T_sensor_base.transform.translation.y = 0.0;
+            m_T_sensor_base.transform.translation.z = 0.0;
+            m_T_sensor_base.transform.rotation.x = 0.0;
+            m_T_sensor_base.transform.rotation.y = 0.0;
+            m_T_sensor_base.transform.rotation.z = 0.0;
+            m_T_sensor_base.transform.rotation.w = 1.0;
+        }
+
+        Transform Tsb;
+        convert(m_T_sensor_base.transform, Tsb);
+        Base::setTsb(Tsb);
+        
+        if(m_has_odom_frame && m_has_base_frame)
+        {
+            try{
+                m_T_base_odom = tfBuffer->lookupTransform(m_odom_frame, m_base_frame, ros::Time(0));
+            }
+            catch (tf2::TransformException &ex) {
+                ROS_WARN("%s", ex.what());
+                ROS_WARN_STREAM("Source: " << m_odom_frame << ", Target: " << m_base_frame);
+                ret = false;
+            }
+        } else {
+            m_T_base_odom.header.frame_id = m_odom_frame;
+            m_T_base_odom.child_frame_id = m_base_frame;
+            m_T_base_odom.transform.translation.x = 0.0;
+            m_T_base_odom.transform.translation.y = 0.0;
+            m_T_base_odom.transform.translation.z = 0.0;
+            m_T_base_odom.transform.rotation.x = 0.0;
+            m_T_base_odom.transform.rotation.y = 0.0;
+            m_T_base_odom.transform.rotation.z = 0.0;
+            m_T_base_odom.transform.rotation.w = 1.0;
+        }
+
+        return ret;
+    }
+
+    // for tf
+    std::shared_ptr<tf2_ros::Buffer> tfBuffer;
+    std::shared_ptr<tf2_ros::TransformListener> tfListener; 
+
+    // required frame names
+    std::string m_map_frame;
+    std::string m_sensor_frame;
+
+    // optional intermediate frames
+    std::string m_base_frame;
+    bool m_has_base_frame = false;
+    std::string m_odom_frame;
+    bool m_has_odom_frame = false;
+
+    // Estimate this
+    geometry_msgs::TransformStamped m_T_odom_map;
+    // dynamic: ekf
+    geometry_msgs::TransformStamped m_T_base_odom;
+    // static: urdf
+    geometry_msgs::TransformStamped m_T_sensor_base;
+};
+
 LiDARCorrectorEmbreePtr scan_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
@@ -206,7 +322,7 @@ void updateTF()
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "icp_ekf");
+    ros::init(argc, argv, "lidar_corrector_embree");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
@@ -251,7 +367,6 @@ int main(int argc, char** argv)
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
-    
 
     ros::Duration d(0.1);
 
