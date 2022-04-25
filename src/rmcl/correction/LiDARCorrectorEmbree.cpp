@@ -6,6 +6,19 @@ using namespace rmagine;
 namespace rmcl
 {
 
+void LiDARCorrectorEmbree::setParams(
+    const CorrectionParams& params)
+{
+    m_params = params;
+}
+
+void LiDARCorrectorEmbree::setInputData(
+    const rmagine::Memory<float, rmagine::RAM>& ranges)
+{
+    m_ranges = ranges;
+}
+
+
 Eigen::Matrix4f my_umeyama(
     const Eigen::Matrix<float, 3, -1>& from, 
     const Eigen::Matrix<float, 3, -1>& to)

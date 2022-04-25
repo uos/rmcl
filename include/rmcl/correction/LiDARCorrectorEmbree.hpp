@@ -36,6 +36,8 @@
 #ifndef RMCL_CORRECTOR_LIDAR_EMBREE_HPP
 #define RMCL_CORRECTOR_LIDAR_EMBREE_HPP
 
+#include <memory>
+
 // rmagine deps
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/types/sensor_models.h>
@@ -68,9 +70,11 @@ public:
     using Base = rmagine::SphereSimulatorEmbree;
     using Base::Base;
 
-    void setParams(const CorrectionParams& params);
+    void setParams(
+        const CorrectionParams& params);
 
-    void setInputData(const rmagine::Memory<float, rmagine::RAM>& ranges);
+    void setInputData(
+        const rmagine::Memory<float, rmagine::RAM>& ranges);
 
     /**
      * @brief Correct one ore multiple Poses towards the map
@@ -91,7 +95,7 @@ protected:
     rmagine::SVDPtr m_svd;
 };
 
-// using EmbreeCorrectorPtr = std::shared_ptr<EmbreeCorrector>;
+using LiDARCorrectorEmbreePtr = std::shared_ptr<LiDARCorrectorEmbree>;
 
 } // namespace rmcl
 

@@ -2,14 +2,7 @@
 <launch>
 
 <arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae" />
-<!-- <arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/mamcl_ros/mamcl/dat/sphere.ply" /> -->
-<!-- <arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/mamcl_ros/mamcl/dat/triangle.ply" /> -->
 
-<!-- Publishes a mesh for visualization purposes -->
-<!-- <node pkg="mamcl" type="mesh_publisher" name="mesh_publisher" output="screen">
-    <param name="file" type="string" value="$(arg meshfile)" />
-    <param name="frame" type="string" value="map" />
-</node> -->
 
 <node pkg="rmcl" type="pcl_converter" name="pcl_converter" output="screen">
     <remap from="cloud" to="velodyne_points" />
@@ -18,5 +11,11 @@
     <!-- UNCOMMENT FOR REAL VELODYNE -->
     <!-- <rosparam file="$(find mamcl)/config/sensors/VLP-16.yaml" /> -->
 </node>
+
+<node pkg="rmagine_ros" type="mesh_publisher" name="mesh_publisher" output="screen">
+    <param name="file" type="string" value="$(arg meshfile)" />
+    <param name="frame" type="string" value="map" />
+</node>
+
 
 </launch>
