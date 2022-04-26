@@ -12,7 +12,7 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/LiDARCorrectorEmbree.hpp>
+#include <rmcl/correction/LiDARCorrectorEmbreeROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -20,9 +20,6 @@
 #include <rosmath/sensor_msgs/conversions.h>
 #include <rosmath/sensor_msgs/math.h>
 #include <rosmath/eigen/conversions.h>
-
-
-
 
 #include <chrono>
 #include <memory>
@@ -35,123 +32,8 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
- 
-
-class LiDARCorrectorEmbreeROS : public LiDARCorrectorEmbree {
-public:
-
-    using Base = LiDARCorrectorEmbree;
-    using Base::setParams;
-
-    LiDARCorrectorEmbreeROS(EmbreeMapPtr map, std::string map_frame, std::string sensor_frame)
-    :Base(map), m_map_frame(map_frame), m_sensor_frame(sensor_frame)
-    {
-        
-    }
-
-    void setMapFrame(std::string map_frame)
-    {
-        m_map_frame = map_frame;
-    }
-
-    void setSensorFrame(std::string sensor_frame)
-    {
-        m_sensor_frame = sensor_frame;
-    }
-    
-    void setBaseFrame(std::string base_frame)
-    {
-        m_base_frame = base_frame;
-        m_has_base_frame = true;
-    }
-
-    void setOdomFrame(std::string odom_frame)
-    {
-        m_odom_frame = odom_frame;
-        m_has_odom_frame = true;
-    }
-
-private:
-
-    bool fetchTF()
-    {
-        bool ret = true;
-
-        if(m_has_base_frame)
-        {
-            try{
-                m_T_sensor_base = tfBuffer->lookupTransform(m_base_frame, m_sensor_frame, ros::Time(0));
-            }
-            catch (tf2::TransformException &ex) {
-                ROS_WARN("%s", ex.what());
-                ROS_WARN_STREAM("Source: " << m_base_frame << ", Target: " << m_sensor_frame);
-
-                ret = false;
-            }
-        } else {
-            m_T_sensor_base.header.frame_id = m_base_frame;
-            m_T_sensor_base.child_frame_id = m_sensor_frame;
-            m_T_sensor_base.transform.translation.x = 0.0;
-            m_T_sensor_base.transform.translation.y = 0.0;
-            m_T_sensor_base.transform.translation.z = 0.0;
-            m_T_sensor_base.transform.rotation.x = 0.0;
-            m_T_sensor_base.transform.rotation.y = 0.0;
-            m_T_sensor_base.transform.rotation.z = 0.0;
-            m_T_sensor_base.transform.rotation.w = 1.0;
-        }
-
-        Transform Tsb;
-        convert(m_T_sensor_base.transform, Tsb);
-        Base::setTsb(Tsb);
-        
-        if(m_has_odom_frame && m_has_base_frame)
-        {
-            try{
-                m_T_base_odom = tfBuffer->lookupTransform(m_odom_frame, m_base_frame, ros::Time(0));
-            }
-            catch (tf2::TransformException &ex) {
-                ROS_WARN("%s", ex.what());
-                ROS_WARN_STREAM("Source: " << m_odom_frame << ", Target: " << m_base_frame);
-                ret = false;
-            }
-        } else {
-            m_T_base_odom.header.frame_id = m_odom_frame;
-            m_T_base_odom.child_frame_id = m_base_frame;
-            m_T_base_odom.transform.translation.x = 0.0;
-            m_T_base_odom.transform.translation.y = 0.0;
-            m_T_base_odom.transform.translation.z = 0.0;
-            m_T_base_odom.transform.rotation.x = 0.0;
-            m_T_base_odom.transform.rotation.y = 0.0;
-            m_T_base_odom.transform.rotation.z = 0.0;
-            m_T_base_odom.transform.rotation.w = 1.0;
-        }
-
-        return ret;
-    }
-
-    // for tf
-    std::shared_ptr<tf2_ros::Buffer> tfBuffer;
-    std::shared_ptr<tf2_ros::TransformListener> tfListener; 
-
-    // required frame names
-    std::string m_map_frame;
-    std::string m_sensor_frame;
-
-    // optional intermediate frames
-    std::string m_base_frame;
-    bool m_has_base_frame = false;
-    std::string m_odom_frame;
-    bool m_has_odom_frame = false;
-
-    // Estimate this
-    geometry_msgs::TransformStamped m_T_odom_map;
-    // dynamic: ekf
-    geometry_msgs::TransformStamped m_T_base_odom;
-    // static: urdf
-    geometry_msgs::TransformStamped m_T_sensor_base;
-};
-
-LiDARCorrectorEmbreePtr scan_correct;
+// LiDARCorrectorEmbreePtr scan_correct;
+LiDARCorrectorEmbreeROSPtr scan_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 
@@ -209,9 +91,7 @@ bool fetchTF()
         T_sensor_base.transform.rotation.w = 1.0;
     }
 
-    Transform Tsb;
-    convert(T_sensor_base.transform, Tsb);
-    scan_correct->setTsb(Tsb);
+    scan_correct->setTsb(T_sensor_base.transform);
     
     if(has_odom_frame && has_base_frame)
     {
@@ -261,19 +141,8 @@ void poseCB(geometry_msgs::PoseStamped msg)
 // updating real data inside the global scan corrector
 void scanCB(const ScanStamped::ConstPtr& msg)
 {
-    // std::cout << "scanCB" << std::endl;
     sensor_frame = msg->header.frame_id;
-
-    rmagine::SphericalModel model;
-    convert(msg->scan.info, model);
-    scan_correct->setModel(model);
-    Memory<float, RAM> data(msg->scan.ranges.size());
-    for(size_t i=0; i<data.size(); i++)
-    {
-        data[i] = msg->scan.ranges[i];
-    }
-    scan_correct->setInputData(data);
-
+    scan_correct->setModelAndInputData(msg->scan);
     last_scan = msg->header.stamp;
     scan_received = true;
 }
@@ -283,6 +152,7 @@ void correctOnce()
     // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
+    
     Memory<Transform, RAM> poses(1);
     convert(T_base_map.transform, poses[0]);
     auto corrRes = scan_correct->correct(poses);
@@ -349,7 +219,7 @@ int main(int argc, char** argv)
 
     EmbreeMapPtr map = importEmbreeMap(meshfile);
     
-    scan_correct.reset(new LiDARCorrectorEmbree(map));
+    scan_correct.reset(new LiDARCorrectorEmbreeROS(map));
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);

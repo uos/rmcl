@@ -53,6 +53,7 @@ target_link_libraries(rmcl
 
 add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
+    src/rmcl/correction/LiDARCorrectorEmbreeROS.cpp
 )
 
 target_link_libraries(rmcl_ros

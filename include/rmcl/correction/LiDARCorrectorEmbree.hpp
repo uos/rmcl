@@ -45,6 +45,7 @@
 #include <rmagine/simulation/SphereSimulatorEmbree.hpp>
 
 #include "CorrectionResults.hpp"
+#include "CorrectionParams.hpp"
 
 namespace rmcl {
 

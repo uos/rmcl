@@ -9,6 +9,7 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Point32.h>
 #include <geometry_msgs/Transform.h>
+#include <geometry_msgs/Pose.h>
 
 #include <Eigen/Dense>
 #include <rmagine/types/Memory.hpp>
@@ -41,6 +42,32 @@ inline void convert(
     Tros.translation.x = Trm.t.x;
     Tros.translation.y = Trm.t.y;
     Tros.translation.z = Trm.t.z;
+}
+
+inline void convert(
+    const geometry_msgs::Pose& Pros,
+    rmagine::Transform& Trm)
+{
+    Trm.R.x = Pros.orientation.x;
+    Trm.R.y = Pros.orientation.y;
+    Trm.R.z = Pros.orientation.z;
+    Trm.R.w = Pros.orientation.w;
+    Trm.t.x = Pros.position.x;
+    Trm.t.y = Pros.position.y;
+    Trm.t.z = Pros.position.z;
+}
+
+inline void convert(
+    const rmagine::Transform& Trm,
+    geometry_msgs::Pose& Pros)
+{
+    Pros.orientation.x = Trm.R.x;
+    Pros.orientation.y = Trm.R.y;
+    Pros.orientation.z = Trm.R.z;
+    Pros.orientation.w = Trm.R.w;
+    Pros.position.x = Trm.t.x;
+    Pros.position.y = Trm.t.y;
+    Pros.position.z = Trm.t.z;
 }
 
 geometry_msgs::Point32 polar2cartesian(

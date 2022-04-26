@@ -38,8 +38,6 @@
 #include <rmagine/types/Memory.hpp>
 #include <rmagine/math/types.h>
 
-#include "CorrectionParams.hpp"
-
 namespace rmcl {
 
 template<typename MemT>
