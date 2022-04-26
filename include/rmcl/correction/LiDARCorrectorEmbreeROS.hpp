@@ -22,12 +22,9 @@ namespace rmcl {
 class LiDARCorrectorEmbreeROS : public LiDARCorrectorEmbree {
 public:
 
-    using Ptr = std::shared_ptr<LiDARCorrectorEmbreeROS>;
-
     using Base = LiDARCorrectorEmbree;
+    using Base::Base;
     using Base::setParams;
-
-    LiDARCorrectorEmbreeROS(rmagine::EmbreeMapPtr map);
 
     using Base::setModel;
     void setModel(const rmcl_msgs::ScanInfo& info);

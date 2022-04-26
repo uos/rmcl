@@ -9,13 +9,6 @@ using namespace rmagine;
 namespace rmcl
 {
 
-LiDARCorrectorEmbreeROS::LiDARCorrectorEmbreeROS(
-    EmbreeMapPtr map)
-:LiDARCorrectorEmbree(map)
-{
-
-}
-
 void LiDARCorrectorEmbreeROS::setModel(const rmcl_msgs::ScanInfo& info)
 {
     SphericalModel model;

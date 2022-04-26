@@ -61,6 +61,86 @@ target_link_libraries(rmcl_ros
     rmcl
 )
 
+if(${rmagine_cuda_FOUND})
+    # Build cuda related stuff
+    find_package(CUDA)
+
+    enable_language(CUDA)
+    include_directories(${CUDA_INCLUDE_DIRS})
+
+    add_library(rmcl_cuda
+        # math
+        src/rmcl/math/math_batched.cu
+    )
+
+    target_link_libraries(rmcl_cuda
+        ${rmagine_cuda_LIBRARY}
+    )
+
+endif()
+
+if(${rmagine_optix_FOUND})
+    # Build optix related stuff
+
+    set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")
+    set(RMCL_OPTIX_PTX_GLOB_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/rmcl_optix_ptx")
+
+    set(CUDA_GENERATED_OUTPUT_DIR ${RMCL_OPTIX_PTX_DIR})
+
+    add_definitions( -DWITH_OPTIX )
+    add_definitions( -DRMCL_OPTIX_PTX_DIR="${RMCL_OPTIX_PTX_DIR}" )
+    add_definitions( -DRMCL_OPTIX_PTX_GLOB_DIR="${RMCL_OPTIX_PTX_GLOB_DIR}")
+
+    message(STATUS "Writing Optix Kernels to ${RMCL_OPTIX_PTX_DIR}")
+
+    set(OPTIX_KERNEL_FILES
+        # Correction
+        ## Spherical
+        src/rmcl/correction/optix/SphereCorrectProgramRW.cu
+        ## Pinhole
+        ## O1Dn
+        ## OnDn
+    )
+
+    cuda_compile_ptx(RMAGINE_OPTIX_PTX_FILES
+        ${OPTIX_KERNEL_FILES}
+    )
+
+    add_custom_target(rmcl_optix_ptx ALL
+        DEPENDS ${RMCL_OPTIX_PTX_FILES} ${OPTIX_KERNEL_FILES}
+        SOURCES ${OPTIX_KERNEL_FILES}
+        VERBATIM)
+
+    message(STATUS "CMAKE_SOURCE_DIR: ${rmcl_SOURCE_DIR}")
+
+    add_custom_command(
+        TARGET rmcl_optix_ptx POST_BUILD
+        COMMAND ${CMAKE_COMMAND} 
+            -DRMCL_SOURCE_DIR=${rmcl_SOURCE_DIR} 
+            -DRMCL_OPTIX_PTX_DIR=${RMCL_OPTIX_PTX_DIR} 
+            -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}" 
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernels.cmake"
+    )
+
+    add_library(rmcl_optix
+        # Correction
+        src/rmcl/correction/LiDARCorrectorOptix.cpp
+        # Correction Programs
+        ## Spherical
+        src/rmcl/correction/optix/SphereCorrectProgramRW.cpp
+    )
+
+    target_include_directories(rmcl_optix PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+    )
+
+    target_link_libraries(rmcl_optix
+        rmcl
+        rmcl_cuda
+        ${rmagine_optix_LIBRARY}
+    )
+endif()
+
 ####### PCL CONVERTER
 add_executable(pcl_converter src/nodes/pcl_converter.cpp)
 
@@ -92,4 +172,20 @@ target_link_libraries(lidar_corrector_embree
     rmcl_ros
 )
 
+###### CORRECTION GPU #######
+# add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
+
+# add_dependencies(lidar_corrector_optix 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(lidar_corrector_optix
+#     ${catkin_LIBRARIES}
+#     ${rmagine_ext_LIBRARIES}
+#     rmcl
+#     rmcl_ros
+#     rmcl_optix
+# )
 
