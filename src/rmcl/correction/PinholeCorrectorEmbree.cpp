@@ -1,4 +1,4 @@
-#include <rmcl/correction/SphereCorrectorEmbree.hpp>
+#include <rmcl/correction/PinholeCorrectorEmbree.hpp>
 #include <Eigen/Dense>
 
 // DEBUG
@@ -9,13 +9,13 @@ using namespace rmagine;
 namespace rmcl
 {
 
-void SphereCorrectorEmbree::setParams(
+void PinholeCorrectorEmbree::setParams(
     const CorrectionParams& params)
 {
     m_params = params;
 }
 
-void SphereCorrectorEmbree::setInputData(
+void PinholeCorrectorEmbree::setInputData(
     const rmagine::Memory<float, rmagine::RAM>& ranges)
 {
     m_ranges = ranges;
@@ -58,7 +58,7 @@ static Eigen::Matrix4f my_umeyama(
     return T;
 }
 
-CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
+CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
     const rmagine::Memory<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionResults<RAM> res;
@@ -171,11 +171,13 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
             // Model and Dataset PCL are in base space.
 
             Eigen::Matrix4f Tm = my_umeyama(Dm, Mm);
-
             Eigen::Matrix3f R = Tm.block<3,3>(0,0);
             Eigen::Vector3f t = Tm.block<3,1>(0,3);
 
             Matrix3x3* R_rm = reinterpret_cast<Matrix3x3*>(&R);
+
+            // std::cout << "R: " << *R_rm << std::endl;
+            // std::cout << "t: " << t.transpose() << std::endl;
 
             res.Tdelta[pid].R.set(*R_rm);
             res.Tdelta[pid].t = {t.x(), t.y(), t.z()};

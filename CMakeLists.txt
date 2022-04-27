@@ -50,6 +50,7 @@ include_directories(
 add_library(rmcl
     # Correction
     src/rmcl/correction/SphereCorrectorEmbree.cpp
+    src/rmcl/correction/PinholeCorrectorEmbree.cpp
 )
 
 target_link_libraries(rmcl
@@ -61,6 +62,7 @@ target_link_libraries(rmcl
 add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
     src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
+    src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
 )
 
 target_link_libraries(rmcl_ros
