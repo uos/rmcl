@@ -27,11 +27,13 @@ public:
     using Base::setParams;
 
     using Base::setModel;
+    // TODO
     // void setModel(const rmcl_msgs::ScanInfo& info);
 
     using Base::setInputData;
     void setInputData(const std::vector<float>& ranges);
 
+    // TODO
     // void setModelAndInputData(const rmcl_msgs::Scan& scan);
 
     using Base::setTsb;
