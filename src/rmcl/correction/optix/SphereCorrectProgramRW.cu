@@ -27,8 +27,6 @@ extern "C" __global__ void __raygen__rg()
     const unsigned int loc_id = mem.model->getBufferId(vid, hid);
     const unsigned int glob_id = pid * mem.model->size() + loc_id;
 
-
-
     const rmagine::Transform Tsb = mem.Tsb[0];
     const rmagine::Transform Tbm = mem.Tbm[pid];
     const rmagine::Transform Tsm = Tbm * Tsb;

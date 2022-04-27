@@ -33,6 +33,7 @@ public:
     CorrectionResults<rmagine::VRAM_CUDA> correct(
         const rmagine::Memory<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
+    
 protected:
     rmagine::Memory<float, rmagine::VRAM_CUDA> m_ranges;
     rmagine::Memory<CorrectionParams, rmagine::VRAM_CUDA> m_params;

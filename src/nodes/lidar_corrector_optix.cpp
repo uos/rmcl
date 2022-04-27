@@ -13,7 +13,7 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/LiDARCorrectorOptix.hpp>
+#include <rmcl/correction/LiDARCorrectorOptixROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -34,7 +34,7 @@ using namespace rmcl_msgs;
 using namespace rmagine;
 
 // LiDARCorrectorEmbreePtr scan_correct;
-LiDARCorrectorOptixPtr scan_correct;
+LiDARCorrectorOptixROSPtr scan_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 
@@ -159,7 +159,9 @@ void correctOnce()
     // upload to GPU
     Memory<Transform, VRAM_CUDA> poses_(1);
     poses_ = poses;
+    std::cout << "Correct Once:" << std::endl;
     auto corrRes = scan_correct->correct(poses_);
+    std::cout << "Done." << std::endl;
     poses_ = multNxN(poses_, corrRes.Tdelta);
     // download to CPU
     poses = poses_;
@@ -199,11 +201,11 @@ void updateTF()
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "lidar_corrector_embree");
+    ros::init(argc, argv, "lidar_corrector_optix");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Embree Corrector started");
+    ROS_INFO("Optix Corrector started");
 
     std::string map_frame;
     std::string meshfile;
@@ -224,9 +226,9 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    OptixMapPtr map = importOptixMap(meshfile);
     
-    scan_correct.reset(new LiDARCorrectorEmbreeROS(map));
+    scan_correct.reset(new LiDARCorrectorOptixROS(map));
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);

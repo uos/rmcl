@@ -75,6 +75,7 @@ if(${rmagine_cuda_FOUND})
 
     target_link_libraries(rmcl_cuda
         ${rmagine_cuda_LIBRARY}
+        ${CUDA_LIBRARIES}
     )
 
 endif()
@@ -139,6 +140,15 @@ if(${rmagine_optix_FOUND})
         rmcl_cuda
         ${rmagine_optix_LIBRARY}
     )
+
+    # ROS code
+    add_library(rmcl_optix_ros
+        src/rmcl/correction/LiDARCorrectorOptixROS.cpp
+    )
+
+    target_link_libraries(rmcl_optix_ros
+        rmcl_optix
+    )
 endif()
 
 ####### PCL CONVERTER
@@ -173,19 +183,19 @@ target_link_libraries(lidar_corrector_embree
 )
 
 ###### CORRECTION GPU #######
-# add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
+add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
 
-# add_dependencies(lidar_corrector_optix 
-#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#     ${catkin_EXPORTED_TARGETS}
-# )
+add_dependencies(lidar_corrector_optix 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
 
-# ## Specify libraries to link a library or executable target against
-# target_link_libraries(lidar_corrector_optix
-#     ${catkin_LIBRARIES}
-#     ${rmagine_ext_LIBRARIES}
-#     rmcl
-#     rmcl_ros
-#     rmcl_optix
-# )
+## Specify libraries to link a library or executable target against
+target_link_libraries(lidar_corrector_optix
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
 

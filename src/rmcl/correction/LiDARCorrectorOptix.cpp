@@ -38,9 +38,16 @@ void LiDARCorrectorOptix::setParams(
     m_params = params_ram;
 }
 
+void LiDARCorrectorOptix::setInputData(
+    const rmagine::Memory<float, rmagine::VRAM_CUDA>& ranges)
+{
+    m_ranges = ranges;
+}
+
 CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
     const rm::Memory<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
+    std::cout << "Start correction." << std::endl;
     CorrectionResults<rm::VRAM_CUDA> res;
     res.Ncorr.resize(Tbms.size());
     res.Tdelta.resize(Tbms.size());
@@ -61,9 +68,12 @@ CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
     {
         // scanwise parallelization
         // computeMeansCovsSW(Tbm, m1, m2, Cs, res.Ncorr);
+        std::cout << "WARNING: SHIT" << std::endl; 
     } else {
         // raywise parallelization
+        std::cout << "- raywise parallelization..." << std::endl;
         computeMeansCovsRW(Tbms, m1, m2, Cs, res.Ncorr);
+        std::cout << "- raywise parallelization done." << std::endl;
     }
 
     // Singular value decomposition
@@ -71,7 +81,7 @@ CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     m_svd->calcUV(Cs, Us, Vs);
     auto Rs = rm::multNxN(Us, rm::transpose(Vs));
-    auto ts = rm::subNxN(m1, rm::multNxN(Rs, m2));
+    auto ts = rm::subNxN(m2, rm::multNxN(Rs, m1));
 
     rm::pack(Rs, ts, res.Tdelta);
 
@@ -131,7 +141,7 @@ void LiDARCorrectorOptix::computeMeansCovsRW(
     m1 = rm::divNxNIgnoreZeros(
             rm::sumBatched(dataset_points, corr_valid, scanSize), 
             Ncorr);
-
+    
     m2 = rm::divNxNIgnoreZeros(
             rm::sumBatched(model_points, corr_valid, scanSize), 
             Ncorr);
