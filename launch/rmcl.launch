@@ -7,7 +7,7 @@
 <node pkg="rmcl" type="pcl_converter" name="pcl_converter" output="screen">
     <remap from="cloud" to="velodyne_points" />
 
-    <rosparam file="$(find rmcl)/config/sensors/VLP-16_sim.yaml" />
+    <rosparam file="$(find rmcl)/config/sensors/VLP-16-900.yaml" />
     <!-- UNCOMMENT FOR REAL VELODYNE -->
     <!-- <rosparam file="$(find mamcl)/config/sensors/VLP-16.yaml" /> -->
 </node>
