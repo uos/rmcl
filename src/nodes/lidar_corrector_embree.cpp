@@ -12,7 +12,7 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/LiDARCorrectorEmbreeROS.hpp>
+#include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -33,7 +33,7 @@ using namespace rmcl_msgs;
 using namespace rmagine;
 
 // LiDARCorrectorEmbreePtr scan_correct;
-LiDARCorrectorEmbreeROSPtr scan_correct;
+SphereCorrectorEmbreeROSPtr scan_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 
@@ -240,7 +240,7 @@ int main(int argc, char** argv)
 
     EmbreeMapPtr map = importEmbreeMap(meshfile);
     
-    scan_correct.reset(new LiDARCorrectorEmbreeROS(map));
+    scan_correct.reset(new SphereCorrectorEmbreeROS(map));
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);

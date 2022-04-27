@@ -1,4 +1,4 @@
-#include <rmcl/correction/LiDARCorrectorEmbree.hpp>
+#include <rmcl/correction/SphereCorrectorEmbree.hpp>
 #include <Eigen/Dense>
 
 // DEBUG
@@ -9,13 +9,13 @@ using namespace rmagine;
 namespace rmcl
 {
 
-void LiDARCorrectorEmbree::setParams(
+void SphereCorrectorEmbree::setParams(
     const CorrectionParams& params)
 {
     m_params = params;
 }
 
-void LiDARCorrectorEmbree::setInputData(
+void SphereCorrectorEmbree::setInputData(
     const rmagine::Memory<float, rmagine::RAM>& ranges)
 {
     m_ranges = ranges;
@@ -61,7 +61,7 @@ Eigen::Matrix4f my_umeyama(
     return T;
 }
 
-CorrectionResults<rmagine::RAM> LiDARCorrectorEmbree::correct(
+CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
     const rmagine::Memory<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionResults<RAM> res;

@@ -13,7 +13,7 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/LiDARCorrectorOptixROS.hpp>
+#include <rmcl/correction/SphereCorrectorOptixROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -33,8 +33,8 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-// LiDARCorrectorEmbreePtr scan_correct;
-LiDARCorrectorOptixROSPtr scan_correct;
+// SphereCorrectorEmbreePtr scan_correct;
+SphereCorrectorOptixROSPtr scan_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 
@@ -244,7 +244,7 @@ int main(int argc, char** argv)
 
     OptixMapPtr map = importOptixMap(meshfile);
     
-    scan_correct.reset(new LiDARCorrectorOptixROS(map));
+    scan_correct.reset(new SphereCorrectorOptixROS(map));
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);

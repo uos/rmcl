@@ -1,4 +1,4 @@
-#include "rmcl/correction/LiDARCorrectorEmbreeROS.hpp"
+#include "rmcl/correction/SphereCorrectorEmbreeROS.hpp"
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 #include <rmagine/math/types.h>
@@ -9,14 +9,14 @@ using namespace rmagine;
 namespace rmcl
 {
 
-void LiDARCorrectorEmbreeROS::setModel(const rmcl_msgs::ScanInfo& info)
+void SphereCorrectorEmbreeROS::setModel(const rmcl_msgs::ScanInfo& info)
 {
     SphericalModel model;
     convert(info, model);
     Base::setModel(model);
 }
 
-void LiDARCorrectorEmbreeROS::setInputData(
+void SphereCorrectorEmbreeROS::setInputData(
     const std::vector<float>& ranges)
 {
     Memory<float, RAM> data(ranges.size());
@@ -27,21 +27,21 @@ void LiDARCorrectorEmbreeROS::setInputData(
     Base::setInputData(data);
 }
 
-void LiDARCorrectorEmbreeROS::setModelAndInputData(
+void SphereCorrectorEmbreeROS::setModelAndInputData(
     const rmcl_msgs::Scan& scan)
 {
     setModel(scan.info);
     setInputData(scan.ranges);
 }
 
-void LiDARCorrectorEmbreeROS::setTsb(const geometry_msgs::Transform& Tsb)
+void SphereCorrectorEmbreeROS::setTsb(const geometry_msgs::Transform& Tsb)
 {
     rmagine::Transform Tsb_rm;
     convert(Tsb, Tsb_rm);
     Base::setTsb(Tsb_rm);
 }
 
-void LiDARCorrectorEmbreeROS::setTsb(
+void SphereCorrectorEmbreeROS::setTsb(
     const std::string& sensor_frame, 
     const std::string& base_frame)
 {
@@ -71,12 +71,12 @@ void LiDARCorrectorEmbreeROS::setTsb(
     Base::setTsb(Tsb);
 }
 
-void LiDARCorrectorEmbreeROS::setTFBuffer(std::shared_ptr<tf2_ros::Buffer> tf_buffer)
+void SphereCorrectorEmbreeROS::setTFBuffer(std::shared_ptr<tf2_ros::Buffer> tf_buffer)
 {
     m_tf_buffer = tf_buffer;
 }
 
-CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
+CorrectionResults<rmagine::RAM> SphereCorrectorEmbreeROS::correct(
     const rmagine::Memory<geometry_msgs::Pose, rmagine::RAM>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
@@ -89,7 +89,7 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
     return Base::correct(Tbms_rm);
 }
 
-CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
+CorrectionResults<rmagine::RAM> SphereCorrectorEmbreeROS::correct(
     const std::vector<geometry_msgs::Pose>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
@@ -102,7 +102,7 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
     return Base::correct(Tbms_rm);
 }
 
-CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
+CorrectionResults<rmagine::RAM> SphereCorrectorEmbreeROS::correct(
         const geometry_msgs::Pose& Tbm)
 {
     Memory<Transform, RAM> Tbms_rm(1);
@@ -110,7 +110,7 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
     return Base::correct(Tbms_rm);
 }
 
-CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
+CorrectionResults<rmagine::RAM> SphereCorrectorEmbreeROS::correct(
     const rmagine::Memory<geometry_msgs::Transform, rmagine::RAM>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
@@ -123,7 +123,7 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
     return Base::correct(Tbms_rm);
 }
 
-CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
+CorrectionResults<rmagine::RAM> SphereCorrectorEmbreeROS::correct(
     const std::vector<geometry_msgs::Transform>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
@@ -136,7 +136,7 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
     return Base::correct(Tbms_rm);
 }
 
-CorrectionResults<rmagine::RAM> LiDARCorrectorEmbreeROS::correct(
+CorrectionResults<rmagine::RAM> SphereCorrectorEmbreeROS::correct(
         const geometry_msgs::Transform& Tbm)
 {
     Memory<Transform, RAM> Tbms_rm(1);

@@ -33,8 +33,8 @@
  */
 
 
-#ifndef RMCL_CORRECTOR_LIDAR_EMBREE_HPP
-#define RMCL_CORRECTOR_LIDAR_EMBREE_HPP
+#ifndef RMCL_CORRECTOR_SPHERE_EMBREE_HPP
+#define RMCL_CORRECTOR_SPHERE_EMBREE_HPP
 
 #include <memory>
 
@@ -53,13 +53,13 @@ namespace rmcl {
  * @brief EmbreeCorrector computes robot pose corrections in robot frame on CPU.
  * 
  * Required information to set:
- * - Sensor Model: LiDARModel
+ * - Sensor Model: SphereModel
  * - Sensor Data: Scanner Ranges
  * - Transformation: Sensor to Base
  * 
  * TODO: inherit from rmagine::SphereSimulatorEmbree ???
  */
-class LiDARCorrectorEmbree 
+class SphereCorrectorEmbree 
 : public rmagine::SphereSimulatorEmbree
 {
 public:
@@ -96,8 +96,8 @@ protected:
     rmagine::SVDPtr m_svd;
 };
 
-using LiDARCorrectorEmbreePtr = std::shared_ptr<LiDARCorrectorEmbree>;
+using SphereCorrectorEmbreePtr = std::shared_ptr<SphereCorrectorEmbree>;
 
 } // namespace rmcl
 
-#endif // RMCL_EMBREE_CORRECTOR_HPP
+#endif // RMCL_CORRECTOR_SPHERE_EMBREE_HPP

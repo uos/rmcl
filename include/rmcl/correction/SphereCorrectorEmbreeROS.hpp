@@ -1,5 +1,5 @@
-#ifndef RMCL_LIDAR_CORRECTOR_EMBREE_ROS_HPP
-#define RMCL_LIDAR_CORRECTOR_EMBREE_ROS_HPP
+#ifndef RMCL_SPHERE_CORRECTOR_EMBREE_ROS_HPP
+#define RMCL_SPHERE_CORRECTOR_EMBREE_ROS_HPP
 
 #include <ros/ros.h>
 
@@ -10,7 +10,7 @@
 
 // Rmagine deps
 #include <rmagine/map/EmbreeMap.hpp>
-#include "LiDARCorrectorEmbree.hpp"
+#include "SphereCorrectorEmbree.hpp"
 
 // RCML msgs
 #include <rmcl_msgs/ScanStamped.h>
@@ -19,10 +19,10 @@
 
 namespace rmcl {
 
-class LiDARCorrectorEmbreeROS : public LiDARCorrectorEmbree {
+class SphereCorrectorEmbreeROS : public SphereCorrectorEmbree {
 public:
 
-    using Base = LiDARCorrectorEmbree;
+    using Base = SphereCorrectorEmbree;
     using Base::Base;
     using Base::setParams;
 
@@ -74,8 +74,8 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> m_tf_listener;
 };
 
-using LiDARCorrectorEmbreeROSPtr = std::shared_ptr<LiDARCorrectorEmbreeROS>;
+using SphereCorrectorEmbreeROSPtr = std::shared_ptr<SphereCorrectorEmbreeROS>;
 
 } // namespace rmcl
 
-#endif // RMCL_LIDAR_CORRECTOR_EMBREE_ROS_HPP
+#endif // RMCL_SPHERE_CORRECTOR_EMBREE_ROS_HPP

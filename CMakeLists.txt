@@ -49,7 +49,7 @@ include_directories(
 
 add_library(rmcl
     # Correction
-    src/rmcl/correction/LiDARCorrectorEmbree.cpp
+    src/rmcl/correction/SphereCorrectorEmbree.cpp
 )
 
 target_link_libraries(rmcl
@@ -60,7 +60,7 @@ target_link_libraries(rmcl
 
 add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
-    src/rmcl/correction/LiDARCorrectorEmbreeROS.cpp
+    src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
 )
 
 target_link_libraries(rmcl_ros
@@ -132,7 +132,7 @@ if(${rmagine_optix_FOUND})
 
     add_library(rmcl_optix
         # Correction
-        src/rmcl/correction/LiDARCorrectorOptix.cpp
+        src/rmcl/correction/SphereCorrectorOptix.cpp
         # Correction Programs
         ## Spherical
         src/rmcl/correction/optix/SphereCorrectProgramRW.cpp
@@ -150,7 +150,7 @@ if(${rmagine_optix_FOUND})
 
     # ROS code
     add_library(rmcl_optix_ros
-        src/rmcl/correction/LiDARCorrectorOptixROS.cpp
+        src/rmcl/correction/SphereCorrectorOptixROS.cpp
     )
 
     target_link_libraries(rmcl_optix_ros

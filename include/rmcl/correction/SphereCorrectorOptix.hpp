@@ -1,5 +1,5 @@
-#ifndef RMCL_LIDAR_CORRECTOR_OPTIX_HPP
-#define RMCL_LIDAR_CORRECTOR_OPTIX_HPP
+#ifndef RMCL_SPHERE_CORRECTOR_OPTIX_HPP
+#define RMCL_SPHERE_CORRECTOR_OPTIX_HPP
 
 #include <rmagine/map/OptixMap.hpp>
 #include <rmagine/types/sensor_models.h>
@@ -15,13 +15,13 @@
 namespace rmcl 
 {
 
-class LiDARCorrectorOptix 
+class SphereCorrectorOptix 
 : public rmagine::SphereSimulatorOptix
 {
 public:
     using Base = rmagine::SphereSimulatorOptix;
 
-    LiDARCorrectorOptix(rmagine::OptixMapPtr map);
+    SphereCorrectorOptix(rmagine::OptixMapPtr map);
 
     void setParams(
         const CorrectionParams& params);
@@ -60,8 +60,8 @@ private:
         ) const;
 };
 
-using LiDARCorrectorOptixPtr = std::shared_ptr<LiDARCorrectorOptix>;
+using SphereCorrectorOptixPtr = std::shared_ptr<SphereCorrectorOptix>;
 
 } // namespace rmcl
 
-#endif // RMCL_LIDAR_CORRECTOR_OPTIX_HPP
+#endif // RMCL_SPHERE_CORRECTOR_OPTIX_HPP

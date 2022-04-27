@@ -1,4 +1,4 @@
-#include "rmcl/correction/LiDARCorrectorOptix.hpp"
+#include "rmcl/correction/SphereCorrectorOptix.hpp"
 
 #include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
 // #include "rmcl/correction/optix/ScanCorrectProgramSW.hpp"
@@ -19,7 +19,7 @@ namespace rm = rmagine;
 namespace rmcl 
 {
 
-LiDARCorrectorOptix::LiDARCorrectorOptix(
+SphereCorrectorOptix::SphereCorrectorOptix(
     rmagine::OptixMapPtr map)
 :Base(map)
 {
@@ -34,7 +34,7 @@ LiDARCorrectorOptix::LiDARCorrectorOptix(
     setParams(params);
 }
 
-void LiDARCorrectorOptix::setParams(
+void SphereCorrectorOptix::setParams(
     const CorrectionParams& params)
 {
     rm::Memory<CorrectionParams, rm::RAM> params_ram(1);
@@ -42,13 +42,13 @@ void LiDARCorrectorOptix::setParams(
     m_params = params_ram;
 }
 
-void LiDARCorrectorOptix::setInputData(
+void SphereCorrectorOptix::setInputData(
     const rmagine::Memory<float, rmagine::VRAM_CUDA>& ranges)
 {
     m_ranges = ranges;
 }
 
-CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
+CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
     const rm::Memory<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
     // std::cout << "Start correction." << std::endl;
@@ -97,7 +97,7 @@ CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
 }
 
 /// PRIVATE
-void LiDARCorrectorOptix::computeMeansCovsRW(
+void SphereCorrectorOptix::computeMeansCovsRW(
     const rm::Memory<rm::Transform, rm::VRAM_CUDA>& Tbm,
     rm::Memory<rm::Vector, rm::VRAM_CUDA>& m1, // from, dataset
     rm::Memory<rm::Vector, rm::VRAM_CUDA>& m2, // to, model
