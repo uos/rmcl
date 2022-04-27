@@ -83,7 +83,7 @@ extern "C" __global__ void __raygen__rg()
     const float signed_plane_dist = (preal_b - psim_b).dot(nsim_b);
     const rmagine::Vector pnearest_b = preal_b + nsim_b * signed_plane_dist;
     const float dist_sqrt = (pnearest_b - preal_b).l2normSquared();
-    
+
     if(dist_sqrt < dist_thresh * dist_thresh)
     {
         mem.corr_valid[glob_id] = 1;

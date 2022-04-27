@@ -1,6 +1,9 @@
 #include <rmcl/correction/LiDARCorrectorEmbree.hpp>
 #include <Eigen/Dense>
 
+// DEBUG
+#include <rmagine/util/prints.h>
+
 using namespace rmagine;
 
 namespace rmcl
@@ -35,7 +38,9 @@ Eigen::Matrix4f my_umeyama(
     float N_d = from.cols();
     
     // covariance matrix
-    const Eigen::Matrix3f C = to_centered * from_centered.transpose() / N_d;
+    const Eigen::Matrix3f C = (from_centered * to_centered.transpose()) / N_d;
+
+    // std::cout << "C: " << C << std::endl;
 
     // singular value decomposition of covariance matrix. classic ICP solving
     Eigen::JacobiSVD<Eigen::Matrix3f> svd(C, Eigen::ComputeFullU | Eigen::ComputeFullV);
@@ -52,7 +57,7 @@ Eigen::Matrix4f my_umeyama(
     // rotational part
     T.block<3,3>(0,0).noalias() = svd.matrixU() * S.asDiagonal() * svd.matrixV().transpose();
     // translational part
-    T.block<3,1>(0,3).noalias() = to_mean - T.topLeftCorner(3,3) * from_mean;
+    T.block<3,1>(0,3).noalias() = from_mean - T.topLeftCorner(3,3) * to_mean;
     return T;
 }
 
@@ -71,6 +76,8 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbree::correct(
     // const float hinc = (m_model->theta_max - m_model->theta_min) / ( static_cast<float>(Nhorizontal - 1) );
     // const float vinc = (m_model->phi_max - m_model->phi_min) / ( static_cast<float>(Nvertical - 1) );
 
+    auto scene = m_map->scene->handle();
+
     #pragma omp parallel for
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
@@ -81,7 +88,7 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbree::correct(
 
         const unsigned int glob_shift = pid * m_model->size();
 
-        std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f> > P, Q;
+        std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f> > D, M;
         unsigned int Ncorr = 0;
 
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
@@ -116,7 +123,7 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbree::correct(
                 rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
                 rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
-                rtcIntersect1(m_map->scene->handle(), &m_context, &rayhit);
+                rtcIntersect1(scene, &m_context, &rayhit);
 
                 bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
                 if(sim_valid)
@@ -143,8 +150,8 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbree::correct(
 
                     if(distance < max_distance)
                     {
-                        P.push_back({preal_b.x, preal_b.y, preal_b.z});
-                        Q.push_back({pmesh_b.x, pmesh_b.y, pmesh_b.z});
+                        D.push_back({preal_b.x, preal_b.y, preal_b.z});
+                        M.push_back({pmesh_b.x, pmesh_b.y, pmesh_b.z});
                         Ncorr++;
                     }
                 }
@@ -155,28 +162,32 @@ CorrectionResults<rmagine::RAM> LiDARCorrectorEmbree::correct(
 
         if(Ncorr > 0)
         {
-            Eigen::Matrix<float, 3, -1> Pm(3, P.size());
-            Eigen::Matrix<float, 3, -1> Qm(3, Q.size());
-            for(size_t i=0; i<P.size(); i++)
+            Eigen::Matrix<float, 3, -1> Dm(3, D.size());
+            Eigen::Matrix<float, 3, -1> Mm(3, M.size());
+            for(size_t i=0; i<D.size(); i++)
             {
-                Pm(0, i) = P[i](0);
-                Pm(1, i) = P[i](1);
-                Pm(2, i) = P[i](2);
+                Dm(0, i) = D[i](0);
+                Dm(1, i) = D[i](1);
+                Dm(2, i) = D[i](2);
             }
 
-            for(size_t i=0; i<Q.size(); i++)
+            for(size_t i=0; i<M.size(); i++)
             {
-                Qm(0, i) = Q[i](0);
-                Qm(1, i) = Q[i](1);
-                Qm(2, i) = Q[i](2);
+                Mm(0, i) = M[i](0);
+                Mm(1, i) = M[i](1);
+                Mm(2, i) = M[i](2);
             }
             // Model and Dataset PCL are in base space.
 
-            Eigen::Matrix4f Tm = my_umeyama(Qm, Pm);
+            Eigen::Matrix4f Tm = my_umeyama(Dm, Mm);
             Eigen::Matrix3f R = Tm.block<3,3>(0,0);
             Eigen::Vector3f t = Tm.block<3,1>(0,3);
 
             Matrix3x3* R_rm = reinterpret_cast<Matrix3x3*>(&R);
+
+            // std::cout << "R: " << *R_rm << std::endl;
+            // std::cout << "t: " << t.transpose() << std::endl;
+
             res.Tdelta[pid].R.set(*R_rm);
             res.Tdelta[pid].t = {t.x(), t.y(), t.z()};
         } else {

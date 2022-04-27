@@ -122,6 +122,14 @@ bool fetchTF()
 // Calculate transformation from map to odom from pose in map frame
 void poseCB(geometry_msgs::PoseStamped msg)
 {
+    // msg.pose.position.x = -0.2;
+    // msg.pose.position.y = 0.0;
+    // msg.pose.position.z = 0.0;
+    // msg.pose.orientation.x = 0.0;
+    // msg.pose.orientation.y = 0.0;
+    // msg.pose.orientation.z = 0.0;
+    // msg.pose.orientation.w = 1.0;
+
     // std::cout << "poseCB" << std::endl;
     map_frame = msg.header.frame_id;
     pose_received = true;
@@ -153,10 +161,23 @@ void correctOnce()
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    Memory<Transform, RAM> poses(1);
-    convert(T_base_map.transform, poses[0]);
+    size_t Nposes = 200;
+
+    Memory<Transform, RAM> poses(Nposes);
+    for(size_t i=0; i<Nposes; i++)
+    {
+        convert(T_base_map.transform, poses[i]);
+    }
+    
+    sw();
     auto corrRes = scan_correct->correct(poses);
-    poses = multNxN(poses, corrRes.Tdelta);
+    double el = sw();
+
+    ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
+
+    poses = multNxN(corrRes.Tdelta, poses);
+
+
 
     // Update T_odom_map
     convert(poses[0], T_base_map.transform);
@@ -245,20 +266,25 @@ int main(int argc, char** argv)
         if(pose_received && scan_received)
         {
             fetchTF();
-            sw();
+            // sw();
             correctOnce();
-            double el = sw();
+            // double el = sw();
 
-            ROS_INFO_STREAM("correctOnce: " << el << "s");
+
+            // ROS_INFO_STREAM("correctOnce: " << el << "s");
+
+            // break;
+
             updateTF();
 
-            double sleep_left = d.toSec() - el;
+            // double sleep_left = d.toSec() - el;
 
-            if(sleep_left > 0.0)
-            {
-                ros::Duration d_left(sleep_left);
-                d_left.sleep();
-            }
+            // if(sleep_left > 0.0)
+            // {
+            //     ros::Duration d_left(sleep_left);
+            //     d_left.sleep();
+            // }
+            d.sleep();
         } else {
             d.sleep();
         }

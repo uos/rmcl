@@ -123,9 +123,19 @@ bool fetchTF()
 // Calculate transformation from map to odom from pose in map frame
 void poseCB(geometry_msgs::PoseStamped msg)
 {
+    // ROS_INFO_STREAM("P: " << msg.pose);
+    // msg.pose.position.x = -0.2;
+    // msg.pose.position.y = 0.0;
+    // msg.pose.position.z = 0.0;
+    // msg.pose.orientation.x = 0.0;
+    // msg.pose.orientation.y = 0.0;
+    // msg.pose.orientation.z = 0.0;
+    // msg.pose.orientation.w = 1.0;
+
     // std::cout << "poseCB" << std::endl;
     map_frame = msg.header.frame_id;
     pose_received = true;
+
 
     // set T_base_map
     geometry_msgs::TransformStamped T_base_map;
@@ -136,6 +146,7 @@ void poseCB(geometry_msgs::PoseStamped msg)
     fetchTF();
 
     T_odom_map = T_base_map * ~T_base_odom;
+
 }
 
 // Storing scan information globally
@@ -150,21 +161,27 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
 void correctOnce()
 {
-    // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    Memory<Transform, RAM> poses(1);
-    convert(T_base_map.transform, poses[0]);
+    size_t Nposes = 1;
+    Memory<Transform, RAM> poses(Nposes);
+    for(size_t i=0; i<Nposes; i++)
+    {
+        convert(T_base_map.transform, poses[i]);
+    }
+    // convert(T_base_map.transform, poses[0]);
     // upload to GPU
-    Memory<Transform, VRAM_CUDA> poses_(1);
+    Memory<Transform, VRAM_CUDA> poses_;
     poses_ = poses;
-    std::cout << "Correct Once:" << std::endl;
+    sw();
     auto corrRes = scan_correct->correct(poses_);
-    std::cout << "Done." << std::endl;
-    poses_ = multNxN(poses_, corrRes.Tdelta);
+    
+    poses_ = multNxN(corrRes.Tdelta, poses_);
     // download to CPU
     poses = poses_;
+    double el = sw();
+    ROS_INFO_STREAM("correctOnce " << Nposes << " poses in " << el << "s");
 
 
     // Update T_odom_map
@@ -174,7 +191,6 @@ void correctOnce()
 
 void updateTF()
 {
-    // std::cout << "updateTF" << std::endl;
     static tf2_ros::TransformBroadcaster br;
     
     geometry_msgs::TransformStamped T;
@@ -258,7 +274,9 @@ int main(int argc, char** argv)
             correctOnce();
             double el = sw();
 
-            ROS_INFO_STREAM("correctOnce: " << el << "s");
+            // ROS_INFO_STREAM("correctOnce: " << el << "s");
+
+            // break;
             updateTF();
 
             double sleep_left = d.toSec() - el;

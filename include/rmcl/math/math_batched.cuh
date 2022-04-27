@@ -18,9 +18,9 @@ void sumFancyBatched(
 );
 
 rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> sumFancyBatched(
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data1,
+    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from
     const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data2,
+    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to
     const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& center2,
     const rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>& mask);
 

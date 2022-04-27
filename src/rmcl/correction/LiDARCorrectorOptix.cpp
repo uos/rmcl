@@ -10,6 +10,10 @@
 #include <rmcl/math/math_batched.cuh>
 
 
+// DEBUG
+#include <rmagine/util/prints.h>
+
+
 namespace rm = rmagine;
 
 namespace rmcl 
@@ -47,7 +51,7 @@ void LiDARCorrectorOptix::setInputData(
 CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
     const rm::Memory<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
-    std::cout << "Start correction." << std::endl;
+    // std::cout << "Start correction." << std::endl;
     CorrectionResults<rm::VRAM_CUDA> res;
     res.Ncorr.resize(Tbms.size());
     res.Tdelta.resize(Tbms.size());
@@ -71,17 +75,21 @@ CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
         std::cout << "WARNING: SHIT" << std::endl; 
     } else {
         // raywise parallelization
-        std::cout << "- raywise parallelization..." << std::endl;
+        // std::cout << "- raywise parallelization..." << std::endl;
         computeMeansCovsRW(Tbms, m1, m2, Cs, res.Ncorr);
-        std::cout << "- raywise parallelization done." << std::endl;
+        // std::cout << "- raywise parallelization done." << std::endl;
     }
+
+    rm::Memory<rm::Matrix3x3, rm::RAM> Cs_ram(Cs.size());
+    Cs_ram = Cs;
+    // std::cout << "C: " << Cs_ram[0] << std::endl;
 
     // Singular value decomposition
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     m_svd->calcUV(Cs, Us, Vs);
     auto Rs = rm::multNxN(Us, rm::transpose(Vs));
-    auto ts = rm::subNxN(m2, rm::multNxN(Rs, m1));
+    auto ts = rm::subNxN(m1, rm::multNxN(Rs, m2));
 
     rm::pack(Rs, ts, res.Tdelta);
 
@@ -91,8 +99,8 @@ CorrectionResults<rm::VRAM_CUDA> LiDARCorrectorOptix::correct(
 /// PRIVATE
 void LiDARCorrectorOptix::computeMeansCovsRW(
     const rm::Memory<rm::Transform, rm::VRAM_CUDA>& Tbm,
-    rm::Memory<rm::Vector, rm::VRAM_CUDA>& m1,
-    rm::Memory<rm::Vector, rm::VRAM_CUDA>& m2,
+    rm::Memory<rm::Vector, rm::VRAM_CUDA>& m1, // from, dataset
+    rm::Memory<rm::Vector, rm::VRAM_CUDA>& m2, // to, model
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
     rm::Memory<unsigned int, rm::VRAM_CUDA>& Ncorr
     ) const
@@ -146,8 +154,9 @@ void LiDARCorrectorOptix::computeMeansCovsRW(
             rm::sumBatched(model_points, corr_valid, scanSize), 
             Ncorr);
 
+    // model_centered * D_centered.T
     Cs = rm::divNxNIgnoreZeros(
-        sumFancyBatched(dataset_points, m1, model_points, m2, corr_valid), 
+        sumFancyBatched(model_points, m2, dataset_points, m1, corr_valid), 
         Ncorr);
 }
 

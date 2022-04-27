@@ -7,9 +7,9 @@ namespace rmcl
 
 template<unsigned int blockSize>
 __global__ void sumFancyBatched_kernel(
-    const rm::Vector* data1,
+    const rm::Vector* data1, // to
     const rm::Vector* center1,
-    const rm::Vector* data2, 
+    const rm::Vector* data2, // from
     const rm::Vector* center2,
     const unsigned int* mask,
     unsigned int chunkSize,
@@ -32,6 +32,7 @@ __global__ void sumFancyBatched_kernel(
                 const rm::Vector a = data1[globId + blockSize * i] - center1[blockIdx.x];
                 const rm::Vector b = data2[globId + blockSize * i] - center2[blockIdx.x];
 
+                sdata[tid](0,0) += a.x * b.x;
                 sdata[tid](1,0) += a.x * b.y;
                 sdata[tid](2,0) += a.x * b.z;
                 sdata[tid](0,1) += a.y * b.x;
@@ -80,9 +81,9 @@ void sumFancyBatched(
 }
 
 rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> sumFancyBatched(
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data1,
+    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data1, // from
     const rm::Memory<rm::Vector, rm::VRAM_CUDA>& center1,
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data2,
+    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data2, // to
     const rm::Memory<rm::Vector, rm::VRAM_CUDA>& center2,
     const rm::Memory<unsigned int, rm::VRAM_CUDA>& mask)
 {

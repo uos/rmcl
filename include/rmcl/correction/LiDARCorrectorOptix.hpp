@@ -45,8 +45,8 @@ protected:
 private:
     void computeMeansCovsRW(
         const rmagine::Memory<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
-        rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& m1,
-        rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& m2,
+        rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& m1, // from, dataset
+        rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& m2, // to, model
         rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>& Ncorr
         ) const;
