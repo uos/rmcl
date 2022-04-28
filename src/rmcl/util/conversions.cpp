@@ -3,6 +3,17 @@
 
 namespace rmcl {
 
+void convert(
+    const sensor_msgs::LaserScan& from, 
+    rmagine::SphericalModel& to)
+{
+    to.range.min = from.range_min;
+    to.range.max = from.range_max;
+    to.theta.size = from.ranges.size();
+    to.theta.min = from.angle_min;
+    to.theta.inc = from.angle_increment;
+    to.phi.size = 1;
+}
 
 void convert(
     const rmcl_msgs::ScanInfo& from,

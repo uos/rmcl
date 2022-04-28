@@ -8,6 +8,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Point32.h>
 #include <geometry_msgs/Transform.h>
@@ -22,6 +23,10 @@
 #include <rmagine/types/sensor_models.h>
 
 namespace rmcl {
+
+void convert(
+    const sensor_msgs::LaserScan& from, 
+    rmagine::SphericalModel& to);
 
 void convert(
     const rmcl_msgs::ScanInfo& from,

@@ -1,4 +1,4 @@
-#include <rmcl/correction/SphereCorrectorEmbree.hpp>
+#include <rmcl/correction/OnDnCorrectorEmbree.hpp>
 #include <Eigen/Dense>
 
 // DEBUG
@@ -9,13 +9,13 @@ using namespace rmagine;
 namespace rmcl
 {
 
-void SphereCorrectorEmbree::setParams(
+void OnDnCorrectorEmbree::setParams(
     const CorrectionParams& params)
 {
     m_params = params;
 }
 
-void SphereCorrectorEmbree::setInputData(
+void OnDnCorrectorEmbree::setInputData(
     const rmagine::Memory<float, rmagine::RAM>& ranges)
 {
     m_ranges = ranges;
@@ -48,6 +48,7 @@ static Eigen::Matrix4f my_umeyama(
     {
         std::cout << "my_umeyama special case occurred !!! TODO find out why" << std::endl;
         S(2) = -1;
+        
     }
 
     Eigen::Matrix4f T = Eigen::Matrix4f::Identity();
@@ -55,14 +56,15 @@ static Eigen::Matrix4f my_umeyama(
     T.block<3,3>(0,0).noalias() = svd.matrixU() * S.asDiagonal() * svd.matrixV().transpose();
     // translational part
     T.block<3,1>(0,3).noalias() = from_mean - T.topLeftCorner(3,3) * to_mean;
-
-    // std::cout << T << std::endl;
     return T;
 }
 
-CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
+CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
     const rmagine::Memory<rmagine::Transform, rmagine::RAM>& Tbms)
 {
+    // std::cout << "Correct!" << std::endl;
+    // std::cout << "- rays " << m_model->size() << std::endl;
+    // std::cout << "- ranges " << m_ranges.size() << std::endl;
     CorrectionResults<RAM> res;
     res.Tdelta.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
@@ -88,6 +90,7 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
         {
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
+                // std::cout << "(vid, hid): " << vid << ", " << hid << std::endl;
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
                 const unsigned int glob_id = glob_shift + loc_id;
 
@@ -98,14 +101,18 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                     continue;
                 }
 
+                const Vector ray_orig_s = m_model->getOrigin(vid, hid);
+                const Vector ray_orig_b = Tsb * ray_orig_s;
+                const Vector ray_orig_m = Tsm * ray_orig_s;
+
                 const Vector ray_dir_s = m_model->getDirection(vid, hid);
                 const Vector ray_dir_b = Tsb.R * ray_dir_s;
                 const Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 RTCRayHit rayhit;
-                rayhit.ray.org_x = Tsm.t.x;
-                rayhit.ray.org_y = Tsm.t.y;
-                rayhit.ray.org_z = Tsm.t.z;
+                rayhit.ray.org_x = ray_orig_m.x;
+                rayhit.ray.org_y = ray_orig_m.y;
+                rayhit.ray.org_z = ray_orig_m.z;
                 rayhit.ray.dir_x = ray_dir_m.x;
                 rayhit.ray.dir_y = ray_dir_m.y;
                 rayhit.ray.dir_z = ray_dir_m.z;
@@ -123,10 +130,10 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                 {
                     // Do point to plane ICP here
                     Vector preal_b, pint_b, nint_m, nint_b;
-                    preal_b = ray_dir_b * range_real;
+                    preal_b = ray_orig_b + ray_dir_b * range_real;
 
                     // search point on surface that is more nearby
-                    pint_b = ray_dir_b * rayhit.ray.tfar;
+                    pint_b = ray_orig_b + ray_dir_b * rayhit.ray.tfar;
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
@@ -173,11 +180,13 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
             // Model and Dataset PCL are in base space.
 
             Eigen::Matrix4f Tm = my_umeyama(Dm, Mm);
-
             Eigen::Matrix3f R = Tm.block<3,3>(0,0);
             Eigen::Vector3f t = Tm.block<3,1>(0,3);
 
             Matrix3x3* R_rm = reinterpret_cast<Matrix3x3*>(&R);
+
+            // std::cout << "R: " << *R_rm << std::endl;
+            // std::cout << "t: " << t.transpose() << std::endl;
 
             res.Tdelta[pid].R.set(*R_rm);
             res.Tdelta[pid].t = {t.x(), t.y(), t.z()};

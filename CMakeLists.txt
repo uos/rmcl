@@ -51,6 +51,7 @@ add_library(rmcl
     # Correction
     src/rmcl/correction/SphereCorrectorEmbree.cpp
     src/rmcl/correction/PinholeCorrectorEmbree.cpp
+    src/rmcl/correction/OnDnCorrectorEmbree.cpp
 )
 
 target_link_libraries(rmcl
@@ -63,6 +64,7 @@ add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
     src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
     src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
+    src/rmcl/correction/OnDnCorrectorEmbreeROS.cpp
 )
 
 target_link_libraries(rmcl_ros
@@ -222,6 +224,20 @@ target_link_libraries(depth_corrector_embree
     rmcl_ros
 )
 
+add_executable(ondn_corrector_embree src/nodes/ondn_corrector_embree.cpp)
+
+add_dependencies(ondn_corrector_embree 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(ondn_corrector_embree
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+)
 
 ###### CORRECTION GPU #######
 add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
