@@ -157,19 +157,35 @@ if(${rmagine_optix_FOUND})
 
     target_link_libraries(rmcl_optix_ros
         rmcl_optix
+        rmcl_ros
     )
 endif()
 
-####### PCL CONVERTER
-add_executable(pcl_converter src/nodes/pcl_converter.cpp)
+####### PCL2 to SCAN CONVERTER
+add_executable(pcl2_to_scan src/nodes/pcl2_to_scan.cpp)
 
-add_dependencies(pcl_converter 
+add_dependencies(pcl2_to_scan 
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${catkin_EXPORTED_TARGETS}
 )
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(pcl_converter
+target_link_libraries(pcl2_to_scan
+    ${catkin_LIBRARIES}
+    rmcl
+    rmcl_ros
+)
+
+####### PCL2 to DEPTH CONVERTER
+add_executable(pcl2_to_depth src/nodes/pcl2_to_depth.cpp)
+
+add_dependencies(pcl2_to_depth 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(pcl2_to_depth
     ${catkin_LIBRARIES}
     rmcl
     rmcl_ros

@@ -3,6 +3,111 @@
 
 namespace rmcl {
 
+
+void convert(
+    const rmcl_msgs::ScanInfo& from,
+    rmagine::SphericalModel& to)
+{
+    to.phi.min = from.phi_min;
+    to.phi.inc = from.phi_inc;
+    to.phi.size = from.phi_N;
+    to.theta.min = from.theta_min;
+    to.theta.inc = from.theta_inc;
+    to.theta.size = from.theta_N;
+    to.range.min = from.range_min;
+    to.range.max = from.range_max;
+}
+
+void convert(
+    const sensor_msgs::CameraInfo& from,
+    rmagine::PinholeModel& to)
+{
+    to.width = from.width;
+    to.height = from.height;
+    to.f[0] = from.K[0];
+    to.f[1] = from.K[4];
+    to.c[0] = from.K[2];
+    to.c[1] = from.K[5];
+}
+
+void convert(
+    const rmcl_msgs::DepthInfo& from,
+    rmagine::PinholeModel& to)
+{
+    to.width = from.width;
+    to.height = from.height;
+    to.f[0] = from.fx;
+    to.f[1] = from.fy;
+    to.c[0] = from.cx;
+    to.c[1] = from.cy;
+    to.range.min = from.range_min;
+    to.range.max = from.range_max;
+}
+
+void convert(
+    const sensor_msgs::CameraInfo& from,
+    rmcl_msgs::DepthInfo& to)
+{
+    to.width = from.width;
+    to.height = from.height;
+    to.fx = from.K[0];
+    to.fy = from.K[4];
+    to.cx = from.K[2];
+    to.cy = from.K[5];
+}
+
+void convert(
+    const geometry_msgs::Transform& Tros,
+    rmagine::Transform& Trm)
+{
+    Trm.R.x = Tros.rotation.x;
+    Trm.R.y = Tros.rotation.y;
+    Trm.R.z = Tros.rotation.z;
+    Trm.R.w = Tros.rotation.w;
+    Trm.t.x = Tros.translation.x;
+    Trm.t.y = Tros.translation.y;
+    Trm.t.z = Tros.translation.z;
+}
+
+void convert(
+    const rmagine::Transform& Trm,
+    geometry_msgs::Transform& Tros)
+{
+    Tros.rotation.x = Trm.R.x;
+    Tros.rotation.y = Trm.R.y;
+    Tros.rotation.z = Trm.R.z;
+    Tros.rotation.w = Trm.R.w;
+    Tros.translation.x = Trm.t.x;
+    Tros.translation.y = Trm.t.y;
+    Tros.translation.z = Trm.t.z;
+}
+
+void convert(
+    const geometry_msgs::Pose& Pros,
+    rmagine::Transform& Trm)
+{
+    Trm.R.x = Pros.orientation.x;
+    Trm.R.y = Pros.orientation.y;
+    Trm.R.z = Pros.orientation.z;
+    Trm.R.w = Pros.orientation.w;
+    Trm.t.x = Pros.position.x;
+    Trm.t.y = Pros.position.y;
+    Trm.t.z = Pros.position.z;
+}
+
+void convert(
+    const rmagine::Transform& Trm,
+    geometry_msgs::Pose& Pros)
+{
+    Pros.orientation.x = Trm.R.x;
+    Pros.orientation.y = Trm.R.y;
+    Pros.orientation.z = Trm.R.z;
+    Pros.orientation.w = Trm.R.w;
+    Pros.position.x = Trm.t.x;
+    Pros.position.y = Trm.t.y;
+    Pros.position.z = Trm.t.z;
+}
+
 geometry_msgs::Point32 polar2cartesian(
     const rmcl_msgs::PolarCoord& polar)
 {

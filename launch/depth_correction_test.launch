@@ -4,16 +4,14 @@
 <arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae" />
 <arg name="device" default="cpu" />
 
-<node pkg="rmcl" type="pcl2_to_scan" name="pcl2_to_scan" output="screen">
-    <remap from="cloud" to="velodyne_points" />
-
-    <rosparam file="$(find rmcl)/config/sensors/VLP-16-900.yaml" />
-    <!-- UNCOMMENT FOR REAL VELODYNE -->
-    <!-- <rosparam file="$(find mamcl)/config/sensors/VLP-16.yaml" /> -->
+<node pkg="rmcl" type="pcl2_to_depth" name="pcl2_to_depth" output="screen">
+    <remap from="cloud" to="kinect/depth/points" />
+    <remap from="info" to="kinect/depth/camera_info" />
+    <!-- <rosparam file="$(find rmcl)/config/sensors/Kinect.yaml" /> -->
 </node>
 
 <!-- ICP with given pose estimate -->
-<node pkg="rmcl" type="lidar_corrector_embree" name="lidar_corrector" 
+<!-- <node pkg="rmcl" type="lidar_corrector_embree" name="lidar_corrector" 
     output="screen" if="$(eval arg('device') == 'cpu')">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom_combined" />
@@ -31,6 +29,6 @@
     <remap from="scan" to="/pcl_converter/scan"/>
     <remap from="pose" to="/move_base_simple/goal"/>
     <param name="max_distance" type="double" value="0.5" />
-</node>
+</node> -->
 
 </launch>

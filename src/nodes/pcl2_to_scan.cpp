@@ -104,7 +104,7 @@ void convert(
     {
         const uint8_t* data_ptr = &pcl->data[i * pcl->point_step];
 
-        rmagine::Vector point;
+        // rmagine::Vector point;
         
         float x,y,z;
 
@@ -157,7 +157,7 @@ void veloCB(const sensor_msgs::PointCloud2::ConstPtr& msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "pcl_converter");
+    ros::init(argc, argv, "pcl2_to_scan");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 

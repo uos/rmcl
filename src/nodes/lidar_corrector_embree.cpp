@@ -122,14 +122,6 @@ bool fetchTF()
 // Calculate transformation from map to odom from pose in map frame
 void poseCB(geometry_msgs::PoseStamped msg)
 {
-    // msg.pose.position.x = -0.2;
-    // msg.pose.position.y = 0.0;
-    // msg.pose.position.z = 0.0;
-    // msg.pose.orientation.x = 0.0;
-    // msg.pose.orientation.y = 0.0;
-    // msg.pose.orientation.z = 0.0;
-    // msg.pose.orientation.w = 1.0;
-
     // std::cout << "poseCB" << std::endl;
     map_frame = msg.header.frame_id;
     pose_received = true;

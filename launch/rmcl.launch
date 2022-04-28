@@ -4,13 +4,7 @@
 <arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae" />
 
 
-<node pkg="rmcl" type="pcl_converter" name="pcl_converter" output="screen">
-    <remap from="cloud" to="velodyne_points" />
 
-    <rosparam file="$(find rmcl)/config/sensors/VLP-16-900.yaml" />
-    <!-- UNCOMMENT FOR REAL VELODYNE -->
-    <!-- <rosparam file="$(find mamcl)/config/sensors/VLP-16.yaml" /> -->
-</node>
 
 <node pkg="rmagine_ros" type="mesh_publisher" name="mesh_publisher" output="screen">
     <param name="file" type="string" value="$(arg meshfile)" />

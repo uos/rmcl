@@ -41,20 +41,6 @@
 
 namespace rmcl {
 
-static void convert(
-    const rmcl_msgs::ScanInfo& from,
-    rmagine::SphericalModel& to)
-{
-    to.phi.min = from.phi_min;
-    to.phi.inc = from.phi_inc;
-    to.phi.size = from.phi_N;
-    to.theta.min = from.theta_min;
-    to.theta.inc = from.theta_inc;
-    to.theta.size = from.theta_N;
-    to.range.min = from.range_min;
-    to.range.max = from.range_max;
-}
-
 static void fill(
     rmcl_msgs::Scan& scan, 
     const rmagine::Memory<float, rmagine::RAM>& ranges)

@@ -3,9 +3,11 @@
 
 #include <rmcl_msgs/ScanStamped.h>
 #include <rmcl_msgs/PolarCoord.h>
+#include <rmcl_msgs/DepthStamped.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Point32.h>
 #include <geometry_msgs/Transform.h>
@@ -16,59 +18,42 @@
 
 #include <rmagine/math/types.h>
 
+#include <rmcl_msgs/ScanInfo.h>
+#include <rmagine/types/sensor_models.h>
+
 namespace rmcl {
 
-inline void convert(
+void convert(
+    const rmcl_msgs::ScanInfo& from,
+    rmagine::SphericalModel& to);
+
+void convert(
+    const sensor_msgs::CameraInfo& from,
+    rmagine::PinholeModel& to);
+
+void convert(
+    const rmcl_msgs::DepthInfo& from,
+    rmagine::PinholeModel& to);
+
+void convert(
+    const sensor_msgs::CameraInfo& from,
+    rmcl_msgs::DepthInfo& to);
+
+void convert(
     const geometry_msgs::Transform& Tros,
-    rmagine::Transform& Trm)
-{
-    Trm.R.x = Tros.rotation.x;
-    Trm.R.y = Tros.rotation.y;
-    Trm.R.z = Tros.rotation.z;
-    Trm.R.w = Tros.rotation.w;
-    Trm.t.x = Tros.translation.x;
-    Trm.t.y = Tros.translation.y;
-    Trm.t.z = Tros.translation.z;
-}
+    rmagine::Transform& Trm);
 
-inline void convert(
+void convert(
     const rmagine::Transform& Trm,
-    geometry_msgs::Transform& Tros)
-{
-    Tros.rotation.x = Trm.R.x;
-    Tros.rotation.y = Trm.R.y;
-    Tros.rotation.z = Trm.R.z;
-    Tros.rotation.w = Trm.R.w;
-    Tros.translation.x = Trm.t.x;
-    Tros.translation.y = Trm.t.y;
-    Tros.translation.z = Trm.t.z;
-}
+    geometry_msgs::Transform& Tros);
 
-inline void convert(
+void convert(
     const geometry_msgs::Pose& Pros,
-    rmagine::Transform& Trm)
-{
-    Trm.R.x = Pros.orientation.x;
-    Trm.R.y = Pros.orientation.y;
-    Trm.R.z = Pros.orientation.z;
-    Trm.R.w = Pros.orientation.w;
-    Trm.t.x = Pros.position.x;
-    Trm.t.y = Pros.position.y;
-    Trm.t.z = Pros.position.z;
-}
+    rmagine::Transform& Trm);
 
-inline void convert(
+void convert(
     const rmagine::Transform& Trm,
-    geometry_msgs::Pose& Pros)
-{
-    Pros.orientation.x = Trm.R.x;
-    Pros.orientation.y = Trm.R.y;
-    Pros.orientation.z = Trm.R.z;
-    Pros.orientation.w = Trm.R.w;
-    Pros.position.x = Trm.t.x;
-    Pros.position.y = Trm.t.y;
-    Pros.position.z = Trm.t.z;
-}
+    geometry_msgs::Pose& Pros);
 
 geometry_msgs::Point32 polar2cartesian(
     const rmcl_msgs::PolarCoord& polar);
