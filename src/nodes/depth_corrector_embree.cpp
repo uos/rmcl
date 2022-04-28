@@ -7,13 +7,12 @@
 // Rmagine deps
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
-#include <rmagine/math/math.cuh>
 
 // RCML msgs
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/DepthStamped.h>
 
 // RMCL code
-#include <rmcl/correction/SphereCorrectorOptixROS.hpp>
+#include <rmcl/correction/PinholeCorrectorEmbreeROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -33,8 +32,7 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-// SphereCorrectorEmbreePtr scan_correct;
-SphereCorrectorOptixROSPtr scan_correct;
+PinholeCorrectorEmbreeROSPtr depth_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 
@@ -49,6 +47,7 @@ bool has_odom_frame = true;
 std::string base_frame;
 bool has_base_frame = true;
 std::string sensor_frame;
+bool sensor_frame_optical = false;
 
 std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
@@ -59,7 +58,6 @@ geometry_msgs::TransformStamped T_odom_map;
 geometry_msgs::TransformStamped T_base_odom;
 // static: urdf
 geometry_msgs::TransformStamped T_sensor_base;
-
 
 /**
  * @brief Update T_sensor_base and T_base_odom globally
@@ -91,7 +89,7 @@ bool fetchTF()
         T_sensor_base.transform.rotation.w = 1.0;
     }
 
-    scan_correct->setTsb(T_sensor_base.transform);
+    depth_correct->setTsb(T_sensor_base.transform);
     
     if(has_odom_frame && has_base_frame)
     {
@@ -122,19 +120,9 @@ bool fetchTF()
 // Calculate transformation from map to odom from pose in map frame
 void poseCB(geometry_msgs::PoseStamped msg)
 {
-    // ROS_INFO_STREAM("P: " << msg.pose);
-    // msg.pose.position.x = -0.2;
-    // msg.pose.position.y = 0.0;
-    // msg.pose.position.z = 0.0;
-    // msg.pose.orientation.x = 0.0;
-    // msg.pose.orientation.y = 0.0;
-    // msg.pose.orientation.z = 0.0;
-    // msg.pose.orientation.w = 1.0;
-
     // std::cout << "poseCB" << std::endl;
     map_frame = msg.header.frame_id;
     pose_received = true;
-
 
     // set T_base_map
     geometry_msgs::TransformStamped T_base_map;
@@ -145,15 +133,17 @@ void poseCB(geometry_msgs::PoseStamped msg)
     fetchTF();
 
     T_odom_map = T_base_map * ~T_base_odom;
-
 }
 
 // Storing scan information globally
 // updating real data inside the global scan corrector
-void scanCB(const ScanStamped::ConstPtr& msg)
+void depthCB(const DepthStamped::ConstPtr& msg)
 {
     sensor_frame = msg->header.frame_id;
-    scan_correct->setModelAndInputData(msg->scan);
+    sensor_frame_optical = (sensor_frame.find("_optical") != std::string::npos);
+
+    depth_correct->setOptical(sensor_frame_optical);
+    depth_correct->setModelAndInputData(msg->depth);
     last_scan = msg->header.stamp;
     scan_received = true;
 }
@@ -161,29 +151,25 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 void correctOnce()
 {
     StopWatch sw;
+    // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
     size_t Nposes = 1;
+
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
     {
         convert(T_base_map.transform, poses[i]);
     }
-    // convert(T_base_map.transform, poses[0]);
-    // upload to GPU
-    Memory<Transform, VRAM_CUDA> poses_;
-    poses_ = poses;
-    sw();
-    auto corrRes = scan_correct->correct(poses_);
     
-    poses_ = multNxN(poses_, corrRes.Tdelta);
-    // not: P = Tdelta * P
-    // download to CPU
-    poses = poses_;
+    sw();
+    auto corrRes = depth_correct->correct(poses);
     double el = sw();
-    ROS_INFO_STREAM("correctOnce " << Nposes << " poses in " << el << "s");
 
+    ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
+
+    poses = multNxN(poses, corrRes.Tdelta);
 
     // Update T_odom_map
     convert(poses[0], T_base_map.transform);
@@ -192,6 +178,7 @@ void correctOnce()
 
 void updateTF()
 {
+    // std::cout << "updateTF" << std::endl;
     static tf2_ros::TransformBroadcaster br;
     
     geometry_msgs::TransformStamped T;
@@ -218,11 +205,11 @@ void updateTF()
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "lidar_corrector_optix");
+    ros::init(argc, argv, "depth_corrector_embree");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Optix Corrector started");
+    ROS_INFO("Embree Corrector started");
 
     std::string map_frame;
     std::string meshfile;
@@ -243,13 +230,13 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    OptixMapPtr map = importOptixMap(meshfile);
+    EmbreeMapPtr map = importEmbreeMap(meshfile);
     
-    scan_correct.reset(new SphereCorrectorOptixROS(map));
+    depth_correct.reset(new PinholeCorrectorEmbreeROS(map));
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);
-    scan_correct->setParams(corr_params);
+    depth_correct->setParams(corr_params);
 
     std::cout << "Max Distance: " << corr_params.max_distance << std::endl;
 
@@ -259,7 +246,7 @@ int main(int argc, char** argv)
 
     cloud_pub = nh_p.advertise<sensor_msgs::PointCloud>("sim_cloud", 1);
     pose_pub = nh_p.advertise<geometry_msgs::PoseStamped>("sim_pose", 1);
-    ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
+    ros::Subscriber sub = nh.subscribe<DepthStamped>("depth", 1, depthCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
@@ -284,6 +271,7 @@ int main(int argc, char** argv)
                 ros::Duration d_left(sleep_left);
                 d_left.sleep();
             }
+            d.sleep();
         } else {
             d.sleep();
         }

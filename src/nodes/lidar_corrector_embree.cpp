@@ -59,8 +59,6 @@ geometry_msgs::TransformStamped T_base_odom;
 // static: urdf
 geometry_msgs::TransformStamped T_sensor_base;
 
-StopWatch sw;
-
 /**
  * @brief Update T_sensor_base and T_base_odom globally
  */
@@ -149,11 +147,12 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
 void correctOnce()
 {
+    StopWatch sw;
     // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    size_t Nposes = 200;
+    size_t Nposes = 1;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
@@ -167,7 +166,7 @@ void correctOnce()
 
     ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
 
-    poses = multNxN(corrRes.Tdelta, poses);
+    poses = multNxN(poses, corrRes.Tdelta);
 
 
 
@@ -252,30 +251,25 @@ int main(int argc, char** argv)
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
     ros::Duration d(0.1);
+    StopWatch sw;
 
     while(ros::ok())
     {
         if(pose_received && scan_received)
         {
+            sw();
             fetchTF();
-            // sw();
             correctOnce();
-            // double el = sw();
-
-
-            // ROS_INFO_STREAM("correctOnce: " << el << "s");
-
-            // break;
-
             updateTF();
+            double el = sw();
 
-            // double sleep_left = d.toSec() - el;
+            double sleep_left = d.toSec() - el;
 
-            // if(sleep_left > 0.0)
-            // {
-            //     ros::Duration d_left(sleep_left);
-            //     d_left.sleep();
-            // }
+            if(sleep_left > 0.0)
+            {
+                ros::Duration d_left(sleep_left);
+                d_left.sleep();
+            }
             d.sleep();
         } else {
             d.sleep();

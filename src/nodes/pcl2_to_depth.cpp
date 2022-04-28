@@ -8,7 +8,6 @@
 using namespace rmagine;
 using namespace rmcl;
 
-
 sensor_msgs::CameraInfo info;
 ros::Publisher pub_depth;
 ros::Publisher pub_cloud;
@@ -49,18 +48,6 @@ void convert(
     to.header.stamp = from.header.stamp;
 }
 
-// void convert(
-//     const sensor_msgs::CameraInfo& from,
-//     rmcl_msgs::DepthInfo& to)
-// {
-//     to.width = from.width;
-//     to.height = from.height;
-//     to.fx = from.K[0];
-//     to.fy = from.K[4];
-//     to.cx = from.K[2];
-//     to.cy = from.K[5];
-// }
-
 void convert(
     const sensor_msgs::PointCloud2& from,
     rmcl_msgs::Depth& to)
@@ -87,6 +74,7 @@ void convert(
         }
     }
 
+    // what to do if order is different?
     for(size_t i=0; i<from.width * from.height; i++)
     {
         const uint8_t* data_ptr = &from.data[i * from.point_step];
@@ -138,14 +126,11 @@ void convert(
 
 void infoCB(const sensor_msgs::CameraInfo::ConstPtr& msg)
 {
-    ROS_INFO("Got info");
     info = *msg;
 }
 
 void cloudCB(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {
-    ROS_INFO("Got cloud");
-
     rmcl_msgs::DepthStamped out;
     convert(info, *msg, out);
     pub_depth.publish(out);

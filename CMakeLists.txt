@@ -207,6 +207,22 @@ target_link_libraries(lidar_corrector_embree
     rmcl_ros
 )
 
+add_executable(depth_corrector_embree src/nodes/depth_corrector_embree.cpp)
+
+add_dependencies(depth_corrector_embree 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(depth_corrector_embree
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+)
+
+
 ###### CORRECTION GPU #######
 add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
 

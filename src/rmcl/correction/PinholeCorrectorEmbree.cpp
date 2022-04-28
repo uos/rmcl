@@ -21,6 +21,11 @@ void PinholeCorrectorEmbree::setInputData(
     m_ranges = ranges;
 }
 
+void PinholeCorrectorEmbree::setOptical(bool optical)
+{
+    m_optical = optical;
+}
+
 static Eigen::Matrix4f my_umeyama(
     const Eigen::Matrix<float, 3, -1>& from, 
     const Eigen::Matrix<float, 3, -1>& to)
@@ -96,7 +101,14 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
                     continue;
                 }
 
-                const Vector ray_dir_s = m_model->getDirection(vid, hid);
+                Vector ray_dir_s;
+                if(m_optical)
+                {
+                    ray_dir_s = m_model->getDirectionOptical(vid, hid);
+                } else {
+                    ray_dir_s = m_model->getDirection(vid, hid);
+                }
+
                 const Vector ray_dir_b = Tsb.R * ray_dir_s;
                 const Vector ray_dir_m = Tsm.R * ray_dir_s;
 

@@ -13,7 +13,7 @@
 #include "PinholeCorrectorEmbree.hpp"
 
 // RCML msgs
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/Depth.h>
 
 #include <memory>
 
@@ -27,14 +27,13 @@ public:
     using Base::setParams;
 
     using Base::setModel;
-    // TODO
-    // void setModel(const rmcl_msgs::ScanInfo& info);
+    
+    void setModel(const rmcl_msgs::DepthInfo& info);
 
     using Base::setInputData;
     void setInputData(const std::vector<float>& ranges);
 
-    // TODO
-    // void setModelAndInputData(const rmcl_msgs::Scan& scan);
+    void setModelAndInputData(const rmcl_msgs::Depth& depth);
 
     using Base::setTsb;
     void setTsb(const geometry_msgs::Transform& Tsb);

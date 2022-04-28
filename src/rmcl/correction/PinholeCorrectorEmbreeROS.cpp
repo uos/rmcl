@@ -9,12 +9,12 @@ using namespace rmagine;
 namespace rmcl
 {
 
-// void PinholeCorrectorEmbreeROS::setModel(const rmcl_msgs::ScanInfo& info)
-// {
-//     SphericalModel model;
-//     convert(info, model);
-//     Base::setModel(model);
-// }
+void PinholeCorrectorEmbreeROS::setModel(const rmcl_msgs::DepthInfo& info)
+{
+    PinholeModel model;
+    convert(info, model);
+    Base::setModel(model);
+}
 
 void PinholeCorrectorEmbreeROS::setInputData(
     const std::vector<float>& ranges)
@@ -27,12 +27,12 @@ void PinholeCorrectorEmbreeROS::setInputData(
     Base::setInputData(data);
 }
 
-// void PinholeCorrectorEmbreeROS::setModelAndInputData(
-//     const rmcl_msgs::Scan& scan)
-// {
-//     setModel(scan.info);
-//     setInputData(scan.ranges);
-// }
+void PinholeCorrectorEmbreeROS::setModelAndInputData(
+    const rmcl_msgs::Depth& depth)
+{
+    setModel(depth.info);
+    setInputData(depth.ranges);
+}
 
 void PinholeCorrectorEmbreeROS::setTsb(const geometry_msgs::Transform& Tsb)
 {

@@ -33,8 +33,8 @@
  */
 
 
-#ifndef RMCL_CORRECTOR_PINHOLE_EMBREE_HPP
-#define RMCL_CORRECTOR_PINHOLE_EMBREE_HPP
+#ifndef RMCL_CORRECTOR_ONDN_EMBREE_HPP
+#define RMCL_CORRECTOR_ONDN_EMBREE_HPP
 
 #include <memory>
 
@@ -42,7 +42,7 @@
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/types/sensor_models.h>
 #include <rmagine/math/SVD.hpp>
-#include <rmagine/simulation/PinholeSimulatorEmbree.hpp>
+#include <rmagine/simulation/OnDnSimulatorEmbree.hpp>
 
 #include "CorrectionResults.hpp"
 #include "CorrectionParams.hpp"
@@ -53,14 +53,14 @@ namespace rmcl {
  * @brief EmbreeCorrector computes robot pose corrections in robot frame on CPU.
  * 
  * Required information to set:
- * - Sensor Model: PinholeModel
+ * - Sensor Model: OnDnModel
  * - Sensor Data: Scanner Ranges
  * - Transformation: Sensor to Base
  * 
- * TODO: inherit from rmagine::PinholeSimulatorEmbree ???
+ * TODO: inherit from rmagine::OnDnSimulatorEmbree ???
  */
-class PinholeCorrectorEmbree 
-: public rmagine::PinholeSimulatorEmbree
+class OnDnCorrectorEmbree 
+: public rmagine::OnDnSimulatorEmbree
 {
 public:
     /**
@@ -68,7 +68,7 @@ public:
      * 
      * @param mesh 
      */
-    using Base = rmagine::PinholeSimulatorEmbree;
+    using Base = rmagine::OnDnSimulatorEmbree;
     using Base::Base;
 
     void setParams(
@@ -76,8 +76,6 @@ public:
 
     void setInputData(
         const rmagine::Memory<float, rmagine::RAM>& ranges);
-
-    void setOptical(bool optical = true);
 
     /**
      * @brief Correct one ore multiple Poses towards the map
@@ -94,14 +92,12 @@ protected:
 
     CorrectionParams m_params;
 
-    bool m_optical = false;
-
     // TODO: currently unused
     rmagine::SVDPtr m_svd;
 };
 
-using PinholeCorrectorEmbreePtr = std::shared_ptr<PinholeCorrectorEmbree>;
+using OnDnCorrectorEmbreePtr = std::shared_ptr<OnDnCorrectorEmbree>;
 
 } // namespace rmcl
 
-#endif // RMCL_CORRECTOR_PINHOLE_EMBREE_HPP
+#endif // RMCL_CORRECTOR_ONDN_EMBREE_HPP
