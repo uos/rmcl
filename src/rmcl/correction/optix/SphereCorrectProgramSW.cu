@@ -1,10 +1,10 @@
 #include <optix.h>
-#include "mamcl/correction/optix/OptixCorrectionData.hpp"
-#include "mamcl/math/math_cuda.hpp"
-#include <Eigen/Dense>
+#include "rmcl/correction/optix/OptixCorrectionData.hpp"
+#include <rmagine/math/types.h>
+#include <rmagine/util/optix/OptixData.hpp>
 
 extern "C" {
-__constant__ mamcl::OptixCorrectionDataSW mem;
+__constant__ rmcl::OptixCorrectionDataSW mem;
 }
 
 extern "C" __global__ void __raygen__rg()
@@ -15,29 +15,24 @@ extern "C" __global__ void __raygen__rg()
     const uint3 idx = optixGetLaunchIndex();
     const uint3 dim = optixGetLaunchDimensions();
 
-    const unsigned int Nhorizontal = mem.model->width;
-    const unsigned int Nvertical = mem.model->height;
+    const unsigned int Nvertical = mem.model->getHeight();
+    const unsigned int Nhorizontal = mem.model->getWidth();
 
     const unsigned int pid = idx.z * dim.y * dim.x + idx.y * dim.x + idx.x;
 
     if(pid < mem.Nposes)
     {
-        const float phiMin = mem.model->phi_min;
-        const float thetaMin = mem.model->theta_min;
-        const float rangeMin = mem.model->range_min;
-        const float rangeMax = mem.model->range_max;
+        const float rangeMin = mem.model->range.min;
+        const float rangeMax = mem.model->range.max;
         
-        const float hinc = (mem.model->theta_max - mem.model->theta_min) / ( static_cast<float>(Nhorizontal - 1) );
-        const float vinc = (mem.model->phi_max - mem.model->phi_min) / ( static_cast<float>(Nvertical - 1) );
-        
-        const Eigen::Affine3f Tbm = mem.Tbm[pid];
-        const Eigen::Affine3f Tsb = mem.Tsb[0];
-        const Eigen::Affine3f Tsm = Tbm * Tsb;
-        const Eigen::Affine3f Tmb = Tbm.inverse();
+        const rmagine::Transform Tsb = mem.Tsb[0];
+        const rmagine::Transform Tbm = mem.Tbm[pid];
+        const rmagine::Transform Tsm = Tbm * Tsb;
+        const rmagine::Transform Tmb = Tbm.inv();
 
         // TODO: is it possible to not doing optixTrace twice?
-        Eigen::Vector3f from_mean(0.0, 0.0, 0.0);
-        Eigen::Vector3f to_mean(0.0, 0.0, 0.0);
+        rmagine::Vector from_mean = {0.0, 0.0, 0.0};
+        rmagine::Vector to_mean = {0.0, 0.0, 0.0};
         unsigned int Ncorr;
         Ncorr = 0;
         
@@ -47,27 +42,21 @@ extern "C" __global__ void __raygen__rg()
             for(unsigned int hid = 0; hid < Nhorizontal; hid++)
             {
                 // ids of results
-                const unsigned int loc_id = vid * Nhorizontal + hid;
+                const unsigned int loc_id = mem.model->getBufferId(vid, hid);
                 
                 const float real_range = mem.ranges[loc_id];
                 if(real_range < rangeMin || real_range > rangeMax){continue;}
 
-                const float theta = thetaMin + static_cast<float>(hid) * hinc;
-                const float phi = phiMin + static_cast<float>(vid) * vinc;
-                
-                const Eigen::Vector3f ray_dir_s(
-                        cos(phi) * cos(theta), 
-                        cos(phi) * sin(theta), 
-                        sin(phi));
+                const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
 
-                const Eigen::Vector3f ray_dir_b = Tsb.linear() * ray_dir_s;
-                const Eigen::Vector3f ray_dir_m = Tsm.linear() * ray_dir_s;
+                const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
+                const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 unsigned int p0, p1, p2, p3;
                 optixTrace(
                         mem.handle,
-                        make_float3(Tsm.translation().x(), Tsm.translation().y(), Tsm.translation().z()),
-                        make_float3(ray_dir_m.x(), ray_dir_m.y(), ray_dir_m.z()),
+                        make_float3(Tsm.t.x, Tsm.t.y, Tsm.t.z),
+                        make_float3(ray_dir_m.x, ray_dir_m.y, ray_dir_m.z),
                         0.0f,               // Min intersection distance
                         rangeMax,                   // Max intersection distance
                         0.0f,                       // rayTime -- used for motion blur
@@ -78,20 +67,22 @@ extern "C" __global__ void __raygen__rg()
                         0,          // missSBTIndex
                         p0, p1, p2, p3);
 
-                const float range = int_as_float( p0 );
+                const float range = __uint_as_float( p0 );
                 if(range > rangeMax)
                 {
                     continue;
                 }
 
-                const Eigen::Vector3f preal_b = ray_dir_b * real_range;
-                const Eigen::Vector3f pint_b = ray_dir_b * range;
+                const rmagine::Vector preal_b = ray_dir_b * real_range;
+                const rmagine::Vector pint_b = ray_dir_b * range;
 
-                Eigen::Vector3f nint_b = Tmb.linear() * Eigen::Vector3f(
-                        int_as_float( p1 ),
-                        int_as_float( p2 ),
-                        int_as_float( p3 )
-                    );
+                const rmagine::Vector nint_m = {
+                    __uint_as_float( p1 ),
+                    __uint_as_float( p2 ),
+                    __uint_as_float( p3 )
+                };
+
+                rmagine::Vector nint_b = Tmb.R * nint_m;
                 
                 if(nint_b.dot(ray_dir_b) > 0.0 )
                 {
@@ -99,9 +90,9 @@ extern "C" __global__ void __raygen__rg()
                 }
 
                 const float signed_plane_dist = (preal_b - pint_b).dot(nint_b);
-                const Eigen::Vector3f pmesh_b = preal_b + nint_b * signed_plane_dist;
+                const rmagine::Vector pmesh_b = preal_b + nint_b * signed_plane_dist;
 
-                const float dist_sqrt = (pmesh_b - preal_b).squaredNorm();
+                const float dist_sqrt = (pmesh_b - preal_b).l2normSquared();
 
                 if(dist_sqrt < dist_thresh * dist_thresh)
                 {
@@ -114,8 +105,8 @@ extern "C" __global__ void __raygen__rg()
 
         mem.Ncorr[pid] = Ncorr;
 
-        Eigen::Matrix3f C;
-        C.setZero();
+        rmagine::Matrix3x3 C;
+        C.setZeros();
 
         if(Ncorr > 0)
         {
@@ -127,27 +118,21 @@ extern "C" __global__ void __raygen__rg()
                 for(unsigned int hid = 0; hid < Nhorizontal; hid++)
                 {
                     // ids of results
-                    const unsigned int loc_id = vid * Nhorizontal + hid;
+                    const unsigned int loc_id = mem.model->getBufferId(vid, hid);
                     
                     const float real_range = mem.ranges[loc_id];
                     if(real_range < rangeMin || real_range > rangeMax){continue;}
 
-                    const float theta = thetaMin + static_cast<float>(hid) * hinc;
-                    const float phi = phiMin + static_cast<double>(vid) * vinc;
-                    
-                    const Eigen::Vector3f ray_dir_s(
-                            cos(phi) * cos(theta), 
-                            cos(phi) * sin(theta), 
-                            sin(phi));
+                    const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
 
-                    const Eigen::Vector3f ray_dir_b = Tsb.linear() * ray_dir_s;
-                    const Eigen::Vector3f ray_dir_m = Tsm.linear() * ray_dir_s;
+                    const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
+                    const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                     unsigned int p0, p1, p2, p3;
                     optixTrace(
                             mem.handle,
-                            make_float3(Tsm.translation().x(), Tsm.translation().y(), Tsm.translation().z()),
-                            make_float3(ray_dir_m.x(), ray_dir_m.y(), ray_dir_m.z()),
+                            make_float3(Tsm.t.x, Tsm.t.y, Tsm.t.z),
+                            make_float3(ray_dir_m.x, ray_dir_m.y, ray_dir_m.z),
                             0.0f,               // Min intersection distance
                             rangeMax,                   // Max intersection distance
                             0.0f,                       // rayTime -- used for motion blur
@@ -158,36 +143,46 @@ extern "C" __global__ void __raygen__rg()
                             0,          // missSBTIndex
                             p0, p1, p2, p3);
 
-                    const float range = int_as_float( p0 );
+                    const float range = __uint_as_float( p0 );
                     if(range > rangeMax)
                     {
                         continue;
                     }
-
-                    const Eigen::Vector3f preal_b = ray_dir_b * real_range;
-                    const Eigen::Vector3f pint_b = ray_dir_b * range;
-
-                    Eigen::Vector3f nint_b = Tmb.linear() * Eigen::Vector3f(
-                            int_as_float( p1 ),
-                            int_as_float( p2 ),
-                            int_as_float( p3 )
-                        );
+                    const rmagine::Vector preal_b = ray_dir_b * real_range;
+                    const rmagine::Vector pint_b = ray_dir_b * range;
+    
+                    const rmagine::Vector nint_m = {
+                        __uint_as_float( p1 ),
+                        __uint_as_float( p2 ),
+                        __uint_as_float( p3 )
+                    };
+    
+                    rmagine::Vector nint_b = Tmb.R * nint_m;
+                    
                     if(nint_b.dot(ray_dir_b) > 0.0 )
                     {
                         nint_b *= -1.0;
                     }
-
+    
                     const float signed_plane_dist = (preal_b - pint_b).dot(nint_b);
-                    const Eigen::Vector3f pmesh_b = preal_b + nint_b * signed_plane_dist;
-
-                    const float dist_sqrt = (pmesh_b - preal_b).squaredNorm();
+                    const rmagine::Vector pmesh_b = preal_b + nint_b * signed_plane_dist;
+    
+                    const float dist_sqrt = (pmesh_b - preal_b).l2normSquared();
 
                     if(dist_sqrt < dist_thresh * dist_thresh)
                     {
-                        const Eigen::Vector3f preal_centered = preal_b - from_mean;
-                        const Eigen::Vector3f pmesh_centered = pmesh_b - to_mean;
+                        const rmagine::Vector a = pmesh_b - to_mean;
+                        const rmagine::Vector b = preal_b - from_mean;
 
-                        C += preal_centered * pmesh_centered.transpose();
+                        C(0,0) += a.x * b.x;
+                        C(1,0) += a.x * b.y;
+                        C(2,0) += a.x * b.z;
+                        C(0,1) += a.y * b.x;
+                        C(1,1) += a.y * b.y;
+                        C(2,1) += a.y * b.z;
+                        C(0,2) += a.z * b.x;
+                        C(1,2) += a.z * b.y;
+                        C(2,2) += a.z * b.z;
                     }
                 }
             }
@@ -203,17 +198,23 @@ extern "C" __global__ void __raygen__rg()
 
 extern "C" __global__ void __miss__ms()
 {
-    optixSetPayload_0( float_as_int( mem.model->range_max + 1.0f ) );
+    optixSetPayload_0( __float_as_uint( mem.model->range.max + 1.0f ) );
 }
 
 extern "C" __global__ void __closesthit__ch()
 {
     const float t = optixGetRayTmax();
-    unsigned int normal_id = optixGetPrimitiveIndex();
-    mamcl::HitGroupDataNormals* hg_data  = reinterpret_cast<mamcl::HitGroupDataNormals*>( optixGetSbtDataPointer() );
+    const unsigned int face_id = optixGetPrimitiveIndex();
+    const unsigned int object_id = optixGetInstanceIndex();
 
-    optixSetPayload_0( float_as_int( t ) );
-    optixSetPayload_1( float_as_int( hg_data->normals[normal_id].x ) );
-    optixSetPayload_2( float_as_int( hg_data->normals[normal_id].y ) );
-    optixSetPayload_3( float_as_int( hg_data->normals[normal_id].z ) );
+    rmagine::HitGroupDataNormals* hg_data  = reinterpret_cast<rmagine::HitGroupDataNormals*>( optixGetSbtDataPointer() );
+
+    const rmagine::Vector normal_rm = hg_data->normals[object_id][face_id];
+    float3 normal = make_float3(normal_rm.x, normal_rm.y, normal_rm.z);
+    float3 normal_world = optixTransformNormalFromObjectToWorldSpace(normal);
+
+    optixSetPayload_0( __float_as_uint( t ) );
+    optixSetPayload_1( __float_as_uint( normal_world.x ) );
+    optixSetPayload_2( __float_as_uint( normal_world.y ) );
+    optixSetPayload_3( __float_as_uint( normal_world.z ) );
 }

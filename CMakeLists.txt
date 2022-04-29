@@ -109,6 +109,7 @@ if(${rmagine_optix_FOUND})
         # Correction
         ## Spherical
         src/rmcl/correction/optix/SphereCorrectProgramRW.cu
+        src/rmcl/correction/optix/SphereCorrectProgramSW.cu
         ## Pinhole
         ## O1Dn
         ## OnDn
