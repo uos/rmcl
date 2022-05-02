@@ -32,24 +32,34 @@
  *      Author: Alexander Mock
  */
 
-#ifndef MAMCL_CORRECTION_OPTIX_SCAN_CORRECT_PROGRAM_SW_HPP
-#define MAMCL_CORRECTION_OPTIX_SCAN_CORRECT_PROGRAM_SW_HPP
+#ifndef RMCL_CORRECTION_OPTIX_SPHERE_CORRECT_PROGRAM_SW_HPP
+#define RMCL_CORRECTION_OPTIX_SPHERE_CORRECT_PROGRAM_SW_HPP
 
-#include "mamcl/map/OptixMesh.hpp"
-#include "mamcl/util/optix/OptixProgram.hpp"
+#include <rmagine/map/OptixMap.hpp>
+#include <rmagine/util/optix/OptixProgram.hpp>
 
-namespace mamcl {
+#include <rmagine/util/optix/OptixSbtRecord.hpp>
+#include <rmagine/util/optix/OptixData.hpp>
+
+
+
+
+namespace rmcl {
+
+typedef rmagine::SbtRecord<rmagine::HitGroupDataNormals>   HitGroupSbtRecord;
 
 /**
  * @brief Scan-wise parallelization
  * 
  */
-class ScanCorrectProgramSW : public OptixProgram 
+class SphereCorrectProgramSW : public rmagine::OptixProgram 
 {
 public:
-    ScanCorrectProgramSW(OptixMeshPtr mesh);
+    SphereCorrectProgramSW(rmagine::OptixMapPtr map);
+private:
+    HitGroupSbtRecord m_hg_sbt;
 };
 
-} // namespace mamcl
+} // namespace rmcl
 
-#endif // MAMCL_CORRECTION_OPTIX_SCAN_CORRECT_PROGRAM_SW_HPP
+#endif // RMCL_CORRECTION_OPTIX_SPHERE_CORRECT_PROGRAM_SW_HPP

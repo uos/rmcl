@@ -141,6 +141,7 @@ if(${rmagine_optix_FOUND})
         # Correction Programs
         ## Spherical
         src/rmcl/correction/optix/SphereCorrectProgramRW.cpp
+        src/rmcl/correction/optix/SphereCorrectProgramSW.cpp
     )
 
     target_include_directories(rmcl_optix PUBLIC

@@ -1,7 +1,7 @@
 #include "rmcl/correction/SphereCorrectorOptix.hpp"
 
 #include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
-// #include "rmcl/correction/optix/ScanCorrectProgramSW.hpp"
+#include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
 
 #include "rmcl/correction/optix/OptixCorrectionData.hpp"
 
@@ -25,6 +25,7 @@ SphereCorrectorOptix::SphereCorrectorOptix(
 {
     programs.resize(2);
     programs[0].reset(new SphereCorrectProgramRW(map));
+    programs[1].reset(new SphereCorrectProgramSW(map));
 
     // CUDA_CHECK( cudaStreamCreate(&m_stream) );
     m_svd.reset(new rm::SVDCuda(Base::m_stream));
@@ -67,22 +68,19 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
 
     // TODO how to make this dynamic somehow
     constexpr unsigned int POSE_SWITCH = 1024 * 8;
+    // constexpr unsigned int POSE_SWITCH = 0;
 
     if(Tbms.size() > POSE_SWITCH)
     {
         // scanwise parallelization
-        // computeMeansCovsSW(Tbm, m1, m2, Cs, res.Ncorr);
-        std::cout << "WARNING: SHIT" << std::endl; 
+        computeMeansCovsSW(Tbms, m1, m2, Cs, res.Ncorr);
     } else {
         // raywise parallelization
-        // std::cout << "- raywise parallelization..." << std::endl;
         computeMeansCovsRW(Tbms, m1, m2, Cs, res.Ncorr);
-        // std::cout << "- raywise parallelization done." << std::endl;
     }
 
     rm::Memory<rm::Matrix3x3, rm::RAM> Cs_ram(Cs.size());
     Cs_ram = Cs;
-    // std::cout << "C: " << Cs_ram[0] << std::endl;
 
     // Singular value decomposition
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
@@ -158,6 +156,52 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     Cs = rm::divNxNIgnoreZeros(
         sumFancyBatched(model_points, m2, dataset_points, m1, corr_valid), 
         Ncorr);
+}
+
+void SphereCorrectorOptix::computeMeansCovsSW(
+    const rm::Memory<rm::Transform, rm::VRAM_CUDA>& Tbm,
+    rm::Memory<rm::Vector, rm::VRAM_CUDA>& m1,
+    rm::Memory<rm::Vector, rm::VRAM_CUDA>& m2,
+    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
+    rm::Memory<unsigned int, rm::VRAM_CUDA>& Ncorr
+    ) const
+{
+    m1.resize(Tbm.size());
+    m2.resize(Tbm.size());
+    Cs.resize(Tbm.size());
+    Ncorr.resize(Tbm.size());
+
+    // Create Optix Memory structure
+    rm::Memory<OptixCorrectionDataSW, rm::RAM_CUDA> mem(1);
+    mem->model = m_model.raw();
+    mem->ranges = m_ranges.raw();
+    mem->Tbm = Tbm.raw();
+    mem->Tsb = m_Tsb.raw();
+    mem->Nposes = Tbm.size();
+    mem->params = m_params.raw();
+    mem->handle = m_map->as.handle;
+    mem->C = Cs.raw();
+    mem->m1 = m1.raw(); // Sim
+    mem->m2 = m2.raw(); // Real
+    mem->Ncorr = Ncorr.raw();
+
+    rm::Memory<OptixCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
+    copy(mem, d_mem, m_stream);
+
+    rm::OptixProgramPtr program = programs[1];
+
+    OPTIX_CHECK( optixLaunch(
+        program->pipeline, 
+        m_stream, 
+        reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
+        sizeof( OptixCorrectionDataSW ), 
+        &program->sbt, 
+        Tbm.size(),
+        1,
+        1
+        ));
+
+    cudaStreamSynchronize(m_stream);
 }
 
 } // namespace rmcl

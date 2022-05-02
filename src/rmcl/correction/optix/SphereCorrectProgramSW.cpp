@@ -1,51 +1,57 @@
-#include "mamcl/correction/optix/ScanCorrectProgramSW.hpp"
-#include "mamcl/correction/optix/OptixCorrectionData.hpp"
+#include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
+#include "rmcl/correction/optix/OptixCorrectionData.hpp"
 
-#include "mamcl/util/GenericAlign.hpp"
-#include "mamcl/util/optix/OptixDebug.hpp"
+#include "rmagine/util/optix/OptixUtil.hpp"
+#include "rmagine/util/optix/OptixSbtRecord.hpp"
+#include "rmagine/util/optix/OptixData.hpp"
+#include "rmagine/util/optix/OptixDebug.hpp"
+#include "rmagine/util/GenericAlign.hpp"
 
 #include <optix_stubs.h>
-
-
-#include "mamcl/util/optix/OptixUtil.hpp"
-#include "mamcl/util/optix/OptixSbtRecord.hpp"
-#include "mamcl/util/optix/OptixData.hpp"
 
 #include <cuda_runtime.h>
 
 #include <iostream>
 #include <fstream>
 
-namespace mamcl {
+using namespace rmagine;
+
+namespace rmcl {
 
 typedef SbtRecord<RayGenDataEmpty>     RayGenSbtRecord;
 typedef SbtRecord<MissDataEmpty>       MissSbtRecord;
-typedef SbtRecord<HitGroupDataNormals>   HitGroupSbtRecord;
 
-ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
+SphereCorrectProgramSW::SphereCorrectProgramSW(OptixMapPtr map)
 {
-    // 1. INIT MODULE
+    const char *kernel =
+    #include "kernels/SphereCorrectProgramSWString.h"
+    ;
 
+    // 1. INIT MODULE
     char log[2048]; // For error reporting from OptiX creation functions
     size_t sizeof_log = sizeof( log );
-    
+
     OptixModuleCompileOptions module_compile_options = {};
     module_compile_options.maxRegisterCount     = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
-#ifdef DEBUG
+#ifndef NDEBUG
     module_compile_options.optLevel             = OPTIX_COMPILE_OPTIMIZATION_LEVEL_0;
     module_compile_options.debugLevel           = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
 #else
     module_compile_options.optLevel             = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
     module_compile_options.debugLevel           = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
 #endif
-
-
+    
     OptixPipelineCompileOptions pipeline_compile_options = {};
     pipeline_compile_options.usesMotionBlur        = false;
-    pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+    if(map->ias())
+    {
+        pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
+    } else {
+        pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+    }
     pipeline_compile_options.numPayloadValues      = 4;
-    pipeline_compile_options.numAttributeValues    = 0;
-#ifdef DEBUG // Enables debug exceptions during optix launches. This may incur significant performance cost and should only be done during development.
+    pipeline_compile_options.numAttributeValues    = 2;
+#ifndef NDEBUG // Enables debug exceptions during optix launches. This may incur significant performance cost and should only be done during development.
     pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_DEBUG | OPTIX_EXCEPTION_FLAG_TRACE_DEPTH | OPTIX_EXCEPTION_FLAG_STACK_OVERFLOW;
 #else
     pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
@@ -53,26 +59,15 @@ ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
     pipeline_compile_options.pipelineLaunchParamsVariableName = "mem";
     pipeline_compile_options.usesPrimitiveTypeFlags = OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE;
 
-    std::string optix_ptx_dir(OPTIX_PTX_DIR);
-    std::string optix_program_name = "ScanCorrectProgramSW";
+    std::string ptx(kernel);
 
-    std::string filename = optix_ptx_dir + "/cuda_compile_ptx_1_generated_" + optix_program_name + ".cu.ptx";
-
-    std::cout << "Load Program from " << filename << std::endl;
-
-    std::string ptx;
-
-    std::ifstream file( filename.c_str() );
-    if( file.good() )
+    if(ptx.empty())
     {
-        // Found usable source file
-        std::stringstream source_buffer;
-        source_buffer << file.rdbuf();
-        ptx = source_buffer.str();
+        throw std::runtime_error("SphereProgramRanges could not find its PTX part");
     }
 
-    OPTIX_CHECK_LOG( optixModuleCreateFromPTX(
-                mesh->context,
+    OPTIX_CHECK( optixModuleCreateFromPTX(
+                map->context()->ref(),
                 &module_compile_options,
                 &pipeline_compile_options,
                 ptx.c_str(),
@@ -80,60 +75,75 @@ ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
                 log,
                 &sizeof_log,
                 &module
-                ) );
+                ));
 
     // 2. initProgramGroups
-
     OptixProgramGroupOptions program_group_options   = {}; // Initialize to zeros
-
-    OptixProgramGroupDesc raygen_prog_group_desc    = {}; //
-    raygen_prog_group_desc.kind                     = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
-    raygen_prog_group_desc.raygen.module            = module;
-    raygen_prog_group_desc.raygen.entryFunctionName = "__raygen__rg";
     sizeof_log = sizeof( log );
 
-    optixProgramGroupCreate(
-                mesh->context,
-                &raygen_prog_group_desc,
-                1,   // num program groups
-                &program_group_options,
-                log,
-                &sizeof_log,
-                &raygen_prog_group
-                );
+    // 2.1 Raygen
+    {
+        OptixProgramGroupDesc raygen_prog_group_desc    = {}; //
+        raygen_prog_group_desc.kind                     = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
+        raygen_prog_group_desc.raygen.module            = module;
+        raygen_prog_group_desc.raygen.entryFunctionName = "__raygen__rg";
 
-    OptixProgramGroupDesc miss_prog_group_desc  = {};
-    miss_prog_group_desc.kind                   = OPTIX_PROGRAM_GROUP_KIND_MISS;
-    miss_prog_group_desc.miss.module            = module;
-    miss_prog_group_desc.miss.entryFunctionName = "__miss__ms";
-    sizeof_log = sizeof( log );
-    optixProgramGroupCreate(
-                mesh->context,
-                &miss_prog_group_desc,
-                1,   // num program groups
-                &program_group_options,
-                log,
-                &sizeof_log,
-                &miss_prog_group
-                );
+        OPTIX_CHECK_LOG( optixProgramGroupCreate(
+                    map->context()->ref(),
+                    &raygen_prog_group_desc,
+                    1,   // num program groups
+                    &program_group_options,
+                    log,
+                    &sizeof_log,
+                    &raygen_prog_group
+                    ) );
+    }
 
-    OptixProgramGroupDesc hitgroup_prog_group_desc = {};
-    hitgroup_prog_group_desc.kind                         = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-    hitgroup_prog_group_desc.hitgroup.moduleCH            = module;
-    hitgroup_prog_group_desc.hitgroup.entryFunctionNameCH = "__closesthit__ch";
-    sizeof_log = sizeof( log );
-    optixProgramGroupCreate(
-                mesh->context,
-                &hitgroup_prog_group_desc,
-                1,   // num program groups
-                &program_group_options,
-                log,
-                &sizeof_log,
-                &hitgroup_prog_group
-                );
+    // 2.2 Miss program
+    {
+        OptixProgramGroupDesc miss_prog_group_desc  = {};
+        miss_prog_group_desc.kind                   = OPTIX_PROGRAM_GROUP_KIND_MISS;
+        miss_prog_group_desc.miss.module            = module;
+        miss_prog_group_desc.miss.entryFunctionName = "__miss__ms";
+        
+        OPTIX_CHECK_LOG( optixProgramGroupCreate(
+                    map->context()->ref(),
+                    &miss_prog_group_desc,
+                    1,   // num program groups
+                    &program_group_options,
+                    log,
+                    &sizeof_log,
+                    &miss_prog_group
+                    ) );
+    }
+
+    // 2.3 Closest Hit program
+    {
+        OptixProgramGroupDesc hitgroup_prog_group_desc = {};
+        hitgroup_prog_group_desc.kind                         = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
+        hitgroup_prog_group_desc.hitgroup.moduleCH            = module;
+        hitgroup_prog_group_desc.hitgroup.entryFunctionNameCH = "__closesthit__ch";
+        
+        OPTIX_CHECK_LOG( optixProgramGroupCreate(
+                    map->context()->ref(),
+                    &hitgroup_prog_group_desc,
+                    1,   // num program groups
+                    &program_group_options,
+                    log,
+                    &sizeof_log,
+                    &hitgroup_prog_group
+                    ) );
+    }
 
     // 3. link pipeline
+    // traverse depth = 2 for ias + gas
+    uint32_t    max_traversable_depth = 1;
+    if(map->ias())
+    {
+        max_traversable_depth = 2;
+    }
     const uint32_t    max_trace_depth  = 1;
+    
     OptixProgramGroup program_groups[] = { 
         raygen_prog_group, 
         miss_prog_group, 
@@ -142,14 +152,14 @@ ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
 
     OptixPipelineLinkOptions pipeline_link_options = {};
     pipeline_link_options.maxTraceDepth          = max_trace_depth;
-#ifdef DEBUG
+#ifndef NDEBUG
     pipeline_link_options.debugLevel             = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
 #else
     pipeline_link_options.debugLevel             = OPTIX_COMPILE_DEBUG_LEVEL_DEFAULT;
 #endif
     sizeof_log = sizeof( log );
     OPTIX_CHECK_LOG( optixPipelineCreate(
-                mesh->context,
+                map->context()->ref(),
                 &pipeline_compile_options,
                 &pipeline_link_options,
                 program_groups,
@@ -165,6 +175,7 @@ ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
         OPTIX_CHECK( optixUtilAccumulateStackSizes( prog_group, &stack_sizes ) );
     }
 
+
     uint32_t direct_callable_stack_size_from_traversal;
     uint32_t direct_callable_stack_size_from_state;
     uint32_t continuation_stack_size;
@@ -175,7 +186,7 @@ ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
                                                 &direct_callable_stack_size_from_state, &continuation_stack_size ) );
     OPTIX_CHECK( optixPipelineSetStackSize( pipeline, direct_callable_stack_size_from_traversal,
                                             direct_callable_stack_size_from_state, continuation_stack_size,
-                                            1  // maxTraversableDepth
+                                            max_traversable_depth  // maxTraversableDepth
                                             ) );
 
     // 4. setup shader binding table
@@ -207,13 +218,32 @@ ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
     CUdeviceptr hitgroup_record;
     size_t      hitgroup_record_size = sizeof( HitGroupSbtRecord );
     CUDA_CHECK( cudaMalloc( reinterpret_cast<void**>( &hitgroup_record ), hitgroup_record_size ) );
-    HitGroupSbtRecord hg_sbt;
-    OPTIX_CHECK( optixSbtRecordPackHeader( hitgroup_prog_group, &hg_sbt ) );
-    hg_sbt.data.normals = mesh->normals.raw();
+    // HitGroupSbtRecord hg_sbt;
+    OPTIX_CHECK( optixSbtRecordPackHeader( hitgroup_prog_group, &m_hg_sbt ) );
 
+    // std::cout << "Skip old SBT stuff" << std::endl;
+
+    // build array of normal buffer. one normal buffer per mesh
+    Memory<Vector*, RAM> normals_cpu(map->meshes.size());
+    for(size_t i=0; i<map->meshes.size(); i++)
+    {
+        normals_cpu[i] = map->meshes[i].normals.raw();
+    }
+
+    cudaMalloc(reinterpret_cast<void**>(&m_hg_sbt.data.normals), map->meshes.size() * sizeof(Vector*));
+
+    // gpu array of gpu pointers
+    CUDA_CHECK( cudaMemcpy(
+                reinterpret_cast<void*>(m_hg_sbt.data.normals),
+                reinterpret_cast<void*>(normals_cpu.raw()),
+                map->meshes.size() * sizeof(Vector*),
+                cudaMemcpyHostToDevice
+                ) );
+
+    // cpu -> gpu hitgroup record
     CUDA_CHECK( cudaMemcpy(
                 reinterpret_cast<void*>( hitgroup_record ),
-                &hg_sbt,
+                &m_hg_sbt,
                 hitgroup_record_size,
                 cudaMemcpyHostToDevice
                 ) );
@@ -227,4 +257,4 @@ ScanCorrectProgramSW::ScanCorrectProgramSW(OptixMeshPtr mesh)
     sbt.hitgroupRecordCount         = 1;
 }
 
-} // namespace mamcl
+} // namespace rmcl
