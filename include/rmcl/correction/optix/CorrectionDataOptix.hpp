@@ -26,7 +26,7 @@
  */
 
 /*
- * OptixCorrectionData.hpp
+ * CorrectionDataOptix.hpp
  *
  *  Created on: Jul 17, 2021
  *      Author: Alexander Mock
@@ -47,18 +47,19 @@
 namespace rmcl {
 
 /**
- * @brief Data for scanwise results
- * 
+ * @brief Data for scanwise correction
  */
-struct OptixCorrectionDataSW
+template<typename ModelT>
+struct CorrectionDataSW
 {
     // inputs
-    const rmagine::SphericalModel*  model;
+    const ModelT*                   model;
     const float*                    ranges;
     const rmagine::Transform*       Tsb; // Sensor to Base Transform
     const rmagine::Transform*       Tbm; // Base to Map transforms
     unsigned int                    Nposes;
     const CorrectionParams*         params;
+    bool                            optical;
     // handle
     OptixTraversableHandle          handle;
     // outputs
@@ -68,19 +69,24 @@ struct OptixCorrectionDataSW
     unsigned int*                   Ncorr;
 };
 
+using SphereCorrectionDataSW = CorrectionDataSW<rmagine::SphericalModel>;
+using PinholeCorrectionDataSW = CorrectionDataSW<rmagine::PinholeModel>;
+
 /**
- * @brief Data for raywise results
+ * @brief Data for raywise correction
  * 
  */
-struct OptixCorrectionDataRW
+template<typename ModelT>
+struct CorrectionDataRW
 {
     // inputs
-    const rmagine::SphericalModel*  model;
+    const ModelT*                   model;
     const float*                    ranges;
     const rmagine::Transform*       Tsb; // Sensor to Base Transform
     const rmagine::Transform*       Tbm; // Base to Map transforms
     unsigned int                    Nposes;
     const CorrectionParams*         params;
+    bool                            optical;
     // handle
     OptixTraversableHandle          handle;
     // outputs
@@ -88,6 +94,9 @@ struct OptixCorrectionDataRW
     rmagine::Vector*                model_points; // nearest points on mesh
     rmagine::Vector*                dataset_points;
 };
+
+using SphereCorrectionDataRW = CorrectionDataRW<rmagine::SphericalModel>;
+using PinholeCorrectionDataRW = CorrectionDataRW<rmagine::PinholeModel>;
 
 } // namespace rmcl
 

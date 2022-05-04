@@ -5,6 +5,17 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
+template<unsigned int blockSize, typename T>
+__device__ void warpReduce(volatile T* sdata, unsigned int tid)
+{
+    if(blockSize >= 64) sdata[tid] += sdata[tid + 32];
+    if(blockSize >= 32) sdata[tid] += sdata[tid + 16];
+    if(blockSize >= 16) sdata[tid] += sdata[tid + 8];
+    if(blockSize >=  8) sdata[tid] += sdata[tid + 4];
+    if(blockSize >=  4) sdata[tid] += sdata[tid + 2];
+    if(blockSize >=  2) sdata[tid] += sdata[tid + 1];
+}
+
 template<unsigned int blockSize>
 __global__ void sumFancyBatched_kernel(
     const rm::Vector* data1, // to
@@ -46,13 +57,18 @@ __global__ void sumFancyBatched_kernel(
     }
     __syncthreads();
     
-    for(unsigned int s=blockSize / 2; s > 0; s >>= 1)
+    for(unsigned int s = blockSize / 2; s > 32; s >>= 1)
     {
         if(tid < s)
         {
             sdata[tid] += sdata[tid + s];
         }
         __syncthreads();
+    }
+
+    if(tid < blockSize / 2 && tid < 32)
+    {
+        warpReduce<blockSize>(sdata, tid);
     }
 
     if(tid == 0)
@@ -62,16 +78,16 @@ __global__ void sumFancyBatched_kernel(
 }
 
 void sumFancyBatched(
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data1,
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& center1,
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data2,
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& center2,
-    const rm::Memory<unsigned int, rm::VRAM_CUDA>& mask,
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA>& Cs)
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& data1,
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& center1,
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& data2,
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& center2,
+    const rm::MemoryView<unsigned int, rm::VRAM_CUDA>& mask,
+    rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Cs)
 {
     unsigned int Nchunks = center1.size();
     unsigned int batchSize = data1.size() / Nchunks;
-    constexpr unsigned int blockSize = 16;
+    constexpr unsigned int blockSize = 64; // TODO: get best value for this one
 
     sumFancyBatched_kernel<blockSize> <<<Nchunks, blockSize>>>(
         data1.raw(), center1.raw(), 
@@ -81,11 +97,11 @@ void sumFancyBatched(
 }
 
 rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> sumFancyBatched(
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data1, // from
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& center1,
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& data2, // to
-    const rm::Memory<rm::Vector, rm::VRAM_CUDA>& center2,
-    const rm::Memory<unsigned int, rm::VRAM_CUDA>& mask)
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& data1, // from
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& center1,
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& data2, // to
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& center2,
+    const rm::MemoryView<unsigned int, rm::VRAM_CUDA>& mask)
 {
     unsigned int Nchunks = center1.size();
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Nchunks);

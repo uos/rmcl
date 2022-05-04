@@ -4,7 +4,7 @@
 #include <rmagine/util/optix/OptixData.hpp>
 
 extern "C" {
-__constant__ rmcl::SphereCorrectionDataSW mem;
+__constant__ rmcl::PinholeCorrectionDataSW mem;
 }
 
 extern "C" __global__ void __raygen__rg()
@@ -47,8 +47,14 @@ extern "C" __global__ void __raygen__rg()
                 const float real_range = mem.ranges[loc_id];
                 if(real_range < rangeMin || real_range > rangeMax){continue;}
 
-                const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
-
+                rmagine::Vector ray_dir_s;
+                if(mem.optical)
+                {
+                    ray_dir_s = mem.model->getDirectionOptical(vid, hid);
+                } else {
+                    ray_dir_s = mem.model->getDirection(vid, hid);
+                }
+                
                 const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
                 const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
@@ -123,8 +129,14 @@ extern "C" __global__ void __raygen__rg()
                     const float real_range = mem.ranges[loc_id];
                     if(real_range < rangeMin || real_range > rangeMax){continue;}
 
-                    const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
-
+                    rmagine::Vector ray_dir_s;
+                    if(mem.optical)
+                    {
+                        ray_dir_s = mem.model->getDirectionOptical(vid, hid);
+                    } else {
+                        ray_dir_s = mem.model->getDirection(vid, hid);
+                    }
+                    
                     const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
                     const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
 

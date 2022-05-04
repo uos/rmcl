@@ -9,20 +9,20 @@ namespace rmcl
 {
 
 void sumFancyBatched(
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data1,
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data2,
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& center2,
-    const rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>& mask,
-    rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center2,
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs
 );
 
 rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> sumFancyBatched(
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to
-    const rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>& center2,
-    const rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>& mask);
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center2,
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask);
 
 } // namespace rmcl
 

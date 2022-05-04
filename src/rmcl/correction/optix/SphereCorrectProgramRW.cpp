@@ -1,7 +1,7 @@
 #include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
 
 
-#include "rmcl/correction/optix/OptixCorrectionData.hpp"
+#include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 
 
 #include "rmagine/util/optix/OptixUtil.hpp"

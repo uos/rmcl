@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
     mesh_msgs
     rmcl_msgs
     rosmath
+    image_transport
+    depth_image_proc
 )
 
 include_directories(
@@ -30,7 +32,7 @@ find_package(Eigen3 REQUIRED)
 
 catkin_package(
     INCLUDE_DIRS 
-        # include
+        include
     CATKIN_DEPENDS 
         roscpp
         geometry_msgs
@@ -111,6 +113,8 @@ if(${rmagine_optix_FOUND})
         src/rmcl/correction/optix/SphereCorrectProgramRW.cu
         src/rmcl/correction/optix/SphereCorrectProgramSW.cu
         ## Pinhole
+        src/rmcl/correction/optix/PinholeCorrectProgramRW.cu
+        src/rmcl/correction/optix/PinholeCorrectProgramSW.cu
         ## O1Dn
         ## OnDn
     )
@@ -138,10 +142,14 @@ if(${rmagine_optix_FOUND})
     add_library(rmcl_optix
         # Correction
         src/rmcl/correction/SphereCorrectorOptix.cpp
+        src/rmcl/correction/PinholeCorrectorOptix.cpp
         # Correction Programs
         ## Spherical
         src/rmcl/correction/optix/SphereCorrectProgramRW.cpp
         src/rmcl/correction/optix/SphereCorrectProgramSW.cpp
+        ## Pinhole
+        src/rmcl/correction/optix/PinholeCorrectProgramRW.cpp
+        src/rmcl/correction/optix/PinholeCorrectProgramSW.cpp
     )
 
     target_include_directories(rmcl_optix PUBLIC
@@ -156,7 +164,10 @@ if(${rmagine_optix_FOUND})
 
     # ROS code
     add_library(rmcl_optix_ros
+        # Sphere
         src/rmcl/correction/SphereCorrectorOptixROS.cpp
+        # Pinhole
+        src/rmcl/correction/PinholeCorrectorOptixROS.cpp
     )
 
     target_link_libraries(rmcl_optix_ros
@@ -190,6 +201,21 @@ add_dependencies(pcl2_to_depth
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(pcl2_to_depth
+    ${catkin_LIBRARIES}
+    rmcl
+    rmcl_ros
+)
+
+####### IMAGE to DEPTH CONVERTER
+add_executable(image_to_depth src/nodes/image_to_depth.cpp)
+
+add_dependencies(image_to_depth 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(image_to_depth
     ${catkin_LIBRARIES}
     rmcl
     rmcl_ros
@@ -251,6 +277,22 @@ add_dependencies(lidar_corrector_optix
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(lidar_corrector_optix
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
+
+add_executable(depth_corrector_optix src/nodes/depth_corrector_optix.cpp)
+
+add_dependencies(depth_corrector_optix 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(depth_corrector_optix
     ${catkin_LIBRARIES}
     ${rmagine_ext_LIBRARIES}
     rmcl

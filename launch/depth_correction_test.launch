@@ -4,10 +4,14 @@
 <arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae" />
 <arg name="device" default="cpu" />
 
-<node pkg="rmcl" type="pcl2_to_depth" name="pcl2_to_depth" output="screen">
+<!-- <node pkg="rmcl" type="pcl2_to_depth" name="depth_conv" output="screen">
     <remap from="cloud" to="kinect/depth/points" />
     <remap from="info" to="kinect/depth/camera_info" />
-    <!-- <rosparam file="$(find rmcl)/config/sensors/Kinect.yaml" /> -->
+</node> -->
+
+<node pkg="rmcl" type="image_to_depth" name="depth_conv" output="screen">
+    <remap from="image" to="kinect/depth/image_raw" />
+    <remap from="info" to="kinect/depth/camera_info" />
 </node>
 
 <!-- ICP with given pose estimate -->
@@ -16,19 +20,19 @@
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom_combined" />
     <param name="base_frame" type="string" value="base_footprint" />
-    <remap from="depth" to="/pcl2_to_depth/depth"/>
+    <remap from="depth" to="/depth_conv/depth"/>
     <remap from="pose" to="/move_base_simple/goal"/>
     <param name="max_distance" type="double" value="0.5" />
 </node>
-<!-- 
-<node pkg="rmcl" type="lidar_corrector_optix" name="lidar_corrector" 
+
+<node pkg="rmcl" type="depth_corrector_optix" name="depth_corrector" 
     output="screen" if="$(eval arg('device') == 'gpu')">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom_combined" />
     <param name="base_frame" type="string" value="base_footprint" />
-    <remap from="scan" to="/pcl_converter/scan"/>
+    <remap from="depth" to="/depth_conv/depth"/>
     <remap from="pose" to="/move_base_simple/goal"/>
     <param name="max_distance" type="double" value="0.5" />
-</node> -->
+</node>
 
 </launch>

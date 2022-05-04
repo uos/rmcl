@@ -4,11 +4,13 @@
 #include <rmagine/util/optix/OptixData.hpp>
 
 extern "C" {
-__constant__ rmcl::SphereCorrectionDataRW mem;
+__constant__ rmcl::PinholeCorrectionDataRW mem;
 }
 
 extern "C" __global__ void __raygen__rg()
 {
+
+
     // Parameters
     const float dist_thresh = mem.params->max_distance;
     const float range_max = mem.model->range.max;
@@ -24,6 +26,11 @@ extern "C" __global__ void __raygen__rg()
     // pose id
     const unsigned int pid = idx.z;
 
+    // if(hid == 0 && vid == 0 && pid == 0)
+    // {
+    //     printf("PinholeCorrectProgramRW.cu\n");
+    // }
+
     const unsigned int loc_id = mem.model->getBufferId(vid, hid);
     const unsigned int glob_id = pid * mem.model->size() + loc_id;
 
@@ -31,9 +38,14 @@ extern "C" __global__ void __raygen__rg()
     const rmagine::Transform Tbm = mem.Tbm[pid];
     const rmagine::Transform Tsm = Tbm * Tsb;
     const rmagine::Quaternion Rmb = Tbm.R.inv();
-
     
-    const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
+    rmagine::Vector ray_dir_s;
+    if(mem.optical)
+    {
+        ray_dir_s = mem.model->getDirectionOptical(vid, hid);
+    } else {
+        ray_dir_s = mem.model->getDirection(vid, hid);
+    }        
 
     const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
     const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;

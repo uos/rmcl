@@ -98,6 +98,10 @@ void convert(
         if(!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
         {
             float range_est = sqrt(x*x + y*y + z*z);
+            // if(i == 0)
+            // {
+            //     std::cout << "Correct Depth (0,0): " << range_est << std::endl;
+            // }
             to.ranges[i] = range_est;
         }
     }

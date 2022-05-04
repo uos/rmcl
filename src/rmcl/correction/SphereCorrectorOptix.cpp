@@ -3,7 +3,7 @@
 #include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
 #include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
 
-#include "rmcl/correction/optix/OptixCorrectionData.hpp"
+#include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 
 #include <rmagine/math/math_batched.cuh>
 
@@ -111,7 +111,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     rm::Memory<rm::Vector, rm::VRAM_CUDA> model_points(Nrays);
     rm::Memory<rm::Vector, rm::VRAM_CUDA> dataset_points(Nrays);
 
-    rm::Memory<OptixCorrectionDataRW, rm::RAM> mem(1);
+    rm::Memory<SphereCorrectionDataRW, rm::RAM> mem(1);
     mem->model = m_model.raw();
     mem->ranges = m_ranges.raw();
     mem->Tsb = m_Tsb.raw();
@@ -123,7 +123,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
 
-    rm::Memory<OptixCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
+    rm::Memory<SphereCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, Base::m_stream);
 
     rm::OptixProgramPtr program = programs[0];
@@ -132,7 +132,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
         program->pipeline, 
         Base::m_stream, 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
-        sizeof( OptixCorrectionDataRW ), 
+        sizeof( SphereCorrectionDataRW ), 
         &program->sbt,
         m_width, // width Xdim
         m_height, // height Ydim
@@ -172,7 +172,7 @@ void SphereCorrectorOptix::computeMeansCovsSW(
     Ncorr.resize(Tbm.size());
 
     // Create Optix Memory structure
-    rm::Memory<OptixCorrectionDataSW, rm::RAM_CUDA> mem(1);
+    rm::Memory<SphereCorrectionDataSW, rm::RAM_CUDA> mem(1);
     mem->model = m_model.raw();
     mem->ranges = m_ranges.raw();
     mem->Tbm = Tbm.raw();
@@ -185,7 +185,7 @@ void SphereCorrectorOptix::computeMeansCovsSW(
     mem->m2 = m2.raw(); // Real
     mem->Ncorr = Ncorr.raw();
 
-    rm::Memory<OptixCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
+    rm::Memory<SphereCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, m_stream);
 
     rm::OptixProgramPtr program = programs[1];
@@ -194,7 +194,7 @@ void SphereCorrectorOptix::computeMeansCovsSW(
         program->pipeline, 
         m_stream, 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
-        sizeof( OptixCorrectionDataSW ), 
+        sizeof( SphereCorrectionDataSW ), 
         &program->sbt, 
         Tbm.size(),
         1,

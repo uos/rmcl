@@ -1,5 +1,8 @@
-#include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
+#include "rmcl/correction/optix/PinholeCorrectProgramRW.hpp"
+
+
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
+
 
 #include "rmagine/util/optix/OptixUtil.hpp"
 #include "rmagine/util/optix/OptixSbtRecord.hpp"
@@ -20,11 +23,12 @@ namespace rmcl {
 
 typedef SbtRecord<RayGenDataEmpty>     RayGenSbtRecord;
 typedef SbtRecord<MissDataEmpty>       MissSbtRecord;
+typedef SbtRecord<HitGroupDataNormals>   HitGroupSbtRecord;
 
-SphereCorrectProgramSW::SphereCorrectProgramSW(OptixMapPtr map)
+PinholeCorrectProgramRW::PinholeCorrectProgramRW(OptixMapPtr map)
 {
     const char *kernel =
-    #include "kernels/SphereCorrectProgramSWString.h"
+    #include "kernels/PinholeCorrectProgramRWString.h"
     ;
 
     // 1. INIT MODULE
@@ -63,7 +67,7 @@ SphereCorrectProgramSW::SphereCorrectProgramSW(OptixMapPtr map)
 
     if(ptx.empty())
     {
-        throw std::runtime_error("SphereProgramRanges could not find its PTX part");
+        throw std::runtime_error("PinholeProgramRanges could not find its PTX part");
     }
 
     OPTIX_CHECK( optixModuleCreateFromPTX(
