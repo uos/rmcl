@@ -33,7 +33,7 @@ public:
     void setOptical(bool optical = true);
 
     CorrectionResults<rmagine::VRAM_CUDA> correct(
-        const rmagine::Memory<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
     
 protected:
@@ -62,6 +62,7 @@ private:
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
         ) const;
+    
 };
 
 using PinholeCorrectorOptixPtr = std::shared_ptr<PinholeCorrectorOptix>;

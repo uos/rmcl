@@ -56,7 +56,7 @@ void PinholeCorrectorOptix::setOptical(bool optical)
 }
 
 CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
-    const rm::Memory<rm::Transform, rm::VRAM_CUDA>& Tbms) const
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
     // std::cout << "Start correction." << std::endl;
     CorrectionResults<rm::VRAM_CUDA> res;
@@ -96,28 +96,25 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
 
     size_t required_bytes_per_ray_sw = 0;
 
-    std::cout << "Model:" << std::endl;
-    std::cout << "- poses: " << Tbms.size() << std::endl;
-    std::cout << "- size: " << m_width * m_height << std::endl;
-    std::cout << "- rays: " << Nrays << std::endl;
-    std::cout << "Additional bytes required:" << std::endl;
-    std::cout << "- per pose: " << required_bytes_per_pose << ", total: " << required_bytes_per_pose * Tbms.size() << std::endl;
-    std::cout << "- RW. per ray: " << required_bytes_per_ray_rw << ", per pose: " << required_bytes_per_ray_rw * scanSize << std::endl;
-    std::cout << "- SW. per ray: " << required_bytes_per_ray_sw << ", per pose: " << required_bytes_per_ray_sw * scanSize << std::endl;
+    // std::cout << "Model:" << std::endl;
+    // std::cout << "- poses: " << Tbms.size() << std::endl;
+    // std::cout << "- size: " << m_width * m_height << std::endl;
+    // std::cout << "- rays: " << Nrays << std::endl;
+    // std::cout << "Additional bytes required:" << std::endl;
+    // std::cout << "- per pose: " << required_bytes_per_pose << ", total: " << required_bytes_per_pose * Tbms.size() << std::endl;
+    // std::cout << "- RW. per ray: " << required_bytes_per_ray_rw << ", per pose: " << required_bytes_per_ray_rw * scanSize << std::endl;
+    // std::cout << "- SW. per ray: " << required_bytes_per_ray_sw << ", per pose: " << required_bytes_per_ray_sw * scanSize << std::endl;
     
     size_t free_bytes, total_bytes;
     cudaMemGetInfo(&free_bytes, &total_bytes);
-    // std::cout << "Cuda:" << std::endl;
-    // std::cout << "- free: " << free_bytes << std::endl;
-    // std::cout << "- total: " << total_bytes << std::endl;
 
     size_t max_poses_rw = free_bytes / (required_bytes_per_pose + required_bytes_per_ray_rw * scanSize);
 
     max_poses_rw *= 3;
     max_poses_rw /= 4;
 
-    std::cout << "Max poses to compute " << std::endl;
-    std::cout << max_poses_rw << std::endl;
+    // std::cout << "Max poses to compute " << std::endl;
+    // std::cout << max_poses_rw << std::endl;
     // std::cout << "- RW: " << free_bytes / (required_bytes_per_pose + required_bytes_per_ray_rw * scanSize) << std::endl;
     // std::cout << "- SW: " << free_bytes / (required_bytes_per_pose + required_bytes_per_ray_sw * scanSize) << std::endl;
 
@@ -127,6 +124,11 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     
+
+    // what we need to decide what to do
+    // - maximum allowed memory to use (default: max available?)
+    // - performance switch when to use RW or SW
+
     // TODO how to make this dynamic somehow
     constexpr unsigned int POSE_SWITCH = 1024 * 8;
     // constexpr unsigned int POSE_SWITCH = 0;
@@ -166,12 +168,8 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
                 auto Ncorr_ = res.Ncorr(chunk_start, chunk_end);
 
                 computeMeansCovsRW(Tbms_, m1_, m2_, Cs_, Ncorr_);
-                
             }
         }
-        
-        
-        
     }
 
     m_svd->calcUV(Cs, Us, Vs);
@@ -247,6 +245,8 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
     // sw();
     Ncorr = rm::sumBatched(corr_valid, scanSize);
 
+    // TODO: mean batched ignore zeros
+
     auto dataset_sums = rm::sumBatched(dataset_points, corr_valid, scanSize);
     auto model_sums = rm::sumBatched(model_points, corr_valid, scanSize);
 
@@ -258,11 +258,9 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
             model_sums, 
             Ncorr);
 
-    auto Csums = sumFancyBatched(model_points, m2, dataset_points, m1, corr_valid);
-
-    Cs = rm::divNxNIgnoreZeros(
-        Csums, 
-        Ncorr);
+    covFancyBatched(model_points, m2, 
+            dataset_points, m1, 
+            corr_valid, Ncorr, Cs);
 }
 
 void PinholeCorrectorOptix::computeMeansCovsSW(
