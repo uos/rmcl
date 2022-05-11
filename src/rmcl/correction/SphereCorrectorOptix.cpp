@@ -141,21 +141,13 @@ void SphereCorrectorOptix::computeMeansCovsRW(
 
     cudaStreamSynchronize(m_stream);
 
-    Ncorr = rm::sumBatched(corr_valid, scanSize);
+    rm::sumBatched(corr_valid, Ncorr);
+    meanBatched(dataset_points, corr_valid, Ncorr, m1);
+    meanBatched(model_points, corr_valid, Ncorr, m2);
 
-    // TODO: m1 and m2 can be computed in parallel
-    m1 = rm::divNxNIgnoreZeros(
-            rm::sumBatched(dataset_points, corr_valid, scanSize), 
-            Ncorr);
-    
-    m2 = rm::divNxNIgnoreZeros(
-            rm::sumBatched(model_points, corr_valid, scanSize), 
-            Ncorr);
-
-    // model_centered * D_centered.T
-    Cs = rm::divNxNIgnoreZeros(
-        sumFancyBatched(model_points, m2, dataset_points, m1, corr_valid), 
-        Ncorr);
+    covFancyBatched(model_points, m2, 
+            dataset_points, m1, 
+            corr_valid, Ncorr, Cs);
 }
 
 void SphereCorrectorOptix::computeMeansCovsSW(

@@ -239,24 +239,10 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
         ));
 
     cudaStreamSynchronize(m_stream);
-    // el = sw();
-    // std::cout << "- raycast: " << el << "s" << std::endl;
 
-    // sw();
-    Ncorr = rm::sumBatched(corr_valid, scanSize);
-
-    // TODO: mean batched ignore zeros
-
-    auto dataset_sums = rm::sumBatched(dataset_points, corr_valid, scanSize);
-    auto model_sums = rm::sumBatched(model_points, corr_valid, scanSize);
-
-    m1 = rm::divNxNIgnoreZeros(
-            dataset_sums, 
-            Ncorr);
-    
-    m2 = rm::divNxNIgnoreZeros(
-            model_sums, 
-            Ncorr);
+    rm::sumBatched(corr_valid, Ncorr);
+    meanBatched(dataset_points, corr_valid, Ncorr, m1);
+    meanBatched(model_points, corr_valid, Ncorr, m2);
 
     covFancyBatched(model_points, m2, 
             dataset_points, m1, 

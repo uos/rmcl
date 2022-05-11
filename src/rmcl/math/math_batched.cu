@@ -17,6 +17,60 @@ __device__ void warpReduce(volatile T* sdata, unsigned int tid)
 }
 
 template<unsigned int blockSize>
+__global__ void meanBatched_kernel(
+    const rm::Vector* data,
+    const unsigned int* mask,
+    const unsigned int* Ncorr,
+    unsigned int chunkSize,
+    rm::Vector* res)
+{
+    __shared__ rm::Vector sdata[blockSize];
+
+    const unsigned int tid = threadIdx.x;
+    const unsigned int globId = chunkSize * blockIdx.x + threadIdx.x;
+    const unsigned int rows = (chunkSize + blockSize - 1) / blockSize;
+
+    sdata[tid] = {0.0, 0.0, 0.0};
+
+    for(unsigned int i=0; i<rows; i++)
+    {
+        if(tid + blockSize * i < chunkSize)
+        {
+            if(mask[globId + blockSize * i] > 0)
+            {
+                sdata[tid] += data[globId + blockSize * i];
+            }
+        }
+    }
+    __syncthreads();
+    
+    for(unsigned int s = blockSize / 2; s > 32; s >>= 1)
+    {
+        if(tid < s)
+        {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+
+    if(tid < blockSize / 2 && tid < 32)
+    {
+        warpReduce<blockSize>(sdata, tid);
+    }
+
+    if(tid == 0)
+    {
+        const unsigned int Ncorr_ = Ncorr[blockIdx.x];
+        if(Ncorr_ > 0)
+        {
+            res[blockIdx.x] = sdata[0] / Ncorr_;
+        } else {
+            res[blockIdx.x] = {0.0, 0.0, 0.0};
+        }
+    }
+}
+
+template<unsigned int blockSize>
 __global__ void sumFancyBatched_kernel(
     const rm::Vector* data1, // to
     const rm::Vector* center1,
@@ -144,6 +198,32 @@ __global__ void covFancyBatched_kernel(
             Cs[blockIdx.x].setZeros();
         }
     }
+}
+
+void meanBatched(
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& data,
+    const rm::MemoryView<unsigned int, rm::VRAM_CUDA>& mask,
+    const rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr,
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& res)
+{
+    unsigned int Nchunks = Ncorr.size();
+    unsigned int batchSize = data.size() / Nchunks;
+    constexpr unsigned int blockSize = 128; // TODO: get best value for this one
+
+    meanBatched_kernel<blockSize> <<<Nchunks, blockSize>>>(
+        data.raw(), mask.raw(), 
+        Ncorr.raw(), batchSize, 
+        res.raw());
+}
+
+rm::Memory<rm::Vector, rm::VRAM_CUDA> meanBatched(
+    const rm::MemoryView<rmagine::Vector, rm::VRAM_CUDA>& data,
+    const rm::MemoryView<unsigned int, rm::VRAM_CUDA>& mask,
+    const rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr)
+{
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> res(Ncorr.size());
+    meanBatched(data, mask, Ncorr, res);
+    return res;
 }
 
 void sumFancyBatched(
