@@ -226,14 +226,17 @@ void scanCB(const sensor_msgs::LaserScan::ConstPtr& msg)
     model.dirs[Nscan+3] = {0.0, 0.0, -1.0};
 
     Memory<float, RAM> ranges(Nscan + 4);
+    auto ranges_scan = ranges(0, Nscan);
+    auto ranges_wheels = ranges(Nscan, Nscan + 4);
+
     for(size_t i=0; i<Nscan; i++)
     {
-        ranges[i] = msg->ranges[i];
+        ranges_scan[i] = msg->ranges[i];
     }
-    ranges[Nscan+0] = wheel_radius;
-    ranges[Nscan+1] = wheel_radius;
-    ranges[Nscan+2] = wheel_radius;
-    ranges[Nscan+3] = wheel_radius;
+    ranges_wheels[0] = wheel_radius;
+    ranges_wheels[1] = wheel_radius;
+    ranges_wheels[2] = wheel_radius;
+    ranges_wheels[3] = wheel_radius;
 
     publish_model(model);
 
