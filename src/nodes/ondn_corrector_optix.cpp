@@ -7,16 +7,16 @@
 #include <tf2_ros/transform_listener.h>
 
 // Rmagine deps
-#include <rmagine/map/EmbreeMap.hpp>
+#include <rmagine/map/OptixMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/util/prints.h>
+#include <rmagine/math/math.cuh>
 
 // RCML msgs
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/OnDnCorrectorEmbreeROS.hpp>
-#include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
+#include <rmcl/correction/OnDnCorrectorOptixROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -37,7 +37,7 @@ using namespace rmcl_msgs;
 using namespace rmagine;
 
 // SphereCorrectorEmbreeROSPtr scan_correct;
-OnDnCorrectorEmbreeROSPtr ondn_correct;
+OnDnCorrectorOptixROSPtr ondn_correct;
 ros::Publisher model_pub;
 
 bool        pose_received = false;
@@ -241,6 +241,7 @@ void scanCB(const sensor_msgs::LaserScan::ConstPtr& msg)
     publish_model(model);
 
     ondn_correct->setModel(model);
+    // Memory<float, VRAM_CUDA> ranges_ = ranges;
     ondn_correct->setInputData(ranges);
 
     last_scan = msg->header.stamp;
@@ -263,15 +264,19 @@ void correctOnce()
     }
     
     // std::cout << "Correct!" << std::endl;
+    // upload
+    Memory<Transform, VRAM_CUDA> poses_ = poses;
     sw();
-    auto corrRes = ondn_correct->correct(poses);
+    auto corrRes = ondn_correct->correct(poses_);
     double el = sw();
 
     ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
 
     // std::cout << corrRes.Tdelta[0] << std::endl;
 
-    poses = multNxN(poses, corrRes.Tdelta);
+    poses_ = multNxN(poses_, corrRes.Tdelta);
+    // download
+    poses = poses_;
 
     // Update T_odom_map
     convert(poses[0], T_base_map.transform);
@@ -311,7 +316,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Embree Corrector started");
+    ROS_INFO("Optix Corrector started");
 
     std::string map_frame;
     std::string meshfile;
@@ -332,9 +337,9 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    OptixMapPtr map = importOptixMap(meshfile);
     
-    ondn_correct.reset(new OnDnCorrectorEmbreeROS(map));
+    ondn_correct.reset(new OnDnCorrectorOptixROS(map));
     // scan_correct.reset(new SphereCorrectorEmbreeROS(map));
 
     CorrectionParams corr_params;

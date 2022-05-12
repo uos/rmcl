@@ -1,11 +1,11 @@
-#ifndef RMCL_SPHERE_CORRECTOR_OPTIX_HPP
-#define RMCL_SPHERE_CORRECTOR_OPTIX_HPP
+#ifndef RMCL_ONDN_CORRECTOR_OPTIX_HPP
+#define RMCL_ONDN_CORRECTOR_OPTIX_HPP
 
 #include <rmagine/map/OptixMap.hpp>
 #include <rmagine/types/sensor_models.h>
 #include <rmagine/math/types.h>
 #include <rmagine/math/SVDCuda.hpp>
-#include <rmagine/simulation/SphereSimulatorOptix.hpp>
+#include <rmagine/simulation/OnDnSimulatorOptix.hpp>
 
 #include "CorrectionResults.hpp"
 #include "CorrectionParams.hpp"
@@ -15,16 +15,20 @@
 namespace rmcl 
 {
 
-class SphereCorrectorOptix 
-: public rmagine::SphereSimulatorOptix
+class OnDnCorrectorOptix 
+: public rmagine::OnDnSimulatorOptix
 {
 public:
-    using Base = rmagine::SphereSimulatorOptix;
+    using Base = rmagine::OnDnSimulatorOptix;
 
-    SphereCorrectorOptix(rmagine::OptixMapPtr map);
+    OnDnCorrectorOptix(rmagine::OptixMapPtr map);
 
     void setParams(
         const CorrectionParams& params);
+
+    void setInputData(
+        const rmagine::MemoryView<float, rmagine::RAM>& ranges
+    );
 
     void setInputData(
         const rmagine::MemoryView<float, rmagine::VRAM_CUDA>& ranges
@@ -60,8 +64,8 @@ private:
         ) const;
 };
 
-using SphereCorrectorOptixPtr = std::shared_ptr<SphereCorrectorOptix>;
+using OnDnCorrectorOptixPtr = std::shared_ptr<OnDnCorrectorOptix>;
 
 } // namespace rmcl
 
-#endif // RMCL_SPHERE_CORRECTOR_OPTIX_HPP
+#endif // RMCL_ONDN_CORRECTOR_OPTIX_HPP

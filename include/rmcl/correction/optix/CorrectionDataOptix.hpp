@@ -40,6 +40,7 @@
 
 #include <rmagine/types/sensor_models.h>
 #include <rmagine/math/types.h>
+#include <rmagine/types/MemoryCuda.hpp>
 
 #include "rmcl/correction/CorrectionParams.hpp"
 
@@ -71,6 +72,7 @@ struct CorrectionDataSW
 
 using SphereCorrectionDataSW = CorrectionDataSW<rmagine::SphericalModel>;
 using PinholeCorrectionDataSW = CorrectionDataSW<rmagine::PinholeModel>;
+using OnDnCorrectionDataSW = CorrectionDataSW<rmagine::OnDnModel_<rmagine::VRAM_CUDA> >;
 
 /**
  * @brief Data for raywise correction
@@ -97,6 +99,7 @@ struct CorrectionDataRW
 
 using SphereCorrectionDataRW = CorrectionDataRW<rmagine::SphericalModel>;
 using PinholeCorrectionDataRW = CorrectionDataRW<rmagine::PinholeModel>;
+using OnDnCorrectionDataRW = CorrectionDataRW<rmagine::OnDnModel_<rmagine::VRAM_CUDA> >;
 
 } // namespace rmcl
 

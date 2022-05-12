@@ -26,78 +26,40 @@
  */
 
 /*
- * EmbreeCorrector.hpp
+ * OnDnCorrectProgramSW.hpp
  *
  *  Created on: Jul 17, 2021
  *      Author: Alexander Mock
  */
 
+#ifndef RMCL_CORRECTION_OPTIX_ONDN_CORRECT_PROGRAM_SW_HPP
+#define RMCL_CORRECTION_OPTIX_ONDN_CORRECT_PROGRAM_SW_HPP
 
-#ifndef RMCL_CORRECTOR_ONDN_EMBREE_HPP
-#define RMCL_CORRECTOR_ONDN_EMBREE_HPP
+#include <rmagine/map/OptixMap.hpp>
+#include <rmagine/util/optix/OptixProgram.hpp>
 
-#include <memory>
+#include <rmagine/util/optix/OptixSbtRecord.hpp>
+#include <rmagine/util/optix/OptixData.hpp>
 
-// rmagine deps
-#include <rmagine/map/EmbreeMap.hpp>
-#include <rmagine/types/sensor_models.h>
-#include <rmagine/math/SVD.hpp>
-#include <rmagine/simulation/OnDnSimulatorEmbree.hpp>
 
-#include "CorrectionResults.hpp"
-#include "CorrectionParams.hpp"
+
 
 namespace rmcl {
 
+typedef rmagine::SbtRecord<rmagine::HitGroupDataNormals>   HitGroupSbtRecord;
+
 /**
- * @brief EmbreeCorrector computes robot pose corrections in robot frame on CPU.
+ * @brief Scan-wise parallelization
  * 
- * Required information to set:
- * - Sensor Model: OnDnModel
- * - Sensor Data: Scanner Ranges
- * - Transformation: Sensor to Base
- * 
- * TODO: inherit from rmagine::OnDnSimulatorEmbree ???
  */
-class OnDnCorrectorEmbree 
-: public rmagine::OnDnSimulatorEmbree
+class OnDnCorrectProgramSW : public rmagine::OptixProgram 
 {
 public:
-    /**
-     * @brief Correct Sensor data towards a given map
-     * 
-     * @param mesh 
-     */
-    using Base = rmagine::OnDnSimulatorEmbree;
-    using Base::Base;
-
-    void setParams(
-        const CorrectionParams& params);
-
-    void setInputData(
-        const rmagine::MemoryView<float, rmagine::RAM>& ranges);
-
-    /**
-     * @brief Correct one ore multiple Poses towards the map
-     * 
-     * @param Tbm Poses represented as transformations (rmagine::Transform)
-     * @return Memory<Transform, RAM> Correction in robots base coordinates
-     */
-    CorrectionResults<rmagine::RAM> correct(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
-    );
-
-protected:
-    rmagine::Memory<float, rmagine::RAM> m_ranges;
-
-    CorrectionParams m_params;
-
-    // TODO: currently unused
-    rmagine::SVDPtr m_svd;
+    OnDnCorrectProgramSW(rmagine::OptixMapPtr map);
+private:
+    HitGroupSbtRecord m_hg_sbt;
 };
-
-using OnDnCorrectorEmbreePtr = std::shared_ptr<OnDnCorrectorEmbree>;
 
 } // namespace rmcl
 
-#endif // RMCL_CORRECTOR_ONDN_EMBREE_HPP
+#endif // RMCL_CORRECTION_OPTIX_ONDN_CORRECT_PROGRAM_SW_HPP

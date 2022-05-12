@@ -16,7 +16,7 @@ void OnDnCorrectorEmbree::setParams(
 }
 
 void OnDnCorrectorEmbree::setInputData(
-    const rmagine::Memory<float, rmagine::RAM>& ranges)
+    const rmagine::MemoryView<float, rmagine::RAM>& ranges)
 {
     m_ranges = ranges;
 }
@@ -60,7 +60,7 @@ static Eigen::Matrix4f my_umeyama(
 }
 
 CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
-    const rmagine::Memory<rmagine::Transform, rmagine::RAM>& Tbms)
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     // std::cout << "Correct!" << std::endl;
     // std::cout << "- rays " << m_model->size() << std::endl;

@@ -1,7 +1,7 @@
-#include "rmcl/correction/SphereCorrectorOptix.hpp"
+#include "rmcl/correction/OnDnCorrectorOptix.hpp"
 
-#include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
-#include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
+#include "rmcl/correction/optix/OnDnCorrectProgramRW.hpp"
+#include "rmcl/correction/optix/OnDnCorrectProgramSW.hpp"
 
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 
@@ -19,13 +19,13 @@ namespace rm = rmagine;
 namespace rmcl 
 {
 
-SphereCorrectorOptix::SphereCorrectorOptix(
+OnDnCorrectorOptix::OnDnCorrectorOptix(
     rmagine::OptixMapPtr map)
 :Base(map)
 {
     programs.resize(2);
-    programs[0].reset(new SphereCorrectProgramRW(map));
-    programs[1].reset(new SphereCorrectProgramSW(map));
+    programs[0].reset(new OnDnCorrectProgramRW(map));
+    programs[1].reset(new OnDnCorrectProgramSW(map));
 
     // CUDA_CHECK( cudaStreamCreate(&m_stream) );
     m_svd.reset(new rm::SVDCuda(Base::m_stream));
@@ -35,7 +35,7 @@ SphereCorrectorOptix::SphereCorrectorOptix(
     setParams(params);
 }
 
-void SphereCorrectorOptix::setParams(
+void OnDnCorrectorOptix::setParams(
     const CorrectionParams& params)
 {
     rm::Memory<CorrectionParams, rm::RAM> params_ram(1);
@@ -43,13 +43,20 @@ void SphereCorrectorOptix::setParams(
     m_params = params_ram;
 }
 
-void SphereCorrectorOptix::setInputData(
+void OnDnCorrectorOptix::setInputData(
+    const rmagine::MemoryView<float, rmagine::RAM>& ranges
+)
+{
+    m_ranges = ranges;
+}
+
+void OnDnCorrectorOptix::setInputData(
     const rmagine::MemoryView<float, rmagine::VRAM_CUDA>& ranges)
 {
     m_ranges = ranges;
 }
 
-CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
+CorrectionResults<rm::VRAM_CUDA> OnDnCorrectorOptix::correct(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
     // std::cout << "Start correction." << std::endl;
@@ -93,7 +100,7 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
 }
 
 /// PRIVATE
-void SphereCorrectorOptix::computeMeansCovsRW(
+void OnDnCorrectorOptix::computeMeansCovsRW(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbm,
     rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m1, // from, dataset
     rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m2, // to, model
@@ -101,6 +108,9 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
     ) const
 {
+    rm::Memory<rm::OnDnModel_<rm::VRAM_CUDA>, rm::VRAM_CUDA> model(1);
+    copy(m_model, model, m_stream);
+
     size_t scanSize = m_width * m_height;
     // size_t scanSize = m_model_ram->width * m_model_ram->height;
     size_t Nrays = Tbm.size() * scanSize;
@@ -109,8 +119,8 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     rm::Memory<rm::Vector, rm::VRAM_CUDA> model_points(Nrays);
     rm::Memory<rm::Vector, rm::VRAM_CUDA> dataset_points(Nrays);
 
-    rm::Memory<SphereCorrectionDataRW, rm::RAM> mem(1);
-    mem->model = m_model.raw();
+    rm::Memory<OnDnCorrectionDataRW, rm::RAM> mem(1);
+    mem->model = model.raw();
     mem->ranges = m_ranges.raw();
     mem->Tsb = m_Tsb.raw();
     mem->Tbm = Tbm.raw();
@@ -121,7 +131,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
 
-    rm::Memory<SphereCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
+    rm::Memory<OnDnCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, Base::m_stream);
 
     rm::OptixProgramPtr program = programs[0];
@@ -130,7 +140,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
         program->pipeline, 
         Base::m_stream, 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
-        sizeof( SphereCorrectionDataRW ), 
+        sizeof( OnDnCorrectionDataRW ), 
         &program->sbt,
         m_width, // width Xdim
         m_height, // height Ydim
@@ -148,7 +158,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
             corr_valid, Ncorr, Cs);
 }
 
-void SphereCorrectorOptix::computeMeansCovsSW(
+void OnDnCorrectorOptix::computeMeansCovsSW(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbm,
     rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m1,
     rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m2,
@@ -156,9 +166,12 @@ void SphereCorrectorOptix::computeMeansCovsSW(
     rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
     ) const
 {
+    rm::Memory<rm::OnDnModel_<rm::VRAM_CUDA>, rm::VRAM_CUDA> model(1);
+    copy(m_model, model, m_stream);
+
     // Create Optix Memory structure
-    rm::Memory<SphereCorrectionDataSW, rm::RAM_CUDA> mem(1);
-    mem->model = m_model.raw();
+    rm::Memory<OnDnCorrectionDataSW, rm::RAM_CUDA> mem(1);
+    mem->model = model.raw();
     mem->ranges = m_ranges.raw();
     mem->Tbm = Tbm.raw();
     mem->Tsb = m_Tsb.raw();
@@ -170,7 +183,7 @@ void SphereCorrectorOptix::computeMeansCovsSW(
     mem->m2 = m2.raw(); // Real
     mem->Ncorr = Ncorr.raw();
 
-    rm::Memory<SphereCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
+    rm::Memory<OnDnCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, m_stream);
 
     rm::OptixProgramPtr program = programs[1];
@@ -179,7 +192,7 @@ void SphereCorrectorOptix::computeMeansCovsSW(
         program->pipeline, 
         m_stream, 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
-        sizeof( SphereCorrectionDataSW ), 
+        sizeof( OnDnCorrectionDataSW ), 
         &program->sbt, 
         Tbm.size(),
         1,

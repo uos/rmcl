@@ -75,7 +75,7 @@ public:
         const CorrectionParams& params);
 
     void setInputData(
-        const rmagine::Memory<float, rmagine::RAM>& ranges);
+        const rmagine::MemoryView<float, rmagine::RAM>& ranges);
 
     /**
      * @brief Correct one ore multiple Poses towards the map
@@ -84,7 +84,7 @@ public:
      * @return Memory<Transform, RAM> Correction in robots base coordinates
      */
     CorrectionResults<rmagine::RAM> correct(
-        const rmagine::Memory<rmagine::Transform, rmagine::RAM>& Tbms
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
 protected:
