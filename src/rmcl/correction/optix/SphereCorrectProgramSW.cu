@@ -174,15 +174,8 @@ extern "C" __global__ void __raygen__rg()
                         const rmagine::Vector a = pmesh_b - to_mean;
                         const rmagine::Vector b = preal_b - from_mean;
 
-                        C(0,0) += a.x * b.x;
-                        C(1,0) += a.x * b.y;
-                        C(2,0) += a.x * b.z;
-                        C(0,1) += a.y * b.x;
-                        C(1,1) += a.y * b.y;
-                        C(2,1) += a.y * b.z;
-                        C(0,2) += a.z * b.x;
-                        C(1,2) += a.z * b.y;
-                        C(2,2) += a.z * b.z;
+                        // from * to.T
+                        C += b.multT(a);
                     }
                 }
             }

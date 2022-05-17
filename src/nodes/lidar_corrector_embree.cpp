@@ -148,11 +148,12 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 void correctOnce()
 {
     StopWatch sw;
+    double el;
     // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    size_t Nposes = 1;
+    size_t Nposes = 100;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
@@ -160,16 +161,23 @@ void correctOnce()
         convert(T_base_map.transform, poses[i]);
     }
     
+    ROS_INFO("Correct");
     sw();
-    auto corrRes = scan_correct->correctOld(poses);
-    double el = sw();
+    auto corrRes = scan_correct->correct(poses);
+    el = sw();
+    ROS_INFO_STREAM("- correctOnce: poses " << Nposes << " in " << el << "s");
 
-    ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
+    ROS_INFO("Correct 2");
+    sw();
+    corrRes = scan_correct->correct(poses);
+    el = sw();
+    ROS_INFO_STREAM("- correctOnce: poses " << Nposes << " in " << el << "s");
 
+    
     poses = multNxN(poses, corrRes.Tdelta);
 
     // Update T_odom_map
-    convert(poses[0], T_base_map.transform);
+    convert(poses[poses.size() - 1], T_base_map.transform);
     T_odom_map = T_base_map * ~T_base_odom;
 }
 

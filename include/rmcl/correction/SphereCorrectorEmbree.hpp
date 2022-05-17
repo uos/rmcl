@@ -87,11 +87,16 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
-    CorrectionPreResults<rmagine::RAM> pre_correct(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
+    void compute_covs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
+        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
+        rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
+        rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
     );
 
-    CorrectionResults<rmagine::RAM> correctOld(
+    // test
+    CorrectionResults<rmagine::RAM> correct2(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 

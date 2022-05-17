@@ -19,6 +19,7 @@
 #include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
+#include <rmcl/math/math.h>
 
 // rosmath
 #include <rosmath/sensor_msgs/conversions.h>
@@ -36,8 +37,9 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-// SphereCorrectorEmbreeROSPtr scan_correct;
+SphereCorrectorEmbreeROSPtr scan_correct;
 OnDnCorrectorEmbreeROSPtr ondn_correct;
+
 ros::Publisher model_pub;
 
 bool        pose_received = false;
@@ -118,7 +120,6 @@ bool fetchTF()
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
             ROS_WARN_STREAM("Source: " << base_frame << ", Target: " << sensor_frame);
-
             ret = false;
         }
     } else {
@@ -136,7 +137,7 @@ bool fetchTF()
     Transform identity;
     identity.setIdentity();
     ondn_correct->setTsb(identity);
-    // scan_correct->setTsb(T_sensor_base.transform);
+    scan_correct->setTsb(T_sensor_base.transform);
     
     if(has_odom_frame && has_base_frame)
     {
@@ -168,7 +169,7 @@ bool fetchTF()
 void poseCB(geometry_msgs::PoseStamped msg)
 {
     // std::cout << "poseCB" << std::endl;
-    msg.pose.position.z += 0.0;
+    msg.pose.position.z += 0.1;
     map_frame = msg.header.frame_id;
     pose_received = true;
 
@@ -190,65 +191,21 @@ void scanCB(const sensor_msgs::LaserScan::ConstPtr& msg)
     sensor_frame = msg->header.frame_id;
 
     fetchTF();
+    // size_t Nscan = msg->ranges.size();
 
-    size_t Nscan = msg->ranges.size();
-
-    Transform Tsb;
-    convert(T_sensor_base.transform, Tsb);
+    // Transform Tsb;
+    // convert(T_sensor_base.transform, Tsb);
 
     SphericalModel laser_model;
     convert(*msg, laser_model);
 
-    OnDnModel model;
-    model.origs.resize(Nscan + 4);
-    model.dirs.resize(Nscan + 4);
-    model.width = Nscan + 4;
-    model.height = 1;
-    model.range.min = 0.0;
-    model.range.max = 10.0;
-
-    for(size_t i=0; i<Nscan; i++)
-    {
-        model.origs[i] = Tsb.t;
-        model.dirs[i] = Tsb.R * laser_model.getDirection(0, i);
-    }
-
-    float wheel_dist_front = 0.14;
-    float wheel_dist_left = 0.188;
-    float wheel_radius = 0.135;
-
-    model.origs[Nscan+0] = {wheel_dist_front, wheel_dist_left, wheel_radius}; // front left
-    model.origs[Nscan+1] = {wheel_dist_front, -wheel_dist_left, wheel_radius}; // front right
-    model.origs[Nscan+2] = {-wheel_dist_front, wheel_dist_left, wheel_radius}; // rear left
-    model.origs[Nscan+3] = {-wheel_dist_front, -wheel_dist_left, wheel_radius}; // rear right
+    scan_correct->setModel(laser_model);
+    scan_correct->setInputData(msg->ranges);
     
-    model.dirs[Nscan+0] = {0.0, 0.0, -1.0};
-    model.dirs[Nscan+1] = {0.0, 0.0, -1.0};
-    model.dirs[Nscan+2] = {0.0, 0.0, -1.0};
-    model.dirs[Nscan+3] = {0.0, 0.0, -1.0};
-
-    Memory<float, RAM> ranges(Nscan + 4);
-    auto ranges_scan = ranges(0, Nscan);
-    auto ranges_wheels = ranges(Nscan, Nscan + 4);
-
-    for(size_t i=0; i<Nscan; i++)
-    {
-        ranges_scan[i] = msg->ranges[i];
-    }
-    ranges_wheels[0] = wheel_radius;
-    ranges_wheels[1] = wheel_radius;
-    ranges_wheels[2] = wheel_radius;
-    ranges_wheels[3] = wheel_radius;
-
-    publish_model(model);
-
-    ondn_correct->setModel(model);
-    ondn_correct->setInputData(ranges);
+    // std::cout << "BBB - Sick: Model and Data set" << std::endl;
 
     last_scan = msg->header.stamp;
     scan_received = true;
-
-    // std::cout << "AAA - Dir 0 " << model.getDirection(0, 0) << std::endl;
 }
 
 void correctOnce()
@@ -266,18 +223,52 @@ void correctOnce()
         convert(T_base_map.transform, poses[i]);
     }
     
-    // std::cout << "Correct!" << std::endl;
+    // Extra memory for laser (_l) and wheels (_w)
+    Memory<Vector> m_l(Nposes);
+    Memory<Vector> d_l(Nposes);
+    Memory<Matrix3x3> C_l(Nposes);
+    Memory<unsigned int> N_l(Nposes);
 
-    std::cout << "AAA - Pose: " << poses[0] << std::endl;
+    Memory<Vector> m_w(Nposes);
+    Memory<Vector> d_w(Nposes);
+    Memory<Matrix3x3> C_w(Nposes);
+    Memory<unsigned int> N_w(Nposes);
+    
+
+    // Extra memory for weighted average
+    Memory<Vector> m(Nposes);
+    Memory<Vector> d(Nposes);
+    Memory<Matrix3x3> C(Nposes);
+    Memory<unsigned int> Ncorr(Nposes);
+
+    // Result
+    Memory<Transform> Tdelta(Nposes);
+
     sw();
-    auto corrRes = ondn_correct->correct(poses);
+    scan_correct->compute_covs(poses, m_l, d_l, C_l, N_l);
+    ondn_correct->compute_covs(poses, m_w, d_w, C_w, N_w);
+    
+    // weighted_average(m_l, d_l, C_l, N_l, m_w, d_w, C_w, N_w, m, d, C, Ncorr);
+    
+    // or fifty fifty
+    weighted_average(m_l, d_l, C_l, N_l, 0.5, m_w, d_w, C_w, N_w, 0.5, m, d, C, Ncorr);
+    
+    
+    correction_from_covs(m, d, C, Ncorr, Tdelta);
     double el = sw();
 
-    ROS_INFO_STREAM("AAA - correctOnce: poses " << Nposes << " in " << el << "s");
+    ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
+
+    // std::cout << "Correct!" << std::endl;
+    // sw();
+    // auto corrRes = ondn_correct->correct(poses);
+    // double el = sw();
+
+    // ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
 
     // std::cout << corrRes.Tdelta[0] << std::endl;
 
-    poses = multNxN(poses, corrRes.Tdelta);
+    poses = multNxN(poses, Tdelta);
 
     // Update T_odom_map
     convert(poses[0], T_base_map.transform);
@@ -311,13 +302,54 @@ void updateTF()
     br.sendTransform(T);
 }
 
+void genWheelModel()
+{
+    float wheel_dist_front = 0.14;
+    float wheel_dist_left = 0.188;
+    float wheel_radius = 0.135;
+
+    OnDnModel wheel_model;
+    wheel_model.width = 4;
+    wheel_model.height = 1;
+    wheel_model.range.min = 0.0;
+    wheel_model.range.max = wheel_radius * 2.0;
+
+    // center of four wheels
+    wheel_model.origs.resize(4);
+    wheel_model.origs[0] = {wheel_dist_front, wheel_dist_left, wheel_radius}; // front left
+    wheel_model.origs[1] = {wheel_dist_front, -wheel_dist_left, wheel_radius}; // front right
+    wheel_model.origs[2] = {-wheel_dist_front, wheel_dist_left, wheel_radius}; // rear left
+    wheel_model.origs[3] = {-wheel_dist_front, -wheel_dist_left, wheel_radius}; // rear right
+    
+
+    // direction pointing towards ground
+    wheel_model.dirs.resize(4);
+    wheel_model.dirs[0] = {0.0, 0.0, -1.0};
+    wheel_model.dirs[1] = {0.0, 0.0, -1.0};
+    wheel_model.dirs[2] = {0.0, 0.0, -1.0};
+    wheel_model.dirs[3] = {0.0, 0.0, -1.0};
+
+    ondn_correct->setModel(wheel_model);
+
+    Memory<float> ranges_wheels(4);
+    ranges_wheels[0] = wheel_radius;
+    ranges_wheels[1] = wheel_radius;
+    ranges_wheels[2] = wheel_radius;
+    ranges_wheels[3] = wheel_radius;
+
+    ondn_correct->setInputData(ranges_wheels);
+    Transform Tsb;
+    Tsb.setIdentity();
+    ondn_correct->setTsb(Tsb);
+}
+
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "lidar_corrector_embree");
+    ros::init(argc, argv, "lidar_corrector_embree_2");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Embree Corrector started");
+    ROS_INFO("Embree Corrector 2 started");
 
     std::string map_frame;
     std::string meshfile;
@@ -340,13 +372,18 @@ int main(int argc, char** argv)
 
     EmbreeMapPtr map = importEmbreeMap(meshfile);
     
+    scan_correct.reset(new SphereCorrectorEmbreeROS(map));
     ondn_correct.reset(new OnDnCorrectorEmbreeROS(map));
-    // scan_correct.reset(new SphereCorrectorEmbreeROS(map));
+    
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);
     ondn_correct->setParams(corr_params);
-    // scan_correct->setParams(corr_params);
+    scan_correct->setParams(corr_params);
+
+
+    // set OnDnModel for wheels
+    genWheelModel();
 
     std::cout << "Max Distance: " << corr_params.max_distance << std::endl;
 
@@ -373,8 +410,8 @@ int main(int argc, char** argv)
             updateTF();
             double el = sw();
 
-            // break;
             // return 0;
+            // break;
 
             double sleep_left = d.toSec() - el;
 

@@ -54,6 +54,8 @@ add_library(rmcl
     src/rmcl/correction/SphereCorrectorEmbree.cpp
     src/rmcl/correction/PinholeCorrectorEmbree.cpp
     src/rmcl/correction/OnDnCorrectorEmbree.cpp
+    # Math
+    src/rmcl/math/math.cpp
 )
 
 target_link_libraries(rmcl
@@ -272,6 +274,21 @@ add_dependencies(ondn_corrector_embree
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(ondn_corrector_embree
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+)
+
+add_executable(ondn_corrector_embree_2 src/nodes/ondn_corrector_embree_2.cpp)
+
+add_dependencies(ondn_corrector_embree_2 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(ondn_corrector_embree_2
     ${catkin_LIBRARIES}
     ${rmagine_ext_LIBRARIES}
     rmcl

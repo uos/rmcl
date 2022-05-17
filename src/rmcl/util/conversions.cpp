@@ -13,6 +13,8 @@ void convert(
     to.theta.min = from.angle_min;
     to.theta.inc = from.angle_increment;
     to.phi.size = 1;
+    to.phi.min = 0.0;
+    to.phi.inc = 0.0;
 }
 
 void convert(
