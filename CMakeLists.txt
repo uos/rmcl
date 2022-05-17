@@ -212,6 +212,7 @@ add_dependencies(pcl2_to_depth
 ## Specify libraries to link a library or executable target against
 target_link_libraries(pcl2_to_depth
     ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
     rmcl
     rmcl_ros
 )

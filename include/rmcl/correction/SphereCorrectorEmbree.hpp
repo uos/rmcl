@@ -87,6 +87,14 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
+    CorrectionPreResults<rmagine::RAM> pre_correct(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
+    );
+
+    CorrectionResults<rmagine::RAM> correctOld(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
+    );
+
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;
 

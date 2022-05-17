@@ -41,7 +41,21 @@
 namespace rmcl {
 
 template<typename MemT>
-struct CorrectionResults {
+struct CorrectionPreResults 
+{
+    // model mean
+    rmagine::Memory<rmagine::Vector, MemT>      ms;
+    // dataset means
+    rmagine::Memory<rmagine::Vector, MemT>      ds;
+    // covs
+    rmagine::Memory<rmagine::Matrix3x3, MemT>   Cs;
+    // number of correspondences
+    rmagine::Memory<unsigned int, MemT>         Ncorr;
+};
+
+template<typename MemT>
+struct CorrectionResults
+{
     rmagine::Memory<rmagine::Transform, MemT>    Tdelta;
     // Scan specific? 
     rmagine::Memory<unsigned int,       MemT>    Ncorr;

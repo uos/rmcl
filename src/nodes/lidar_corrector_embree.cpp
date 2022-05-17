@@ -161,14 +161,12 @@ void correctOnce()
     }
     
     sw();
-    auto corrRes = scan_correct->correct(poses);
+    auto corrRes = scan_correct->correctOld(poses);
     double el = sw();
 
     ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
 
     poses = multNxN(poses, corrRes.Tdelta);
-
-
 
     // Update T_odom_map
     convert(poses[0], T_base_map.transform);
