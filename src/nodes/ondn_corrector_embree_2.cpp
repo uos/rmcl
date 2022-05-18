@@ -250,9 +250,23 @@ void correctOnce()
     
     // weighted_average(m_l, d_l, C_l, N_l, m_w, d_w, C_w, N_w, m, d, C, Ncorr);
     
+    // weighted_average(
+    //     {m_l, m_w}, // source model means
+    //     {d_l, d_w}, // source dataset means
+    //     {C_l, C_w}, // source covariances
+    //     {N_l, N_w}, // source number of correspondences
+    //     m, d, C, Ncorr);
+
     // or fifty fifty
-    weighted_average(m_l, d_l, C_l, N_l, 0.5, m_w, d_w, C_w, N_w, 0.5, m, d, C, Ncorr);
-    
+    // weighted_average(m_l, d_l, C_l, N_l, 0.5, m_w, d_w, C_w, N_w, 0.5, m, d, C, Ncorr);
+    weighted_average(
+        {m_l, m_w}, // source model means
+        {d_l, d_w}, // source dataset means
+        {C_l, C_w}, // source covariances
+        {N_l, N_w}, // source number of correspondences
+        {0.5, 0.5}, // static weights
+        m, d, C, Ncorr);
+
     
     correction_from_covs(m, d, C, Ncorr, Tdelta);
     double el = sw();

@@ -133,4 +133,97 @@ void weighted_average(
     }
 }
 
+void weighted_average(
+    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::RAM> >& model_means,
+    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::RAM> >& dataset_means,
+    const std::vector<rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM> >& covs,
+    const std::vector<rmagine::MemoryView<unsigned int, rmagine::RAM> >& Ncorrs,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
+{
+    #pragma omp parallel for
+    for(size_t pid=0; pid<ms.size(); pid++)
+    {
+        unsigned int Ncorr_ = 0;
+        for(size_t i=0; i<model_means.size(); i++)
+        {
+            Ncorr_ += Ncorrs[i][pid];
+        }
+
+        std::vector<float> weights(model_means.size());
+        const float Ncorrf = static_cast<float>(Ncorr_);
+
+        for(size_t i=0; i<model_means.size(); i++)
+        {
+            weights[i] = static_cast<float>(Ncorrs[i][pid]) / Ncorrf;
+        }
+
+        Vector ms_ = {0.0, 0.0, 0.0};
+        Vector ds_ = {0.0, 0.0, 0.0};
+        Matrix3x3 C_;
+        C_.setZeros();
+
+        for(size_t i=0; i<model_means.size(); i++)
+        {
+            ms_ += model_means[i][pid] * weights[i];
+            ds_ += dataset_means[i][pid] * weights[i];
+            C_ += covs[i][pid] * weights[i];
+        }
+
+        ms[pid] = ms_;
+        ds[pid] = ds_;
+        Cs[pid] = C_;
+        Ncorr[pid] = Ncorr_;
+    }
+}
+
+void weighted_average(
+    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::RAM> >& model_means,
+    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::RAM> >& dataset_means,
+    const std::vector<rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM> >& covs,
+    const std::vector<rmagine::MemoryView<unsigned int, rmagine::RAM> >& Ncorrs,
+    const std::vector<float> weights,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
+{
+    #pragma omp parallel for
+    for(size_t pid=0; pid<ms.size(); pid++)
+    {
+        unsigned int Ncorr_ = 0;
+        for(size_t i=0; i<model_means.size(); i++)
+        {
+            Ncorr_ += Ncorrs[i][pid];
+        }
+
+        // std::vector<float> weights(model_means.size());
+        // const float Ncorrf = static_cast<float>(Ncorr_);
+
+        // for(size_t i=0; i<model_means.size(); i++)
+        // {
+        //     weights[i] = static_cast<float>(Ncorrs[i][pid]) / Ncorrf;
+        // }
+
+        Vector ms_ = {0.0, 0.0, 0.0};
+        Vector ds_ = {0.0, 0.0, 0.0};
+        Matrix3x3 C_;
+        C_.setZeros();
+
+        for(size_t i=0; i<model_means.size(); i++)
+        {
+            ms_ += model_means[i][pid] * weights[i];
+            ds_ += dataset_means[i][pid] * weights[i];
+            C_ += covs[i][pid] * weights[i];
+        }
+
+        ms[pid] = ms_;
+        ds[pid] = ds_;
+        Cs[pid] = C_;
+        Ncorr[pid] = Ncorr_;
+    }
+}
+
 } // namespace rmcl
