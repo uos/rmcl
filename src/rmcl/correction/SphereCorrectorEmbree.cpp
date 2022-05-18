@@ -286,6 +286,27 @@ void SphereCorrectorEmbree::compute_covs(
     }
 }
 
+void SphereCorrectorEmbree::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+    CorrectionPreResults<rmagine::RAM>& res)
+{
+    compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+}
+
+CorrectionPreResults<rmagine::RAM> SphereCorrectorEmbree::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
+{
+    CorrectionPreResults<rmagine::RAM> res;
+    res.ms.resize(Tbms.size());
+    res.ds.resize(Tbms.size());
+    res.Cs.resize(Tbms.size());
+    res.Ncorr.resize(Tbms.size());
+
+    compute_covs(Tbms, res);
+
+    return res;
+}
+
 
 CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct2(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)

@@ -75,6 +75,21 @@ void correction_from_covs(
     }
 }
 
+void correction_from_covs(
+    const CorrectionPreResults<rmagine::RAM>& pre_res,
+    rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tdelta)
+{
+    correction_from_covs(pre_res.ms, pre_res.ds, pre_res.Cs, pre_res.Ncorr, Tdelta);
+}
+
+rmagine::Memory<rmagine::Transform, rmagine::RAM> correction_from_covs(
+    const CorrectionPreResults<rmagine::RAM>& pre_res)
+{
+    rmagine::Memory<rmagine::Transform, rmagine::RAM> Tdelta(pre_res.ms.size());
+    correction_from_covs(pre_res, Tdelta);
+    return Tdelta;
+}
+
 void weighted_average(
     const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms1,
     const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds1,
@@ -184,7 +199,7 @@ void weighted_average(
     const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::RAM> >& dataset_means,
     const std::vector<rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM> >& covs,
     const std::vector<rmagine::MemoryView<unsigned int, rmagine::RAM> >& Ncorrs,
-    const std::vector<float> weights,
+    const std::vector<float>& weights,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
@@ -224,6 +239,86 @@ void weighted_average(
         Cs[pid] = C_;
         Ncorr[pid] = Ncorr_;
     }
+}
+
+
+void weighted_average(
+    const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results,
+    CorrectionPreResults<rmagine::RAM>& pre_results_combined)
+{
+    // source: to fuse
+    std::vector<MemoryView<Vector, RAM> > ms;
+    std::vector<MemoryView<Vector, RAM> > ds;
+    std::vector<MemoryView<Matrix3x3, RAM> > Cs;
+    std::vector<MemoryView<unsigned int, RAM> > Ncorrs;
+
+    for(size_t i = 0; i < pre_results.size(); i++)
+    {
+        ms.push_back(pre_results[i].ms);
+        ds.push_back(pre_results[i].ds);
+        Cs.push_back(pre_results[i].Cs);
+        Ncorrs.push_back(pre_results[i].Ncorr);
+    }
+
+    weighted_average(ms, ds, Cs, Ncorrs, 
+        pre_results_combined.ms, pre_results_combined.ds, pre_results_combined.Cs, pre_results_combined.Ncorr);
+}
+
+CorrectionPreResults<rmagine::RAM> weighted_average(
+    const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results
+)
+{
+    CorrectionPreResults<rmagine::RAM> res;
+    size_t Nposes = pre_results[0].Cs.size();
+
+    res.ms.resize(Nposes);
+    res.ds.resize(Nposes);
+    res.Cs.resize(Nposes);
+    res.Ncorr.resize(Nposes);
+
+    weighted_average(pre_results, res);
+
+    return res;
+}
+
+void weighted_average(
+    const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results,
+    const std::vector<float>& weights,
+    CorrectionPreResults<rmagine::RAM>& pre_results_combined)
+{
+    // source: to fuse
+    std::vector<MemoryView<Vector, RAM> > ms;
+    std::vector<MemoryView<Vector, RAM> > ds;
+    std::vector<MemoryView<Matrix3x3, RAM> > Cs;
+    std::vector<MemoryView<unsigned int, RAM> > Ncorrs;
+
+    for(size_t i = 0; i < pre_results.size(); i++)
+    {
+        ms.push_back(pre_results[i].ms);
+        ds.push_back(pre_results[i].ds);
+        Cs.push_back(pre_results[i].Cs);
+        Ncorrs.push_back(pre_results[i].Ncorr);
+    }
+
+    weighted_average(ms, ds, Cs, Ncorrs, weights,
+        pre_results_combined.ms, pre_results_combined.ds, pre_results_combined.Cs, pre_results_combined.Ncorr);
+}
+
+CorrectionPreResults<rmagine::RAM> weighted_average(
+    const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results,
+    const std::vector<float>& weights)
+{
+    CorrectionPreResults<rmagine::RAM> res;
+    size_t Nposes = pre_results[0].Cs.size();
+
+    res.ms.resize(Nposes);
+    res.ds.resize(Nposes);
+    res.Cs.resize(Nposes);
+    res.Ncorr.resize(Nposes);
+
+    weighted_average(pre_results, weights, res);
+
+    return res;
 }
 
 } // namespace rmcl

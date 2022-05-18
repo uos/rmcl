@@ -211,11 +211,12 @@ void scanCB(const sensor_msgs::LaserScan::ConstPtr& msg)
 void correctOnce()
 {
     StopWatch sw;
+    double el;
     // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    size_t Nposes = 1;
+    size_t Nposes = 100;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
@@ -224,54 +225,62 @@ void correctOnce()
     }
     
     // Extra memory for laser (_l) and wheels (_w)
-    Memory<Vector> m_l(Nposes);
-    Memory<Vector> d_l(Nposes);
-    Memory<Matrix3x3> C_l(Nposes);
-    Memory<unsigned int> N_l(Nposes);
-
-    Memory<Vector> m_w(Nposes);
-    Memory<Vector> d_w(Nposes);
-    Memory<Matrix3x3> C_w(Nposes);
-    Memory<unsigned int> N_w(Nposes);
-    
-
-    // Extra memory for weighted average
-    Memory<Vector> m(Nposes);
-    Memory<Vector> d(Nposes);
-    Memory<Matrix3x3> C(Nposes);
-    Memory<unsigned int> Ncorr(Nposes);
-
-    // Result
-    Memory<Transform> Tdelta(Nposes);
 
     sw();
-    scan_correct->compute_covs(poses, m_l, d_l, C_l, N_l);
-    ondn_correct->compute_covs(poses, m_w, d_w, C_w, N_w);
+    auto laser_covs = scan_correct->compute_covs(poses);
+    auto wheel_covs = ondn_correct->compute_covs(poses);
+    // auto merged_covs = weighted_average({laser_covs, wheel_covs});
+    // or fifty fifty
+    auto merged_covs = weighted_average({laser_covs, wheel_covs}, {0.5, 0.5});
+    auto Tdelta = correction_from_covs(merged_covs);
+    el = sw();
+
+    ROS_INFO_STREAM("easy correctOnce: poses " << Nposes << " in " << el << "s");
+
+    // Memory<Vector> m_l(Nposes);
+    // Memory<Vector> d_l(Nposes);
+    // Memory<Matrix3x3> C_l(Nposes);
+    // Memory<unsigned int> N_l(Nposes);
+
+    // Memory<Vector> m_w(Nposes);
+    // Memory<Vector> d_w(Nposes);
+    // Memory<Matrix3x3> C_w(Nposes);
+    // Memory<unsigned int> N_w(Nposes);
     
-    // weighted_average(m_l, d_l, C_l, N_l, m_w, d_w, C_w, N_w, m, d, C, Ncorr);
+
+    // // Extra memory for weighted average
+    // Memory<Vector> m(Nposes);
+    // Memory<Vector> d(Nposes);
+    // Memory<Matrix3x3> C(Nposes);
+    // Memory<unsigned int> Ncorr(Nposes);
+
+    // // Result
+    // // Memory<Transform> Tdelta(Nposes);
+
+    // sw();
+    // scan_correct->compute_covs(poses, m_l, d_l, C_l, N_l);
+    // ondn_correct->compute_covs(poses, m_w, d_w, C_w, N_w);
     
+    // // weighted_average(
+    // //     {m_l, m_w}, // source model means
+    // //     {d_l, d_w}, // source dataset means
+    // //     {C_l, C_w}, // source covariances
+    // //     {N_l, N_w}, // source number of correspondences
+    // //     m, d, C, Ncorr);
+
+    // // or fifty fifty
     // weighted_average(
     //     {m_l, m_w}, // source model means
     //     {d_l, d_w}, // source dataset means
     //     {C_l, C_w}, // source covariances
     //     {N_l, N_w}, // source number of correspondences
+    //     {0.5, 0.5}, // static weights
     //     m, d, C, Ncorr);
-
-    // or fifty fifty
-    // weighted_average(m_l, d_l, C_l, N_l, 0.5, m_w, d_w, C_w, N_w, 0.5, m, d, C, Ncorr);
-    weighted_average(
-        {m_l, m_w}, // source model means
-        {d_l, d_w}, // source dataset means
-        {C_l, C_w}, // source covariances
-        {N_l, N_w}, // source number of correspondences
-        {0.5, 0.5}, // static weights
-        m, d, C, Ncorr);
-
     
-    correction_from_covs(m, d, C, Ncorr, Tdelta);
-    double el = sw();
+    // correction_from_covs(m, d, C, Ncorr, Tdelta);
+    // el = sw();
 
-    ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
+    // ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
 
     // std::cout << "Correct!" << std::endl;
     // sw();
@@ -285,7 +294,7 @@ void correctOnce()
     poses = multNxN(poses, Tdelta);
 
     // Update T_odom_map
-    convert(poses[0], T_base_map.transform);
+    convert(poses[poses.size()-1], T_base_map.transform);
     T_odom_map = T_base_map * ~T_base_odom;
 }
 

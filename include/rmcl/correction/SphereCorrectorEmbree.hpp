@@ -95,6 +95,15 @@ public:
         rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
     );
 
+    void compute_covs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        CorrectionPreResults<rmagine::RAM>& res
+    );
+
+    CorrectionPreResults<rmagine::RAM> compute_covs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
+    );
+
     // test
     CorrectionResults<rmagine::RAM> correct2(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
