@@ -117,39 +117,6 @@ bool fetchTF()
     return ret;
 }
 
-// Storing Pose information globally
-// Calculate transformation from map to odom from pose in map frame
-void poseCB(geometry_msgs::PoseStamped msg)
-{
-    // std::cout << "poseCB" << std::endl;
-    map_frame = msg.header.frame_id;
-    pose_received = true;
-
-    // set T_base_map
-    geometry_msgs::TransformStamped T_base_map;
-    T_base_map.header.frame_id = map_frame;
-    T_base_map.child_frame_id = base_frame;
-    T_base_map.transform <<= msg.pose;
-
-    fetchTF();
-
-    T_odom_map = T_base_map * ~T_base_odom;
-}
-
-// Storing scan information globally
-// updating real data inside the global scan corrector
-void depthCB(const DepthStamped::ConstPtr& msg)
-{
-    // ROS_INFO("Got Depth data");
-    sensor_frame = msg->header.frame_id;
-    sensor_frame_optical = (sensor_frame.find("_optical") != std::string::npos);
-
-    depth_correct->setOptical(sensor_frame_optical);
-    depth_correct->setModelAndInputData(msg->depth);
-    last_scan = msg->header.stamp;
-    scan_received = true;
-}
-
 void correctOnce()
 {
     StopWatch sw;
@@ -181,6 +148,45 @@ void correctOnce()
     T_odom_map = T_base_map * ~T_base_odom;
 }
 
+// Storing Pose information globally
+// Calculate transformation from map to odom from pose in map frame
+void poseCB(geometry_msgs::PoseStamped msg)
+{
+    // std::cout << "poseCB" << std::endl;
+    map_frame = msg.header.frame_id;
+    pose_received = true;
+
+    // set T_base_map
+    geometry_msgs::TransformStamped T_base_map;
+    T_base_map.header.frame_id = map_frame;
+    T_base_map.child_frame_id = base_frame;
+    T_base_map.transform <<= msg.pose;
+
+    fetchTF();
+
+    T_odom_map = T_base_map * ~T_base_odom;
+}
+
+// Storing scan information globally
+// updating real data inside the global scan corrector
+void depthCB(const DepthStamped::ConstPtr& msg)
+{
+    // ROS_INFO("Got Depth data");
+    sensor_frame = msg->header.frame_id;
+    sensor_frame_optical = (sensor_frame.find("_optical") != std::string::npos);
+
+    depth_correct->setOptical(sensor_frame_optical);
+    depth_correct->setModelAndInputData(msg->depth);
+    last_scan = msg->header.stamp;
+    scan_received = true;
+
+    if(pose_received)
+    {
+        fetchTF();
+        correctOnce();
+    }
+}
+
 void updateTF()
 {
     // std::cout << "updateTF" << std::endl;
@@ -202,7 +208,7 @@ void updateTF()
         T = T_odom_map * T_base_odom * T_sensor_base;
     }
 
-    T.header.stamp = last_scan;
+    T.header.stamp = ros::Time::now();
     T.header.frame_id = map_frame;
 
     br.sendTransform(T);
@@ -256,31 +262,25 @@ int main(int argc, char** argv)
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
-    ros::Duration d(0.1);
-    StopWatch sw;
+    ros::Rate r(30);
+    ros::Time stamp = ros::Time::now();
 
     while(ros::ok())
     {
         if(pose_received && scan_received)
         {
-            sw();
-            fetchTF();
-            correctOnce();
-            updateTF();
-            double el = sw();
-
-            double sleep_left = d.toSec() - el;
-
-            if(sleep_left > 0.0)
+            // updateTF();
+            // weird bug. new_stamp sometimes is equal to stamp. results 
+            
+            ros::Time new_stamp = ros::Time::now();
+            if(new_stamp > stamp)
             {
-                ros::Duration d_left(sleep_left);
-                d_left.sleep();
+                updateTF();
+                stamp = new_stamp;
             }
-            d.sleep();
-        } else {
-            d.sleep();
         }
         
+        r.sleep();
         ros::spinOnce();
     }
     

@@ -118,53 +118,13 @@ bool fetchTF()
     return ret;
 }
 
-// Storing Pose information globally
-// Calculate transformation from map to odom from pose in map frame
-void poseCB(geometry_msgs::PoseStamped msg)
-{
-    // ROS_INFO_STREAM("P: " << msg.pose);
-    // msg.pose.position.x = -0.2;
-    // msg.pose.position.y = 0.0;
-    // msg.pose.position.z = 0.0;
-    // msg.pose.orientation.x = 0.0;
-    // msg.pose.orientation.y = 0.0;
-    // msg.pose.orientation.z = 0.0;
-    // msg.pose.orientation.w = 1.0;
-
-    // std::cout << "poseCB" << std::endl;
-    map_frame = msg.header.frame_id;
-    pose_received = true;
-
-
-    // set T_base_map
-    geometry_msgs::TransformStamped T_base_map;
-    T_base_map.header.frame_id = map_frame;
-    T_base_map.child_frame_id = base_frame;
-    T_base_map.transform <<= msg.pose;
-
-    fetchTF();
-
-    T_odom_map = T_base_map * ~T_base_odom;
-
-}
-
-// Storing scan information globally
-// updating real data inside the global scan corrector
-void scanCB(const ScanStamped::ConstPtr& msg)
-{
-    sensor_frame = msg->header.frame_id;
-    scan_correct->setModelAndInputData(msg->scan);
-    last_scan = msg->header.stamp;
-    scan_received = true;
-}
-
 void correctOnce()
 {
     StopWatch sw;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    size_t Nposes = 1;
+    size_t Nposes = 100;
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
     {
@@ -186,8 +146,43 @@ void correctOnce()
 
 
     // Update T_odom_map
-    convert(poses[0], T_base_map.transform);
+    convert(poses[poses.size() - 1], T_base_map.transform);
     T_odom_map = T_base_map * ~T_base_odom;
+}
+
+// Storing Pose information globally
+// Calculate transformation from map to odom from pose in map frame
+void poseCB(geometry_msgs::PoseStamped msg)
+{
+    map_frame = msg.header.frame_id;
+    pose_received = true;
+
+    // set T_base_map
+    geometry_msgs::TransformStamped T_base_map;
+    T_base_map.header.frame_id = map_frame;
+    T_base_map.child_frame_id = base_frame;
+    T_base_map.transform <<= msg.pose;
+
+    fetchTF();
+
+    T_odom_map = T_base_map * ~T_base_odom;
+
+}
+
+// Storing scan information globally
+// updating real data inside the global scan corrector
+void scanCB(const ScanStamped::ConstPtr& msg)
+{
+    sensor_frame = msg->header.frame_id;
+    scan_correct->setModelAndInputData(msg->scan);
+    last_scan = msg->header.stamp;
+    scan_received = true;
+
+    if(pose_received)
+    {
+        fetchTF();
+        correctOnce();
+    }
 }
 
 void updateTF()
@@ -210,7 +205,7 @@ void updateTF()
         T = T_odom_map * T_base_odom * T_sensor_base;
     }
 
-    T.header.stamp = last_scan;
+    T.header.stamp = ros::Time::now();
     T.header.frame_id = map_frame;
 
     br.sendTransform(T);
@@ -264,30 +259,25 @@ int main(int argc, char** argv)
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
-    ros::Duration d(0.1);
-    StopWatch sw;
+    ros::Rate r(30);
+    ros::Time stamp = ros::Time::now();
 
     while(ros::ok())
     {
         if(pose_received && scan_received)
         {
-            sw();
-            fetchTF();
-            correctOnce();
-            updateTF();
-            double el = sw();
-
-            double sleep_left = d.toSec() - el;
-
-            if(sleep_left > 0.0)
+            // updateTF();
+            // weird bug. new_stamp sometimes is equal to stamp. results 
+            
+            ros::Time new_stamp = ros::Time::now();
+            if(new_stamp > stamp)
             {
-                ros::Duration d_left(sleep_left);
-                d_left.sleep();
+                updateTF();
+                stamp = new_stamp;
             }
-        } else {
-            d.sleep();
         }
         
+        r.sleep();
         ros::spinOnce();
     }
     
