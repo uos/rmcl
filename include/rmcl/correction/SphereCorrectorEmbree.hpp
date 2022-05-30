@@ -104,11 +104,6 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
-    // test
-    CorrectionResults<rmagine::RAM> correct2(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
-    );
-
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;
 

@@ -37,6 +37,23 @@ public:
     CorrectionResults<rmagine::VRAM_CUDA> correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
+
+    void compute_covs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+        rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+        rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
+    ) const;
+
+    void compute_covs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        CorrectionPreResults<rmagine::VRAM_CUDA>& res
+    ) const;
+
+    CorrectionPreResults<rmagine::VRAM_CUDA> compute_covs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
+    ) const;
     
 protected:
     rmagine::Memory<float, rmagine::VRAM_CUDA> m_ranges;

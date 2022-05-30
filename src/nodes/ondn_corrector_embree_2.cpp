@@ -232,7 +232,9 @@ void correctOnce()
     // auto merged_covs = weighted_average({laser_covs, wheel_covs});
     // or fifty fifty
     auto merged_covs = weighted_average({laser_covs, wheel_covs}, {0.5, 0.5});
-    auto Tdelta = correction_from_covs(merged_covs);
+
+    // Correction corr;
+    auto Tdelta = Correction()(merged_covs);
     el = sw();
 
     ROS_INFO_STREAM("easy correctOnce: poses " << Nposes << " in " << el << "s");

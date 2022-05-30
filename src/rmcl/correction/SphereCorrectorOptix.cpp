@@ -8,6 +8,7 @@
 #include <rmagine/math/math_batched.cuh>
 
 #include <rmcl/math/math_batched.cuh>
+#include <rmcl/math/math.cuh>
 
 
 // DEBUG
@@ -62,32 +63,59 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
         return res;
     }
 
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> m1(Tbms.size());
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> m2(Tbms.size());
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> ds(Tbms.size());
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
 
+    compute_covs(Tbms, ms, ds, Cs, res.Ncorr);
+
+    static CorrectionCuda corr(m_svd);
+    corr.correction_from_covs(ms, ds, Cs, res.Ncorr, res.Tdelta);
+
+    return res;
+}
+
+void SphereCorrectorOptix::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr) const
+{
     // TODO how to make this dynamic somehow
     constexpr unsigned int POSE_SWITCH = 1024 * 8;
-    // constexpr unsigned int POSE_SWITCH = 0;
 
     if(Tbms.size() > POSE_SWITCH)
     {
         // scanwise parallelization
-        computeMeansCovsSW(Tbms, m1, m2, Cs, res.Ncorr);
+        computeMeansCovsSW(Tbms, ds, ms, Cs, Ncorr);
     } else {
         // raywise parallelization
-        computeMeansCovsRW(Tbms, m1, m2, Cs, res.Ncorr);
+        computeMeansCovsRW(Tbms, ds, ms, Cs, Ncorr);
     }
+}
 
-    // Singular value decomposition
-    
-    m_svd->calcUV(Cs, Us, Vs);
-    auto Rs = rm::multNxN(Us, rm::transpose(Vs));
-    auto ts = rm::subNxN(m1, rm::multNxN(Rs, m2));
+void SphereCorrectorOptix::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+    CorrectionPreResults<rmagine::VRAM_CUDA>& res
+) const
+{
+    compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+}
 
-    rm::pack(Rs, ts, res.Tdelta);
+CorrectionPreResults<rmagine::VRAM_CUDA> SphereCorrectorOptix::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
+) const
+{
+    CorrectionPreResults<rmagine::VRAM_CUDA> res;
+    res.ms.resize(Tbms.size());
+    res.ds.resize(Tbms.size());
+    res.Cs.resize(Tbms.size());
+    res.Ncorr.resize(Tbms.size());
+
+    compute_covs(Tbms, res);
 
     return res;
 }

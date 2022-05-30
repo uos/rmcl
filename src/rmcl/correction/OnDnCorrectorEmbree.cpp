@@ -314,23 +314,4 @@ CorrectionPreResults<rmagine::RAM> OnDnCorrectorEmbree::compute_covs(
     return res;
 }
 
-CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct2(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
-{
-    CorrectionResults<RAM> res;
-    res.Tdelta.resize(Tbms.size());
-    res.Ncorr.resize(Tbms.size());
-    
-    Memory<Vector, RAM> ms(Tbms.size());
-    Memory<Vector, RAM> ds(Tbms.size());
-    Memory<Matrix3x3, RAM> Cs(Tbms.size());
-
-    // precorrect
-    compute_covs(Tbms, ms, ds, Cs, res.Ncorr);
-    // math function
-    correction_from_covs(ms, ds, Cs, res.Ncorr, res.Tdelta);
-
-    return res;
-}
-
 } // namespace rmcl

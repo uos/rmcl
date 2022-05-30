@@ -8,6 +8,7 @@
 #include <rmagine/math/math_batched.cuh>
 
 #include <rmcl/math/math_batched.cuh>
+#include <rmcl/math/math.cuh>
 
 
 // DEBUG
@@ -58,21 +59,47 @@ void PinholeCorrectorOptix::setOptical(bool optical)
 CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
+    // rm::StopWatch sw;
+    // double el;
     // std::cout << "Start correction." << std::endl;
+
     CorrectionResults<rm::VRAM_CUDA> res;
-    res.Ncorr.resize(Tbms.size());
-    res.Tdelta.resize(Tbms.size());
 
     if(Tbms.size() == 0)
     {
         return res;
     }
 
-    size_t scanSize = m_width * m_height;
-    size_t Nrays = Tbms.size() * scanSize;
+    // sw();
 
-    // compute required additional bytes
-    // except of res
+    res.Ncorr.resize(Tbms.size());
+    res.Tdelta.resize(Tbms.size());
+
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> ds(Tbms.size());
+    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Tbms.size());
+    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
+    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
+    
+    // el = sw();
+    // std::cout << "- init extra mem: " << el << "s" << std::endl;
+
+    // sw();
+    compute_covs(Tbms, ms, ds, Cs, res.Ncorr);
+    // el = sw();
+    // std::cout << "- compute covs: " << el << "s" << std::endl;
+
+    // sw();
+    static CorrectionCuda corr(m_svd);
+    corr.correction_from_covs(ms, ds, Cs, res.Ncorr, res.Tdelta);
+    // el = sw();
+    // std::cout << "- compute corr: " << el << "s" << std::endl;
+
+    return res;
+}
+
+static size_t corr_additional_bytes_per_pose()
+{
     size_t required_bytes_per_pose = 0;
     // m1
     required_bytes_per_pose += sizeof(rm::Vector);
@@ -85,6 +112,11 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     // Vs
     required_bytes_per_pose += sizeof(rm::Matrix3x3);
 
+    return required_bytes_per_pose;
+}
+
+static size_t rw_mode_additional_bytes_per_ray()
+{
     size_t required_bytes_per_ray_rw = 0;
     // corr_valid
     required_bytes_per_ray_rw += sizeof(unsigned int);
@@ -93,61 +125,60 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     // dataset points
     required_bytes_per_ray_rw += sizeof(rm::Vector);
 
+    return required_bytes_per_ray_rw;
+}
 
-    size_t required_bytes_per_ray_sw = 0;
+static size_t rw_mode_additional_bytes_per_pose(size_t Nrays)
+{
+    return Nrays * rw_mode_additional_bytes_per_ray();
+}
 
-    // std::cout << "Model:" << std::endl;
-    // std::cout << "- poses: " << Tbms.size() << std::endl;
-    // std::cout << "- size: " << m_width * m_height << std::endl;
-    // std::cout << "- rays: " << Nrays << std::endl;
-    // std::cout << "Additional bytes required:" << std::endl;
-    // std::cout << "- per pose: " << required_bytes_per_pose << ", total: " << required_bytes_per_pose * Tbms.size() << std::endl;
-    // std::cout << "- RW. per ray: " << required_bytes_per_ray_rw << ", per pose: " << required_bytes_per_ray_rw * scanSize << std::endl;
-    // std::cout << "- SW. per ray: " << required_bytes_per_ray_sw << ", per pose: " << required_bytes_per_ray_sw * scanSize << std::endl;
-    
+static size_t rw_mode_additional_bytes(size_t Nposes, size_t Nrays)
+{
+    return Nposes * rw_mode_additional_bytes_per_pose(Nrays);
+}
+
+void PinholeCorrectorOptix::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr) const
+{
+    size_t scanSize = m_width * m_height;
+    size_t Nrays = Tbms.size() * scanSize;
+
+
+    size_t general_bytes = corr_additional_bytes_per_pose();
+    size_t rw_mode_bytes = rw_mode_additional_bytes_per_pose(scanSize);
+
     size_t free_bytes, total_bytes;
     cudaMemGetInfo(&free_bytes, &total_bytes);
 
-    size_t max_poses_rw = free_bytes / (required_bytes_per_pose + required_bytes_per_ray_rw * scanSize);
+    size_t max_poses_rw = free_bytes / (general_bytes + rw_mode_bytes);
 
+    // fix estimation with 3/4
     max_poses_rw *= 3;
     max_poses_rw /= 4;
 
-    // std::cout << "Max poses to compute " << std::endl;
-    // std::cout << max_poses_rw << std::endl;
-    // std::cout << "- RW: " << free_bytes / (required_bytes_per_pose + required_bytes_per_ray_rw * scanSize) << std::endl;
-    // std::cout << "- SW: " << free_bytes / (required_bytes_per_pose + required_bytes_per_ray_sw * scanSize) << std::endl;
-
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> m1(Tbms.size());
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> m2(Tbms.size());
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Tbms.size());
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
-    
-
-    // what we need to decide what to do
-    // - maximum allowed memory to use (default: max available?)
-    // - performance switch when to use RW or SW
 
     // TODO how to make this dynamic somehow
     constexpr unsigned int POSE_SWITCH = 1024 * 8;
-    // constexpr unsigned int POSE_SWITCH = 0;
-
-    rm::StopWatch sw;
-    double el;
 
     if(Tbms.size() > POSE_SWITCH)
     {
+        // std::cout << "Scanwise" << std::endl;
         // scanwise parallelization
-        computeMeansCovsSW(Tbms, m1, m2, Cs, res.Ncorr);
+        computeMeansCovsSW(Tbms, ds, ms, Cs, Ncorr);
     } else {
-        
         if(Tbms.size() < max_poses_rw)
         {
-            computeMeansCovsRW(Tbms, m1, m2, Cs, res.Ncorr);
+            // std::cout << "Raywise" << std::endl;
+            computeMeansCovsRW(Tbms, ds, ms, Cs, Ncorr);
         } else {
+            // std::cout << "Raywise splitted" << std::endl;
             // split
-            std::cout << "Need to split!" << std::endl;
+            // std::cout << "Need to split!" << std::endl;
             
             const size_t chunkSize = 512;
 
@@ -162,26 +193,48 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
 
                 // slice
                 auto Tbms_ = Tbms(chunk_start, chunk_end);
-                auto m1_ = m1(chunk_start, chunk_end);
-                auto m2_ = m2(chunk_start, chunk_end);
+                auto ms_ = ms(chunk_start, chunk_end);
+                auto ds_ = ds(chunk_start, chunk_end);
                 auto Cs_ = Cs(chunk_start, chunk_end);
-                auto Ncorr_ = res.Ncorr(chunk_start, chunk_end);
+                auto Ncorr_ = Ncorr(chunk_start, chunk_end);
 
-                computeMeansCovsRW(Tbms_, m1_, m2_, Cs_, Ncorr_);
+                computeMeansCovsRW(Tbms_, ds_, ms_, Cs_, Ncorr_);
             }
         }
     }
 
-    m_svd->calcUV(Cs, Us, Vs);
-    
-    auto Rs = rm::multNxN(Us, rm::transpose(Vs));
-    auto ts = rm::subNxN(m1, rm::multNxN(Rs, m2));
-    rm::pack(Rs, ts, res.Tdelta);
+    if(Tbms.size() > POSE_SWITCH)
+    {
+        // scanwise parallelization
+        computeMeansCovsSW(Tbms, ds, ms, Cs, Ncorr);
+    } else {
+        // raywise parallelization
+        computeMeansCovsRW(Tbms, ds, ms, Cs, Ncorr);
+    }
+}
+
+void PinholeCorrectorOptix::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+    CorrectionPreResults<rmagine::VRAM_CUDA>& res
+) const
+{
+    compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+}
+
+CorrectionPreResults<rmagine::VRAM_CUDA> PinholeCorrectorOptix::compute_covs(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
+) const
+{
+    CorrectionPreResults<rmagine::VRAM_CUDA> res;
+    res.ms.resize(Tbms.size());
+    res.ds.resize(Tbms.size());
+    res.Cs.resize(Tbms.size());
+    res.Ncorr.resize(Tbms.size());
+
+    compute_covs(Tbms, res);
 
     return res;
 }
-
-
 
 /// PRIVATE
 void PinholeCorrectorOptix::computeMeansCovsRW(

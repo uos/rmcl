@@ -5,12 +5,25 @@ using namespace rmagine;
 
 namespace rmcl {
 
-void correction_from_covs(
+Correction::Correction()
+:m_svd(new SVD)
+{
+    
+}
+
+Correction::Correction(SVDPtr svd)
+:m_svd(svd)
+{
+
+}
+
+void Correction::correction_from_covs(
     const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     const rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr,
-    rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tdelta)
+    rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tdelta
+) const
 {
     #pragma omp parallel for
     for(size_t pid=0; pid<ms.size(); pid++)
@@ -19,15 +32,7 @@ void correction_from_covs(
         {
             Matrix3x3 U, V;
 
-            { // the only Eigen code left
-                const Eigen::Matrix3f* Ceig = reinterpret_cast<const Eigen::Matrix3f*>(&Cs[pid]);
-                Eigen::Matrix3f* Ueig = reinterpret_cast<Eigen::Matrix3f*>(&U);
-                Eigen::Matrix3f* Veig = reinterpret_cast<Eigen::Matrix3f*>(&V);
-
-                Eigen::JacobiSVD<Eigen::Matrix3f> svd(Ceig[0], Eigen::ComputeFullU | Eigen::ComputeFullV);
-                Ueig[0] = svd.matrixU();
-                Veig[0] = svd.matrixV();
-            }
+            m_svd->calcUV(Cs[pid], U, V);
 
             Quaternion R;
             R.set(U * V.transpose());
@@ -39,13 +44,14 @@ void correction_from_covs(
     }
 }
 
-void correction_from_covs(
+
+void Correction::correction_from_covs(
     const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     const rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr,
     rmagine::MemoryView<rmagine::Quaternion, rmagine::RAM>& Rdelta,
-    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& tdelta)
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& tdelta) const
 {
     #pragma omp parallel for
     for(size_t pid=0; pid<ms.size(); pid++)
@@ -54,15 +60,7 @@ void correction_from_covs(
         {
             Matrix3x3 U, V;
 
-            { // the only Eigen code left
-                const Eigen::Matrix3f* Ceig = reinterpret_cast<const Eigen::Matrix3f*>(&Cs[pid]);
-                Eigen::Matrix3f* Ueig = reinterpret_cast<Eigen::Matrix3f*>(&U);
-                Eigen::Matrix3f* Veig = reinterpret_cast<Eigen::Matrix3f*>(&V);
-
-                Eigen::JacobiSVD<Eigen::Matrix3f> svd(Ceig[0], Eigen::ComputeFullU | Eigen::ComputeFullV);
-                Ueig[0] = svd.matrixU();
-                Veig[0] = svd.matrixV();
-            }
+            m_svd->calcUV(Cs[pid], U, V);
 
             Quaternion R;
             R.set(U * V.transpose());
@@ -75,15 +73,16 @@ void correction_from_covs(
     }
 }
 
-void correction_from_covs(
+
+void Correction::correction_from_covs(
     const CorrectionPreResults<rmagine::RAM>& pre_res,
-    rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tdelta)
+    rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tdelta) const
 {
     correction_from_covs(pre_res.ms, pre_res.ds, pre_res.Cs, pre_res.Ncorr, Tdelta);
 }
 
-rmagine::Memory<rmagine::Transform, rmagine::RAM> correction_from_covs(
-    const CorrectionPreResults<rmagine::RAM>& pre_res)
+rmagine::Memory<rmagine::Transform, rmagine::RAM> Correction::correction_from_covs(
+    const CorrectionPreResults<rmagine::RAM>& pre_res) const
 {
     rmagine::Memory<rmagine::Transform, rmagine::RAM> Tdelta(pre_res.ms.size());
     correction_from_covs(pre_res, Tdelta);

@@ -86,6 +86,7 @@ if(${rmagine_cuda_FOUND})
     add_library(rmcl_cuda
         # math
         src/rmcl/math/math_batched.cu
+        src/rmcl/math/math.cu
     )
 
     target_link_libraries(rmcl_cuda
