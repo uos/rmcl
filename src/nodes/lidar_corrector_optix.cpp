@@ -33,10 +33,7 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-// SphereCorrectorEmbreePtr scan_correct;
 SphereCorrectorOptixROSPtr scan_correct;
-ros::Publisher cloud_pub;
-ros::Publisher pose_pub;
 
 bool        pose_received = false;
 ros::Time   last_pose;
@@ -252,8 +249,6 @@ int main(int argc, char** argv)
     tfBuffer.reset(new tf2_ros::Buffer);
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
-    cloud_pub = nh_p.advertise<sensor_msgs::PointCloud>("sim_cloud", 1);
-    pose_pub = nh_p.advertise<geometry_msgs::PoseStamped>("sim_pose", 1);
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
 

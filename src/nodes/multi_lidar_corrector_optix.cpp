@@ -4,15 +4,18 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <geometry_msgs/PoseArray.h>
+
 // Rmagine deps
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
+#include <rmagine/math/math.cuh>
 
 // RCML msgs
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
+#include <rmcl/correction/SphereCorrectorOptixROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -20,6 +23,7 @@
 #include <rosmath/sensor_msgs/conversions.h>
 #include <rosmath/sensor_msgs/math.h>
 #include <rosmath/eigen/conversions.h>
+#include <rosmath/eigen/stats.h>
 
 #include <chrono>
 #include <memory>
@@ -32,7 +36,17 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-SphereCorrectorEmbreeROSPtr scan_correct;
+// SphereCorrectorEmbreePtr scan_correct;
+
+
+SphereCorrectorOptixROSPtr scan_correct;
+ros::Publisher cloud_pub;
+ros::Publisher pose_pub;
+ros::Publisher pub_poses;
+
+unsigned int Nparticles = 2000;
+
+Memory<Transform, VRAM_CUDA> poses;
 
 bool        pose_received = false;
 ros::Time   last_pose;
@@ -55,6 +69,7 @@ geometry_msgs::TransformStamped T_odom_map;
 geometry_msgs::TransformStamped T_base_odom;
 // static: urdf
 geometry_msgs::TransformStamped T_sensor_base;
+
 
 /**
  * @brief Update T_sensor_base and T_base_odom globally
@@ -113,40 +128,105 @@ bool fetchTF()
     return ret;
 }
 
+void vizOnce()
+{
+    Memory<Transform, RAM_CUDA> poses_ram;
+    poses_ram = poses;
+
+    geometry_msgs::PoseArray P;
+    P.header.stamp = ros::Time::now();
+    P.header.frame_id = map_frame;
+
+    for(size_t i=0; i<poses_ram.size(); i++)
+    {
+        geometry_msgs::Pose pose_ros;
+        convert(poses_ram[i], pose_ros);
+        P.poses.push_back(pose_ros);
+    }
+
+    pub_poses.publish(P);
+}
+
 void correctOnce()
 {
     StopWatch sw;
-    double el;
-    // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
-    geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
+    // geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    size_t Nposes = 100;
-
-    Memory<Transform, RAM> poses(Nposes);
-    for(size_t i=0; i<Nposes; i++)
-    {
-        convert(T_base_map.transform, poses[i]);
-    }
-    
+    // size_t Nposes = 100;
+    // Memory<Transform, RAM> poses(Nposes);
+    // for(size_t i=0; i<Nposes; i++)
+    // {
+    //     convert(T_base_map.transform, poses[i]);
+    // }
+    // // convert(T_base_map.transform, poses[0]);
+    // // upload to GPU
+    // Memory<Transform, VRAM_CUDA> poses_;
+    // poses_ = poses;
     sw();
     auto corrRes = scan_correct->correct(poses);
-    el = sw();
-    ROS_INFO_STREAM("- correctOnce: poses " << Nposes << " in " << el << "s");
-
     
     poses = multNxN(poses, corrRes.Tdelta);
+    // not: P = Tdelta * P
+    // download to CPU
+    // poses = poses_;
+    double el = sw();
+    ROS_INFO_STREAM("correctOnce " << Nparticles << " poses in " << el << "s");
+
 
     // Update T_odom_map
-    convert(poses[poses.size() - 1], T_base_map.transform);
-    T_odom_map = T_base_map * ~T_base_odom;
+    // convert(poses[poses.size() - 1], T_base_map.transform);
+    // T_odom_map = T_base_map * ~T_base_odom;
+}
+
+void poseCBRandom(geometry_msgs::PoseStamped msg)
+{
+    map_frame = msg.header.frame_id;
+    pose_received = true;
+
+    Eigen::Matrix<double, 6, 6> cov;
+    cov <<  0.3, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.05, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.1;
+
+    Eigen::Matrix<double, 6, 1> mean;
+
+    mean(0) = msg.pose.position.x;
+    mean(1) = msg.pose.position.y;
+    mean(2) = msg.pose.position.z;
+
+    geometry_msgs::Vector3 rpy_ros = quat2rpy(msg.pose.orientation);
+
+    mean(3) = rpy_ros.x;
+    mean(4) = rpy_ros.y;
+    mean(5) = rpy_ros.z;
+
+    stats::Normal normal_dist(mean, cov);
+    
+    Memory<Transform, RAM_CUDA> poses_ram(Nparticles);
+    for(size_t i=0; i<Nparticles; i++)
+    {
+        auto particle = normal_dist.sample();
+        poses_ram[i].t.x = particle(0);
+        poses_ram[i].t.y = particle(1);
+        poses_ram[i].t.z = particle(2);
+        EulerAngles rpy;
+        rpy.roll = particle(3);
+        rpy.pitch = particle(4);
+        rpy.yaw = particle(5);
+        poses_ram[i].R.set(rpy);
+    }
+
+    poses = poses_ram;
 }
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame
 void poseCB(geometry_msgs::PoseStamped msg)
 {
-    // std::cout << "poseCB" << std::endl;
     map_frame = msg.header.frame_id;
     pose_received = true;
 
@@ -159,6 +239,7 @@ void poseCB(geometry_msgs::PoseStamped msg)
     fetchTF();
 
     T_odom_map = T_base_map * ~T_base_odom;
+
 }
 
 // Storing scan information globally
@@ -174,13 +255,12 @@ void scanCB(const ScanStamped::ConstPtr& msg)
     {
         fetchTF();
         correctOnce();
+        vizOnce();
     }
 }
 
-
 void updateTF()
 {
-    // std::cout << "updateTF" << std::endl;
     static tf2_ros::TransformBroadcaster br;
     
     geometry_msgs::TransformStamped T;
@@ -207,11 +287,11 @@ void updateTF()
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "lidar_corrector_embree");
+    ros::init(argc, argv, "multi_lidar_corrector_optix");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Embree Corrector started");
+    ROS_INFO("Optix Corrector started");
 
     std::string map_frame;
     std::string meshfile;
@@ -232,27 +312,36 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    OptixMapPtr map = importOptixMap(meshfile);
     
-    scan_correct.reset(new SphereCorrectorEmbreeROS(map));
+    scan_correct.reset(new SphereCorrectorOptixROS(map));
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);
+    int particles_tmp;
+    nh_p.param<int>("particles", particles_tmp, 2000);
+    if(particles_tmp > 0)
+    {
+        Nparticles = particles_tmp;
+    }
     scan_correct->setParams(corr_params);
 
-    std::cout << "Max Distance: " << corr_params.max_distance << std::endl;
+    std::cout << "- Max Distance: " << corr_params.max_distance << std::endl;
+    std::cout << "- particles: " << Nparticles << std::endl;
 
     // get TF of scanner
     tfBuffer.reset(new tf2_ros::Buffer);
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
+    // cloud_pub = nh_p.advertise<sensor_msgs::PointCloud>("sim_cloud", 1);
+    // pose_pub = nh_p.advertise<geometry_msgs::PoseStamped>("sim_pose", 1);
+    pub_poses = nh_p.advertise<geometry_msgs::PoseArray>("particles", 1);
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCBRandom);
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
     ros::Rate r(30);
-
     ros::Time stamp = ros::Time::now();
 
     while(ros::ok())
@@ -262,12 +351,12 @@ int main(int argc, char** argv)
             // updateTF();
             // weird bug. new_stamp sometimes is equal to stamp. results 
             
-            ros::Time new_stamp = ros::Time::now();
-            if(new_stamp > stamp)
-            {
-                updateTF();
-                stamp = new_stamp;
-            }
+            // ros::Time new_stamp = ros::Time::now();
+            // if(new_stamp > stamp)
+            // {
+            //     updateTF();
+            //     stamp = new_stamp;
+            // }
         }
         
         r.sleep();
