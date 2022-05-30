@@ -12,7 +12,8 @@ namespace rmcl {
 
 class CorrectionCuda {
 public:
-    CorrectionCuda(rmagine::SVDCudaPtr svd) : m_svd(svd) {}
+    CorrectionCuda();
+    CorrectionCuda(rmagine::SVDCudaPtr svd);
 
     void correction_from_covs(
         const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
@@ -45,32 +46,6 @@ private:
 };
 
 using CorrectionCudaPtr = std::shared_ptr<CorrectionCuda>;
-
-// void correction_from_covs(
-//     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
-//     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
-//     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
-//     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
-//     rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tdelta
-// );
-
-// void correction_from_covs(
-//     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
-//     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
-//     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
-//     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
-//     rmagine::MemoryView<rmagine::Quaternion, rmagine::VRAM_CUDA>& Rdelta,
-//     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& tdelta
-// );
-
-// void correction_from_covs(
-//     const CorrectionPreResults<rmagine::VRAM_CUDA>& pre_res,
-//     rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tdelta
-// );
-
-// rmagine::Memory<rmagine::Transform, rmagine::VRAM_CUDA> correction_from_covs(
-//     const CorrectionPreResults<rmagine::VRAM_CUDA>& pre_res
-// );
 
 // weighted average by
 // - number of correspondences

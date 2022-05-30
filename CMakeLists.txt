@@ -281,15 +281,15 @@ target_link_libraries(ondn_corrector_embree
     rmcl_ros
 )
 
-add_executable(ondn_corrector_embree_2 src/nodes/ondn_corrector_embree_2.cpp)
+add_executable(combined_corrector_embree src/nodes/combined_corrector_embree.cpp)
 
-add_dependencies(ondn_corrector_embree_2 
+add_dependencies(combined_corrector_embree 
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     ${catkin_EXPORTED_TARGETS}
 )
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(ondn_corrector_embree_2
+target_link_libraries(combined_corrector_embree
     ${catkin_LIBRARIES}
     ${rmagine_ext_LIBRARIES}
     rmcl
@@ -344,4 +344,23 @@ target_link_libraries(ondn_corrector_optix
     rmcl_ros
     rmcl_optix_ros
 )
+
+
+
+add_executable(combined_corrector_optix src/nodes/combined_corrector_optix.cpp)
+
+add_dependencies(combined_corrector_optix 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(combined_corrector_optix
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
+
 

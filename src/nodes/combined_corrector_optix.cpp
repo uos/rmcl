@@ -7,19 +7,20 @@
 #include <tf2_ros/transform_listener.h>
 
 // Rmagine deps
-#include <rmagine/map/EmbreeMap.hpp>
+#include <rmagine/map/OptixMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/util/prints.h>
+#include <rmagine/math/math.cuh>
 
 // RCML msgs
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/OnDnCorrectorEmbreeROS.hpp>
-#include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
+#include <rmcl/correction/OnDnCorrectorOptixROS.hpp>
+#include <rmcl/correction/SphereCorrectorOptixROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
-#include <rmcl/math/math.h>
+#include <rmcl/math/math.cuh>
 
 // rosmath
 #include <rosmath/sensor_msgs/conversions.h>
@@ -37,8 +38,8 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-SphereCorrectorEmbreeROSPtr scan_correct;
-OnDnCorrectorEmbreeROSPtr ondn_correct;
+SphereCorrectorOptixROSPtr scan_correct;
+OnDnCorrectorOptixROSPtr ondn_correct;
 
 ros::Publisher model_pub;
 
@@ -224,76 +225,27 @@ void correctOnce()
         convert(T_base_map.transform, poses[i]);
     }
     
+    Memory<Transform, VRAM_CUDA> poses_(poses);
     // Extra memory for laser (_l) and wheels (_w)
 
     sw();
-    auto laser_covs = scan_correct->compute_covs(poses);
-    auto wheel_covs = ondn_correct->compute_covs(poses);
+    auto laser_covs = scan_correct->compute_covs(poses_);
+    auto wheel_covs = ondn_correct->compute_covs(poses_);
     // auto merged_covs = weighted_average({laser_covs, wheel_covs});
     // or fifty fifty
     auto merged_covs = weighted_average({laser_covs, wheel_covs}, {0.5, 0.5});
 
     // Correction corr;
-    auto Tdelta = Correction()(merged_covs);
+    static CorrectionCuda corr;
+    auto Tdelta = corr.correction_from_covs(merged_covs);
     el = sw();
 
     ROS_INFO_STREAM("easy correctOnce: poses " << Nposes << " in " << el << "s");
 
-    // Memory<Vector> m_l(Nposes);
-    // Memory<Vector> d_l(Nposes);
-    // Memory<Matrix3x3> C_l(Nposes);
-    // Memory<unsigned int> N_l(Nposes);
+    poses_ = multNxN(poses_, Tdelta);
 
-    // Memory<Vector> m_w(Nposes);
-    // Memory<Vector> d_w(Nposes);
-    // Memory<Matrix3x3> C_w(Nposes);
-    // Memory<unsigned int> N_w(Nposes);
-    
-
-    // // Extra memory for weighted average
-    // Memory<Vector> m(Nposes);
-    // Memory<Vector> d(Nposes);
-    // Memory<Matrix3x3> C(Nposes);
-    // Memory<unsigned int> Ncorr(Nposes);
-
-    // // Result
-    // // Memory<Transform> Tdelta(Nposes);
-
-    // sw();
-    // scan_correct->compute_covs(poses, m_l, d_l, C_l, N_l);
-    // ondn_correct->compute_covs(poses, m_w, d_w, C_w, N_w);
-    
-    // // weighted_average(
-    // //     {m_l, m_w}, // source model means
-    // //     {d_l, d_w}, // source dataset means
-    // //     {C_l, C_w}, // source covariances
-    // //     {N_l, N_w}, // source number of correspondences
-    // //     m, d, C, Ncorr);
-
-    // // or fifty fifty
-    // weighted_average(
-    //     {m_l, m_w}, // source model means
-    //     {d_l, d_w}, // source dataset means
-    //     {C_l, C_w}, // source covariances
-    //     {N_l, N_w}, // source number of correspondences
-    //     {0.5, 0.5}, // static weights
-    //     m, d, C, Ncorr);
-    
-    // correction_from_covs(m, d, C, Ncorr, Tdelta);
-    // el = sw();
-
-    // ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
-
-    // std::cout << "Correct!" << std::endl;
-    // sw();
-    // auto corrRes = ondn_correct->correct(poses);
-    // double el = sw();
-
-    // ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
-
-    // std::cout << corrRes.Tdelta[0] << std::endl;
-
-    poses = multNxN(poses, Tdelta);
+    // download
+    poses = poses_;
 
     // Update T_odom_map
     convert(poses[poses.size()-1], T_base_map.transform);
@@ -395,10 +347,10 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    OptixMapPtr map = importOptixMap(meshfile);
     
-    scan_correct.reset(new SphereCorrectorEmbreeROS(map));
-    ondn_correct.reset(new OnDnCorrectorEmbreeROS(map));
+    scan_correct.reset(new SphereCorrectorOptixROS(map));
+    ondn_correct.reset(new OnDnCorrectorOptixROS(map));
     
 
     CorrectionParams corr_params;
