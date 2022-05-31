@@ -8,6 +8,7 @@
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/math/math.cuh>
+#include <rmagine/util/prints.h>
 
 // RCML msgs
 #include <rmcl_msgs/ScanStamped.h>
@@ -39,6 +40,7 @@ bool        pose_received = false;
 ros::Time   last_pose;
 bool        scan_received = false;
 ros::Time   last_scan;
+size_t      valid_scan_ranges;
 
 std::string map_frame;
 std::string odom_frame;
@@ -117,6 +119,7 @@ bool fetchTF()
 
 void correctOnce()
 {
+    ROS_INFO("Correction started.");
     StopWatch sw;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
@@ -139,8 +142,33 @@ void correctOnce()
     // download to CPU
     poses = poses_;
     double el = sw();
-    ROS_INFO_STREAM("correctOnce " << Nposes << " poses in " << el << "s");
+    std::cout << "- corrected " << Nposes << " poses in " << el << "s" << std::endl;
+    
+    // analyse result
+    Memory<unsigned int, RAM> Ncorr0 = corrRes.Ncorr(0,1);
+    Memory<Transform, RAM> Tdelta0 = corrRes.Tdelta(0,1);
 
+    float match_ratio = static_cast<float>(Ncorr0[0]) / static_cast<float>(valid_scan_ranges);
+    // 0.0 -> no matches, 1.0 -> all matches
+
+    Transform Td = Tdelta0[0];
+    float trans_force = Td.t.l2norm();
+
+    Quaternion qunit;
+    qunit.setIdentity();
+    float qscalar = Td.R.dot(qunit);
+    float rot_progress = qscalar * qscalar; // 0.0 totally unequal, 1.0 equal
+    // float rot_force = 1.0 - rot_progress;
+
+    float trans_progress = 1.0 / exp(10.0 * trans_force);
+
+    std::cout << "Correction Stats:" << std::endl;
+    std::cout << "- match ratio: " << match_ratio << std::endl;
+    std::cout << "- trans progress: " << trans_progress << std::endl;
+    std::cout << "- rot progress:   " << rot_progress << std::endl;
+
+    float magic_number = match_ratio * rot_progress * trans_progress;
+    std::cout << "- total progress: " << magic_number << std::endl;
 
     // Update T_odom_map
     convert(poses[poses.size() - 1], T_base_map.transform);
@@ -154,6 +182,8 @@ void poseCB(geometry_msgs::PoseStamped msg)
     map_frame = msg.header.frame_id;
     pose_received = true;
 
+    // msg.pose.position.z -= 1.0;
+
     // set T_base_map
     geometry_msgs::TransformStamped T_base_map;
     T_base_map.header.frame_id = map_frame;
@@ -163,7 +193,6 @@ void poseCB(geometry_msgs::PoseStamped msg)
     fetchTF();
 
     T_odom_map = T_base_map * ~T_base_odom;
-
 }
 
 // Storing scan information globally
@@ -172,6 +201,17 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 {
     sensor_frame = msg->header.frame_id;
     scan_correct->setModelAndInputData(msg->scan);
+
+    // count valid
+    valid_scan_ranges = 0;
+    for(size_t i=0; i<msg->scan.ranges.size(); i++)
+    {
+        if(msg->scan.ranges[i] >= msg->scan.info.range_min && msg->scan.ranges[i] <= msg->scan.info.range_max)
+        {
+            valid_scan_ranges++;
+        }
+    }
+
     last_scan = msg->header.stamp;
     scan_received = true;
 
@@ -201,6 +241,9 @@ void updateTF()
         // Sensor to map
         T = T_odom_map * T_base_odom * T_sensor_base;
     }
+
+    // double dt = (ros::Time::now() - last_scan).toSec();
+    // std::cout << "- time since last scan: " << dt << "s" << std::endl;
 
     T.header.stamp = ros::Time::now();
     T.header.frame_id = map_frame;
