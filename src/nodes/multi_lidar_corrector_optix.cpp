@@ -18,6 +18,7 @@
 #include <rmcl/correction/SphereCorrectorOptixROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
+#include <rmcl/clustering/clustering.h>
 
 // rosmath
 #include <rosmath/sensor_msgs/conversions.h>
@@ -43,10 +44,14 @@ SphereCorrectorOptixROSPtr scan_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 ros::Publisher pub_poses;
+ros::Publisher pub_best_poses;
 
 unsigned int Nparticles = 2000;
 
 Memory<Transform, VRAM_CUDA> poses;
+
+std::vector<std::vector<size_t> > clusters;
+
 
 bool        pose_received = false;
 ros::Time   last_pose;
@@ -145,34 +150,110 @@ void vizOnce()
     }
 
     pub_poses.publish(P);
+
+    if(clusters.size() > 0)
+    {
+        geometry_msgs::PoseArray P_best;
+        P_best.header.stamp = ros::Time::now();
+        P_best.header.frame_id = map_frame;
+
+        auto best_cluster = clusters[0];
+        for(size_t id : best_cluster)
+        {
+            geometry_msgs::Pose pose_ros;
+            convert(poses_ram[id], pose_ros);
+            P_best.poses.push_back(pose_ros);
+        }
+
+        pub_best_poses.publish(P_best);
+    }
+}
+
+void computeClusters()
+{
+    std::cout << "Compute Clusters" << std::endl;
+    StopWatch sw;
+    double el;
+    Memory<Transform, RAM> poses_ram = poses;
+    Memory<Vector, RAM> points(poses_ram.size());
+
+    for(size_t i=0; i<poses_ram.size(); i++)
+    {
+        points[i] = poses_ram[i].t;
+    }
+
+    sw();
+    KdPointsPtr kd_points(new KdPoints(points));
+    KdTreePtr tree = std::make_shared<KdTree>(kd_points);
+    el = sw();
+
+    std::cout << "- Built Tree in " << el << " s" << std::endl;
+    sw();
+    clusters = dbscan(tree, 
+        0.01, 
+        8,
+        30);
+
+    el = sw();
+
+    std::cout << "- Extracted " << clusters.size() << " clusters from " << points.size() << " points in " << el << "s" << std::endl;
+
+    sort_clusters(clusters);
+    size_t cluster_points = 0;
+    for(size_t i=0; i<clusters.size(); i++)
+    {
+        cluster_points += clusters[i].size();
+        std::cout << "-- Cluster " << i+1 << ": " << clusters[i].size() << std::endl;
+    }
+
+
+    if(clusters.size() > 5 && clusters[0].size() > 100)
+    {
+        sw();
+        Memory<Transform, RAM> poses_ram_new(cluster_points);
+        size_t offset = 0;
+        for(size_t cid=0; cid<clusters.size(); cid++)
+        {
+            const auto& cluster = clusters[cid];
+            for(size_t i=0; i<clusters[cid].size(); i++)
+            {
+                poses_ram_new[i + offset] = poses_ram[cluster[i]];
+            }
+            offset += cluster.size();
+        }
+        // upload
+        poses = poses_ram_new;
+        el = sw();
+
+        std::cout << "- eleminate not clustered in " << el << "s" << std::endl;
+    }
 }
 
 void correctOnce()
 {
     StopWatch sw;
-    // 1. Get Base in Map
-    // geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
-    
-    // size_t Nposes = 100;
-    // Memory<Transform, RAM> poses(Nposes);
-    // for(size_t i=0; i<Nposes; i++)
-    // {
-    //     convert(T_base_map.transform, poses[i]);
-    // }
-    // // convert(T_base_map.transform, poses[0]);
-    // // upload to GPU
-    // Memory<Transform, VRAM_CUDA> poses_;
-    // poses_ = poses;
+
     sw();
     auto corrRes = scan_correct->correct(poses);
-    
     poses = multNxN(poses, corrRes.Tdelta);
-    // not: P = Tdelta * P
-    // download to CPU
-    // poses = poses_;
     double el = sw();
-    ROS_INFO_STREAM("correctOnce " << Nparticles << " poses in " << el << "s");
+    ROS_INFO_STREAM("correctOnce " << poses.size() << " poses in " << el << "s");
 
+    // count valid
+    Memory<unsigned int, RAM> Ncorr = corrRes.Ncorr;
+    size_t num_valid = 0;
+    for(size_t i=0; i<Ncorr.size(); i++)
+    {
+        if(Ncorr[i] > 50)
+        {
+            num_valid++;
+        }
+    }
+    std::cout << "- " << num_valid << "/" << Ncorr.size() << " valid" << std::endl;
+
+
+    // cluster
+    computeClusters();
 
     // Update T_odom_map
     // convert(poses[poses.size() - 1], T_base_map.transform);
@@ -185,18 +266,18 @@ void poseCBRandom(geometry_msgs::PoseStamped msg)
     pose_received = true;
 
     Eigen::Matrix<double, 6, 6> cov;
-    cov <<  0.3, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+    cov <<  10.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 10.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 2.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.05, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.1;
+            0.0, 0.0, 0.0, 0.0, M_PI, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, M_PI;
 
     Eigen::Matrix<double, 6, 1> mean;
 
     mean(0) = msg.pose.position.x;
     mean(1) = msg.pose.position.y;
-    mean(2) = msg.pose.position.z;
+    mean(2) = msg.pose.position.z + 0.5;
 
     geometry_msgs::Vector3 rpy_ros = quat2rpy(msg.pose.orientation);
 
@@ -336,6 +417,7 @@ int main(int argc, char** argv)
     // cloud_pub = nh_p.advertise<sensor_msgs::PointCloud>("sim_cloud", 1);
     // pose_pub = nh_p.advertise<geometry_msgs::PoseStamped>("sim_pose", 1);
     pub_poses = nh_p.advertise<geometry_msgs::PoseArray>("particles", 1);
+    pub_best_poses = nh_p.advertise<geometry_msgs::PoseArray>("best_particles", 1);
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCBRandom);
 

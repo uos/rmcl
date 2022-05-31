@@ -31,7 +31,7 @@
     <remap from="scan" to="/pcl2_to_scan/scan"/>
     <remap from="pose" to="/move_base_simple/goal"/>
     <param name="max_distance" type="double" value="0.5" />
-    <param name="particles" type="int" value="3000" />
+    <param name="particles" type="int" value="5000" />
 </node>
 
 </launch>

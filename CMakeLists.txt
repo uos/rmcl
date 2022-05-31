@@ -71,6 +71,10 @@ add_library(rmcl
     src/rmcl/correction/OnDnCorrectorEmbree.cpp
     # Math
     src/rmcl/math/math.cpp
+    # Spatial
+    src/rmcl/spatial/KdTree.cpp
+    # Clustering
+    src/rmcl/clustering/clustering.cpp
 )
 
 add_dependencies(rmcl nanoflann)
@@ -78,6 +82,7 @@ add_dependencies(rmcl nanoflann)
 target_link_libraries(rmcl
     ${rmagine_LIBRARY}
     ${rmagine_embree_LIBRARY}
+    ${rmagine_ext_LIBRARIES}
     Eigen3::Eigen
 )
 
@@ -390,6 +395,24 @@ add_dependencies(multi_lidar_corrector_optix
 target_link_libraries(multi_lidar_corrector_optix
     ${catkin_LIBRARIES}
     ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
+
+#######
+# TESTS
+
+add_executable(clustering_node src/nodes/tests/clustering_node.cpp)
+
+add_dependencies(clustering_node 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(clustering_node
+    ${catkin_LIBRARIES}
     rmcl
     rmcl_ros
     rmcl_optix_ros
