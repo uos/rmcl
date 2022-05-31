@@ -8,6 +8,11 @@ if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
   endif()
 endif()
 
+set(CMAKE_MODULE_PATH
+  ${rmcl_SOURCE_DIR}/cmake
+  ${CMAKE_MODULE_PATH}
+)
+
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     geometry_msgs
@@ -29,6 +34,16 @@ find_package(rmagine REQUIRED)
 include_directories(${rmagine_INCLUDE_DIRS})
 
 find_package(Eigen3 REQUIRED)
+
+### EXTERNAL PROJECTS
+include(ExternalProject)
+
+##########################################
+## NanoFLANN: K-nearest neighbor search ##
+##########################################
+include(DownloadNanoflann)
+include_directories(${nanoflann_INCLUDE_DIR})
+
 
 catkin_package(
     INCLUDE_DIRS 
@@ -57,6 +72,8 @@ add_library(rmcl
     # Math
     src/rmcl/math/math.cpp
 )
+
+add_dependencies(rmcl nanoflann)
 
 target_link_libraries(rmcl
     ${rmagine_LIBRARY}
