@@ -407,6 +407,8 @@ endif()
 #######
 # TESTS
 
+if(${rmagine_optix_FOUND})
+
 add_executable(clustering_node src/nodes/tests/clustering_node.cpp)
 
 add_dependencies(clustering_node 
@@ -422,3 +424,4 @@ target_link_libraries(clustering_node
     rmcl_optix_ros
 )
 
+endif()
