@@ -121,7 +121,7 @@ void correctOnce()
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
     
-    size_t Nposes = 100;
+    size_t Nposes = 1;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
