@@ -132,7 +132,7 @@ void correctOnce()
     sw();
     auto corrRes = scan_correct->correct(poses);
     el = sw();
-    ROS_INFO_STREAM("- correctOnce: poses " << Nposes << " in " << el << "s");
+    // ROS_INFO_STREAM("- correctOnce: poses " << Nposes << " in " << el << "s");
 
     
     poses = multNxN(poses, corrRes.Tdelta);
