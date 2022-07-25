@@ -319,6 +319,8 @@ target_link_libraries(combined_corrector_embree
 )
 
 ###### CORRECTION GPU #######
+if(${rmagine_optix_FOUND})
+
 add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
 
 add_dependencies(lidar_corrector_optix 
@@ -399,6 +401,8 @@ target_link_libraries(multi_lidar_corrector_optix
     rmcl_ros
     rmcl_optix_ros
 )
+
+endif()
 
 #######
 # TESTS
