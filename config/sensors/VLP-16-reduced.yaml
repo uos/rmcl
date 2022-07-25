@@ -9,6 +9,6 @@ model:
   phi_inc: 0.03490658503988659
   phi_N: 16
   theta_min: -3.14159011841
-  theta_inc: 0.0034447287868309136 # (2*pi)/1823 instead of (2*pi)/1824 ? is this correct (2*pi)/1824 ?
-  theta_N: 1824
+  theta_inc: 0.013778915147323654
+  theta_N: 456
   
