@@ -59,8 +59,6 @@ protected:
 
     rmagine::SVDCudaPtr m_svd;
 
-    std::vector<rmagine::OptixProgramPtr> programs;
-
     bool m_optical = false;
 
 private:
@@ -79,7 +77,6 @@ private:
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
         ) const;
-    
 };
 
 using PinholeCorrectorOptixPtr = std::shared_ptr<PinholeCorrectorOptix>;

@@ -1,7 +1,9 @@
 #include "rmcl/correction/PinholeCorrectorOptix.hpp"
 
-#include "rmcl/correction/optix/PinholeCorrectProgramRW.hpp"
-#include "rmcl/correction/optix/PinholeCorrectProgramSW.hpp"
+// #include "rmcl/correction/optix/PinholeCorrectProgramRW.hpp"
+// #include "rmcl/correction/optix/PinholeCorrectProgramSW.hpp"
+
+#include "rmcl/correction/optix/corr_pipelines.h"
 
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 
@@ -15,6 +17,8 @@
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
 
+#include <optix_stubs.h>
+
 
 namespace rm = rmagine;
 
@@ -25,12 +29,7 @@ PinholeCorrectorOptix::PinholeCorrectorOptix(
     rmagine::OptixMapPtr map)
 :Base(map)
 {
-    programs.resize(2);
-    programs[0].reset(new PinholeCorrectProgramRW(map));
-    programs[1].reset(new PinholeCorrectProgramSW(map));
-
-    // CUDA_CHECK( cudaStreamCreate(&m_stream) );
-    m_svd.reset(new rm::SVDCuda(Base::m_stream));
+    m_svd = std::make_shared<rm::SVDCuda>(Base::m_stream);
 
     // default params
     CorrectionParams params;
@@ -59,18 +58,19 @@ void PinholeCorrectorOptix::setOptical(bool optical)
 CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
-    // rm::StopWatch sw;
-    // double el;
-    // std::cout << "Start correction." << std::endl;
+    auto optix_ctx = m_map->context();
+    auto cuda_ctx = optix_ctx->getCudaContext();
+    if(!cuda_ctx->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::correct() Need to activate map context" << std::endl;
+        cuda_ctx->use();
+    }
 
     CorrectionResults<rm::VRAM_CUDA> res;
-
     if(Tbms.size() == 0)
     {
         return res;
     }
-
-    // sw();
 
     res.Ncorr.resize(Tbms.size());
     res.Tdelta.resize(Tbms.size());
@@ -81,19 +81,10 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     
-    // el = sw();
-    // std::cout << "- init extra mem: " << el << "s" << std::endl;
-
-    // sw();
     compute_covs(Tbms, ms, ds, Cs, res.Ncorr);
-    // el = sw();
-    // std::cout << "- compute covs: " << el << "s" << std::endl;
 
-    // sw();
     static CorrectionCuda corr(m_svd);
     corr.correction_from_covs(ms, ds, Cs, res.Ncorr, res.Tdelta);
-    // el = sw();
-    // std::cout << "- compute corr: " << el << "s" << std::endl;
 
     return res;
 }
@@ -266,33 +257,32 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
     mem->Nposes = Tbm.size();
     mem->params = m_params.raw();
     mem->optical = m_optical;
-    mem->handle = m_map->as.handle;
+    mem->handle = m_map->scene()->as()->handle;
     mem->corr_valid = corr_valid.raw();
     mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
 
     rm::Memory<PinholeCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
-    copy(mem, d_mem, Base::m_stream);
+    copy(mem, d_mem, m_stream);
 
-    rm::OptixProgramPtr program = programs[0];
 
-    // el = sw();
-    // std::cout << "- prepare: " << el << "s" << std::endl;
+    rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 1);
+
 
     // sw();
-    OPTIX_CHECK( optixLaunch(
+    RM_OPTIX_CHECK( optixLaunch(
         program->pipeline, 
-        Base::m_stream, 
+        m_stream->handle(), 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
         sizeof( PinholeCorrectionDataRW ), 
-        &program->sbt,
+        program->sbt,
         m_width, // width Xdim
         m_height, // height Ydim
         Tbm.size()// depth Zdim
         ));
 
-    cudaStreamSynchronize(m_stream);
-
+    m_stream->synchronize();
+    
     rm::sumBatched(corr_valid, Ncorr);
     meanBatched(dataset_points, corr_valid, Ncorr, m1);
     meanBatched(model_points, corr_valid, Ncorr, m2);
@@ -319,7 +309,7 @@ void PinholeCorrectorOptix::computeMeansCovsSW(
     mem->Nposes = Tbm.size();
     mem->params = m_params.raw();
     mem->optical = m_optical;
-    mem->handle = m_map->as.handle;
+    mem->handle = m_map->scene()->as()->handle;
     mem->C = Cs.raw();
     mem->m1 = m1.raw(); // Sim
     mem->m2 = m2.raw(); // Real
@@ -328,20 +318,20 @@ void PinholeCorrectorOptix::computeMeansCovsSW(
     rm::Memory<PinholeCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, m_stream);
 
-    rm::OptixProgramPtr program = programs[1];
+    rm::PipelinePtr program = make_pipeline_corr_sw(m_map->scene(), 1);
 
-    OPTIX_CHECK( optixLaunch(
+    RM_OPTIX_CHECK( optixLaunch(
         program->pipeline, 
-        m_stream, 
+        m_stream->handle(), 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
         sizeof( PinholeCorrectionDataSW ), 
-        &program->sbt, 
+        program->sbt, 
         Tbm.size(),
         1,
         1
         ));
 
-    cudaStreamSynchronize(m_stream);
+    m_stream->synchronize();
 }
 
 } // namespace rmcl

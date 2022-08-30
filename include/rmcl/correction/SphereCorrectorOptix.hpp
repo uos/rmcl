@@ -57,8 +57,6 @@ protected:
 
     rmagine::SVDCudaPtr m_svd;
 
-    // std::vector<rmagine::OptixProgramPtr> programs;
-
 private:
     void computeMeansCovsRW(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,

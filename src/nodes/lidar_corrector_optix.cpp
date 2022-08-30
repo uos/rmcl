@@ -38,8 +38,6 @@ using namespace rmagine;
 
 SphereCorrectorOptixROSPtr scan_correct;
 
-std::string app_name = "[RMCL - LidarCorrectorOptix]";
-
 bool        pose_received = false;
 ros::Time   last_pose;
 bool        scan_received = false;
@@ -161,7 +159,6 @@ void correctOnce()
     poses = poses_;
 
     convert(poses[0], T_base_map.transform);
-
     T_odom_map = T_base_map * ~T_base_odom;
 }
 
@@ -169,17 +166,8 @@ void correct()
 {
     if(pose_received && scan_received)
     {
-        // std::cout << "Correction timings:" << std::endl;
-        // StopWatch sw;
-        // double el;
-        // sw();
         fetchTF();
-        // el = sw();
-        // std::cout << "- fetchTF: " << el << "s" << std::endl;
-        // sw();
         correctOnce();
-        // el = sw();
-        // std::cout << "- correction step: " << el << "s" << std::endl;
     }
 }
 
@@ -190,7 +178,8 @@ void poseCB(geometry_msgs::PoseStamped msg)
 {
     std::lock_guard<std::mutex> guard(T_odom_map_mutex);
 
-    ROS_INFO_STREAM_NAMED(app_name, app_name << " Received new pose guess");
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " Received new pose guess");
+
     map_frame = msg.header.frame_id;
     pose_received = true;
 
@@ -203,7 +192,6 @@ void poseCB(geometry_msgs::PoseStamped msg)
     T_base_map.transform <<= msg.pose;
 
     fetchTF();
-
     
     T_odom_map = T_base_map * ~T_base_odom;
 }
@@ -228,19 +216,6 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
     last_scan = msg->header.stamp;
     scan_received = true;
-
-    // if(pose_received)
-    // {
-    //     fetchTF();
-    //     correctOnce();
-    // }
-
-    // fetchTF();
-
-    // auto correction_thread = std::thread([](){
-    //     correct();
-    // });
-    // correction_thread.join();
 }
 
 
@@ -291,14 +266,6 @@ int main(int argc, char** argv)
     nh_p.param<std::string>("odom_frame", odom_frame, "");
     nh_p.param<std::string>("base_frame", base_frame, "");
 
-
-    double tf_rate;
-    nh_p.param<double>("tf_rate", tf_rate, 30);
-
-    double corr_rate_max;
-    nh_p.param<double>("corr_rate_max", corr_rate_max, 30);
-
-
     if(base_frame == "")
     {
         has_base_frame = false;
@@ -309,6 +276,17 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
+    double tf_rate;
+    nh_p.param<double>("tf_rate", tf_rate, 30);
+
+    double corr_rate_max;
+    nh_p.param<double>("corr_rate_max", corr_rate_max, 30);
+
+    int Nposes_tmp;
+    nh_p.param<int>("poses", Nposes_tmp, 1);
+    Nposes = Nposes_tmp;
+
+
     OptixMapPtr map = importOptixMap(meshfile);
     scan_correct.reset(new SphereCorrectorOptixROS(map));
 
@@ -318,9 +296,7 @@ int main(int argc, char** argv)
 
     std::cout << "Max Distance: " << corr_params.max_distance << std::endl;
 
-    int Nposes_tmp;
-    nh_p.param<int>("poses", Nposes_tmp, 1);
-    Nposes = Nposes_tmp;
+    
 
 
     // get TF of scanner
@@ -332,9 +308,9 @@ int main(int argc, char** argv)
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
+
+    // CORRECTION THREAD
     stop_correction_thread = false;
-
-
     correction_thread = std::thread([corr_rate_max](){
         StopWatch sw;
         double el;
@@ -359,9 +335,9 @@ int main(int argc, char** argv)
     });
 
 
-    ros::Rate r(30);
+    // MAIN LOOP (TF)
+    ros::Rate r(tf_rate);
     ros::Time stamp = ros::Time::now();
-
 
     while(ros::ok())
     {

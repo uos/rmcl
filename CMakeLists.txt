@@ -172,7 +172,7 @@ if(${rmagine_optix_FOUND})
     add_library(rmcl_optix
         # Correction
         src/rmcl/correction/SphereCorrectorOptix.cpp
-        # src/rmcl/correction/PinholeCorrectorOptix.cpp
+        src/rmcl/correction/PinholeCorrectorOptix.cpp
         # src/rmcl/correction/OnDnCorrectorOptix.cpp
         # Correction Programs
         ## Spherical
@@ -206,7 +206,7 @@ if(${rmagine_optix_FOUND})
         # Sphere
         src/rmcl/correction/SphereCorrectorOptixROS.cpp
         # Pinhole
-        # src/rmcl/correction/PinholeCorrectorOptixROS.cpp
+        src/rmcl/correction/PinholeCorrectorOptixROS.cpp
         # O1Dn
         # OnDn
         # src/rmcl/correction/OnDnCorrectorOptixROS.cpp
@@ -344,21 +344,21 @@ target_link_libraries(lidar_corrector_optix
     rmcl_optix_ros
 )
 
-# add_executable(depth_corrector_optix src/nodes/depth_corrector_optix.cpp)
+add_executable(depth_corrector_optix src/nodes/depth_corrector_optix.cpp)
 
-# add_dependencies(depth_corrector_optix 
-#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#     ${catkin_EXPORTED_TARGETS}
-# )
+add_dependencies(depth_corrector_optix 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
 
-# ## Specify libraries to link a library or executable target against
-# target_link_libraries(depth_corrector_optix
-#     ${catkin_LIBRARIES}
-#     ${rmagine_ext_LIBRARIES}
-#     rmcl
-#     rmcl_ros
-#     rmcl_optix_ros
-# )
+## Specify libraries to link a library or executable target against
+target_link_libraries(depth_corrector_optix
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
 
 # add_executable(ondn_corrector_optix src/nodes/ondn_corrector_optix.cpp)
 
