@@ -1,7 +1,9 @@
 #include "rmcl/correction/SphereCorrectorOptix.hpp"
 
-#include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
-#include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
+// #include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
+// #include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
+
+#include "rmcl/correction/optix/corr_pipelines.h"
 
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 
@@ -9,6 +11,9 @@
 
 #include <rmcl/math/math_batched.cuh>
 #include <rmcl/math/math.cuh>
+
+#include <optix_stubs.h>
+
 
 
 // DEBUG
@@ -24,9 +29,9 @@ SphereCorrectorOptix::SphereCorrectorOptix(
     rmagine::OptixMapPtr map)
 :Base(map)
 {
-    programs.resize(2);
-    programs[0].reset(new SphereCorrectProgramRW(map));
-    programs[1].reset(new SphereCorrectProgramSW(map));
+    // programs.resize(2);
+    // programs[0].reset(new SphereCorrectProgramRW(map));
+    // programs[1].reset(new SphereCorrectProgramSW(map));
 
     // CUDA_CHECK( cudaStreamCreate(&m_stream) );
     m_svd.reset(new rm::SVDCuda(Base::m_stream));
@@ -144,28 +149,29 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     mem->Tbm = Tbm.raw();
     mem->Nposes = Tbm.size();
     mem->params = m_params.raw();
-    mem->handle = m_map->as.handle;
+    mem->handle = m_map->scene()->as()->handle;
     mem->corr_valid = corr_valid.raw();
     mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
 
     rm::Memory<SphereCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
-    copy(mem, d_mem, Base::m_stream);
+    copy(mem, d_mem, m_stream->handle());
 
-    rm::OptixProgramPtr program = programs[0];
 
-    OPTIX_CHECK( optixLaunch(
+    rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 0);
+
+    RM_OPTIX_CHECK( optixLaunch(
         program->pipeline, 
-        Base::m_stream, 
+        m_stream->handle(), 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
         sizeof( SphereCorrectionDataRW ), 
-        &program->sbt,
+        program->sbt,
         m_width, // width Xdim
         m_height, // height Ydim
         Tbm.size()// depth Zdim
         ));
 
-    cudaStreamSynchronize(m_stream);
+    m_stream->synchronize();
 
     rm::sumBatched(corr_valid, Ncorr);
     meanBatched(dataset_points, corr_valid, Ncorr, m1);
@@ -192,29 +198,30 @@ void SphereCorrectorOptix::computeMeansCovsSW(
     mem->Tsb = m_Tsb.raw();
     mem->Nposes = Tbm.size();
     mem->params = m_params.raw();
-    mem->handle = m_map->as.handle;
+    mem->handle = m_map->scene()->as()->handle;
     mem->C = Cs.raw();
     mem->m1 = m1.raw(); // Sim
     mem->m2 = m2.raw(); // Real
     mem->Ncorr = Ncorr.raw();
 
     rm::Memory<SphereCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
-    copy(mem, d_mem, m_stream);
+    copy(mem, d_mem, m_stream->handle());
 
-    rm::OptixProgramPtr program = programs[1];
+    rm::PipelinePtr program = make_pipeline_corr_sw(m_map->scene(), 0);
 
-    OPTIX_CHECK( optixLaunch(
+    
+    RM_OPTIX_CHECK( optixLaunch(
         program->pipeline, 
-        m_stream, 
+        m_stream->handle(), 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
         sizeof( SphereCorrectionDataSW ), 
-        &program->sbt, 
+        program->sbt, 
         Tbm.size(),
         1,
         1
         ));
 
-    cudaStreamSynchronize(m_stream);
+    m_stream->synchronize();
 }
 
 } // namespace rmcl

@@ -36,23 +36,23 @@
 #define RMCL_CORRECTION_OPTIX_SPHERE_CORRECT_PROGRAM_SW_HPP
 
 #include <rmagine/map/OptixMap.hpp>
-#include <rmagine/util/optix/OptixProgram.hpp>
-
-#include <rmagine/util/optix/OptixSbtRecord.hpp>
-#include <rmagine/util/optix/OptixData.hpp>
-
-
+#include <rmagine/util/optix/optix_modules.h>
 
 
 namespace rmcl {
 
-typedef rmagine::SbtRecord<rmagine::HitGroupDataNormals>   HitGroupSbtRecord;
+rmagine::ProgramModulePtr make_program_module_corr_gen(
+    rmagine::OptixScenePtr scene,
+    unsigned int sensor_id
+);
+
+// typedef rmagine::SbtRecord<rmagine::HitGroupDataNormals>   HitGroupSbtRecord;
 
 /**
  * @brief Scan-wise parallelization
  * 
  */
-class SphereCorrectProgramSW : public rmagine::OptixProgram 
+class SphereCorrectProgramSW
 {
 public:
     SphereCorrectProgramSW(rmagine::OptixMapPtr map);

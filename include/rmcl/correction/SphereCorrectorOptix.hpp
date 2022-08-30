@@ -57,7 +57,7 @@ protected:
 
     rmagine::SVDCudaPtr m_svd;
 
-    std::vector<rmagine::OptixProgramPtr> programs;
+    // std::vector<rmagine::OptixProgramPtr> programs;
 
 private:
     void computeMeansCovsRW(

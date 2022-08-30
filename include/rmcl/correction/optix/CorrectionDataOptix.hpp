@@ -41,8 +41,11 @@
 #include <rmagine/types/sensor_models.h>
 #include <rmagine/math/types.h>
 #include <rmagine/types/MemoryCuda.hpp>
+#include <rmagine/simulation/optix/sim_program_data.h>
+
 
 #include "rmcl/correction/CorrectionParams.hpp"
+
 
 
 namespace rmcl {
@@ -62,7 +65,7 @@ struct CorrectionDataSW
     const CorrectionParams*         params;
     bool                            optical;
     // handle
-    OptixTraversableHandle          handle;
+    unsigned long long          handle;
     // outputs
     rmagine::Matrix3x3*             C; // C between 1 and 2
     rmagine::Vector*                m1; // from
@@ -90,7 +93,7 @@ struct CorrectionDataRW
     const CorrectionParams*         params;
     bool                            optical;
     // handle
-    OptixTraversableHandle          handle;
+    unsigned long long              handle;
     // outputs
     unsigned int*                   corr_valid;
     rmagine::Vector*                model_points; // nearest points on mesh

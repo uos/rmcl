@@ -1,7 +1,9 @@
 #include <optix.h>
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 #include <rmagine/math/types.h>
-#include <rmagine/util/optix/OptixData.hpp>
+#include <rmagine/map/optix/optix_sbt.h>
+
+namespace rm = rmagine;
 
 extern "C" {
 __constant__ rmcl::SphereCorrectionDataRW mem;
@@ -102,15 +104,26 @@ extern "C" __global__ void __miss__ms()
 extern "C" __global__ void __closesthit__ch()
 {
     const float t = optixGetRayTmax();
-
-    // Get additional info
     const unsigned int face_id = optixGetPrimitiveIndex();
-    const unsigned int object_id = optixGetInstanceIndex();
+    const unsigned int inst_id = optixGetInstanceId();
+    const unsigned int gas_id = optixGetSbtGASIndex();
 
-    rmagine::HitGroupDataNormals* hg_data  = reinterpret_cast<rmagine::HitGroupDataNormals*>( optixGetSbtDataPointer() );
+    rm::OptixSceneSBT* scene_data  = reinterpret_cast<rm::OptixSceneSBT*>( optixGetSbtDataPointer() );
 
-    const rmagine::Vector normal_rm = hg_data->normals[object_id][face_id];
-    float3 normal = make_float3(normal_rm.x, normal_rm.y, normal_rm.z);
+    rm::OptixMeshSBT* mesh_data = nullptr;
+    if(scene_data->type == rm::OptixSceneType::INSTANCES)
+    {
+        // instance hierarchy
+        rm::OptixSceneSBT* inst_scene = scene_data->geometries[inst_id].inst_data.scene;
+        mesh_data = &(inst_scene->geometries[gas_id].mesh_data);
+    } else {
+        mesh_data = &scene_data->geometries[gas_id].mesh_data;
+    }
+
+    const float3 normal = make_float3(
+        mesh_data->face_normals[face_id].x, 
+        mesh_data->face_normals[face_id].y, 
+        mesh_data->face_normals[face_id].z);
     float3 normal_world = optixTransformNormalFromObjectToWorldSpace(normal);
 
     optixSetPayload_0( __float_as_uint( t ) );

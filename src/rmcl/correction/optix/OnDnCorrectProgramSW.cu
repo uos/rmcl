@@ -1,7 +1,9 @@
 #include <optix.h>
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 #include <rmagine/math/types.h>
-#include <rmagine/util/optix/OptixData.hpp>
+#include <rmagine/map/optix/optix_sbt.h>
+
+namespace rm = rmagine;
 
 extern "C" {
 __constant__ rmcl::OnDnCorrectionDataSW mem;
@@ -184,15 +186,7 @@ extern "C" __global__ void __raygen__rg()
                         const rmagine::Vector a = pmesh_b - to_mean;
                         const rmagine::Vector b = preal_b - from_mean;
 
-                        C(0,0) += a.x * b.x;
-                        C(1,0) += a.x * b.y;
-                        C(2,0) += a.x * b.z;
-                        C(0,1) += a.y * b.x;
-                        C(1,1) += a.y * b.y;
-                        C(2,1) += a.y * b.z;
-                        C(0,2) += a.z * b.x;
-                        C(1,2) += a.z * b.y;
-                        C(2,2) += a.z * b.z;
+                        C += b.multT(a);
                     }
                 }
             }
@@ -204,27 +198,4 @@ extern "C" __global__ void __raygen__rg()
         mem.m1[pid] = from_mean;
         mem.m2[pid] = to_mean;
     }
-}
-
-extern "C" __global__ void __miss__ms()
-{
-    optixSetPayload_0( __float_as_uint( mem.model->range.max + 1.0f ) );
-}
-
-extern "C" __global__ void __closesthit__ch()
-{
-    const float t = optixGetRayTmax();
-    const unsigned int face_id = optixGetPrimitiveIndex();
-    const unsigned int object_id = optixGetInstanceIndex();
-
-    rmagine::HitGroupDataNormals* hg_data  = reinterpret_cast<rmagine::HitGroupDataNormals*>( optixGetSbtDataPointer() );
-
-    const rmagine::Vector normal_rm = hg_data->normals[object_id][face_id];
-    float3 normal = make_float3(normal_rm.x, normal_rm.y, normal_rm.z);
-    float3 normal_world = optixTransformNormalFromObjectToWorldSpace(normal);
-
-    optixSetPayload_0( __float_as_uint( t ) );
-    optixSetPayload_1( __float_as_uint( normal_world.x ) );
-    optixSetPayload_2( __float_as_uint( normal_world.y ) );
-    optixSetPayload_3( __float_as_uint( normal_world.z ) );
 }
