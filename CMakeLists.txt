@@ -173,7 +173,7 @@ if(${rmagine_optix_FOUND})
         # Correction
         src/rmcl/correction/SphereCorrectorOptix.cpp
         src/rmcl/correction/PinholeCorrectorOptix.cpp
-        # src/rmcl/correction/OnDnCorrectorOptix.cpp
+        src/rmcl/correction/OnDnCorrectorOptix.cpp
         # Correction Programs
         ## Spherical
         # src/rmcl/correction/optix/SphereCorrectProgramRW.cpp
@@ -209,7 +209,7 @@ if(${rmagine_optix_FOUND})
         src/rmcl/correction/PinholeCorrectorOptixROS.cpp
         # O1Dn
         # OnDn
-        # src/rmcl/correction/OnDnCorrectorOptixROS.cpp
+        src/rmcl/correction/OnDnCorrectorOptixROS.cpp
     )
 
     target_link_libraries(rmcl_optix_ros
@@ -360,21 +360,21 @@ target_link_libraries(depth_corrector_optix
     rmcl_optix_ros
 )
 
-# add_executable(ondn_corrector_optix src/nodes/ondn_corrector_optix.cpp)
+add_executable(ondn_corrector_optix src/nodes/ondn_corrector_optix.cpp)
 
-# add_dependencies(ondn_corrector_optix 
-#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#     ${catkin_EXPORTED_TARGETS}
-# )
+add_dependencies(ondn_corrector_optix 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
 
-# ## Specify libraries to link a library or executable target against
-# target_link_libraries(ondn_corrector_optix
-#     ${catkin_LIBRARIES}
-#     ${rmagine_ext_LIBRARIES}
-#     rmcl
-#     rmcl_ros
-#     rmcl_optix_ros
-# )
+## Specify libraries to link a library or executable target against
+target_link_libraries(ondn_corrector_optix
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
 
 # add_executable(combined_corrector_optix src/nodes/combined_corrector_optix.cpp)
 

@@ -255,7 +255,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Optix Corrector started");
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " started");
 
     std::string map_frame;
     std::string meshfile;
@@ -287,8 +287,10 @@ int main(int argc, char** argv)
     Nposes = Nposes_tmp;
 
 
+
     OptixMapPtr map = importOptixMap(meshfile);
     scan_correct.reset(new SphereCorrectorOptixROS(map));
+    
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);
@@ -306,7 +308,7 @@ int main(int argc, char** argv)
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
 
-    ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
 
     // CORRECTION THREAD

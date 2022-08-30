@@ -1,7 +1,6 @@
 #include "rmcl/correction/OnDnCorrectorOptix.hpp"
 
-#include "rmcl/correction/optix/OnDnCorrectProgramRW.hpp"
-#include "rmcl/correction/optix/OnDnCorrectProgramSW.hpp"
+#include "rmcl/correction/optix/corr_pipelines.h"
 
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 
@@ -10,6 +9,7 @@
 #include <rmcl/math/math_batched.cuh>
 #include <rmcl/math/math.cuh>
 
+#include <optix_stubs.h>
 
 // DEBUG
 #include <rmagine/util/prints.h>
@@ -24,12 +24,7 @@ OnDnCorrectorOptix::OnDnCorrectorOptix(
     rmagine::OptixMapPtr map)
 :Base(map)
 {
-    programs.resize(2);
-    programs[0].reset(new OnDnCorrectProgramRW(map));
-    programs[1].reset(new OnDnCorrectProgramSW(map));
-
-    // CUDA_CHECK( cudaStreamCreate(&m_stream) );
-    m_svd.reset(new rm::SVDCuda(Base::m_stream));
+    m_svd = std::make_shared<rm::SVDCuda>(Base::m_stream);
 
     // default params
     CorrectionParams params;
@@ -59,15 +54,20 @@ void OnDnCorrectorOptix::setInputData(
 CorrectionResults<rm::VRAM_CUDA> OnDnCorrectorOptix::correct(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
-    // std::cout << "Start correction." << std::endl;
-    CorrectionResults<rm::VRAM_CUDA> res;
-    res.Ncorr.resize(Tbms.size());
-    res.Tdelta.resize(Tbms.size());
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[OnDnCorrectorOptix::correct() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
 
+    CorrectionResults<rm::VRAM_CUDA> res;
     if(Tbms.size() == 0)
     {
         return res;
     }
+
+    res.Ncorr.resize(Tbms.size());
+    res.Tdelta.resize(Tbms.size());
 
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ds(Tbms.size());
@@ -108,6 +108,11 @@ void OnDnCorrectorOptix::compute_covs(
     CorrectionPreResults<rmagine::VRAM_CUDA>& res
 ) const
 {
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::compute_covs() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
     compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 
@@ -153,7 +158,7 @@ void OnDnCorrectorOptix::computeMeansCovsRW(
     mem->Tbm = Tbm.raw();
     mem->Nposes = Tbm.size();
     mem->params = m_params.raw();
-    mem->handle = m_map->as.handle;
+    mem->handle = m_map->scene()->as()->handle;
     mem->corr_valid = corr_valid.raw();
     mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
@@ -161,20 +166,20 @@ void OnDnCorrectorOptix::computeMeansCovsRW(
     rm::Memory<OnDnCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, Base::m_stream);
 
-    rm::OptixProgramPtr program = programs[0];
+    rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 3);
 
-    OPTIX_CHECK( optixLaunch(
+    RM_OPTIX_CHECK( optixLaunch(
         program->pipeline, 
-        Base::m_stream, 
+        m_stream->handle(), 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
         sizeof( OnDnCorrectionDataRW ), 
-        &program->sbt,
+        program->sbt,
         m_width, // width Xdim
         m_height, // height Ydim
         Tbm.size()// depth Zdim
         ));
 
-    cudaStreamSynchronize(m_stream);
+    m_stream->synchronize();
 
     rm::sumBatched(corr_valid, Ncorr);
     meanBatched(dataset_points, corr_valid, Ncorr, m1);
@@ -204,7 +209,7 @@ void OnDnCorrectorOptix::computeMeansCovsSW(
     mem->Tsb = m_Tsb.raw();
     mem->Nposes = Tbm.size();
     mem->params = m_params.raw();
-    mem->handle = m_map->as.handle;
+    mem->handle = m_map->scene()->as()->handle;
     mem->C = Cs.raw();
     mem->m1 = m1.raw(); // Sim
     mem->m2 = m2.raw(); // Real
@@ -213,20 +218,20 @@ void OnDnCorrectorOptix::computeMeansCovsSW(
     rm::Memory<OnDnCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, m_stream);
 
-    rm::OptixProgramPtr program = programs[1];
+    rm::PipelinePtr program = make_pipeline_corr_sw(m_map->scene(), 3);
 
-    OPTIX_CHECK( optixLaunch(
+    RM_OPTIX_CHECK( optixLaunch(
         program->pipeline, 
-        m_stream, 
+        m_stream->handle(), 
         reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
         sizeof( OnDnCorrectionDataSW ), 
-        &program->sbt, 
+        program->sbt, 
         Tbm.size(),
         1,
         1
         ));
 
-    cudaStreamSynchronize(m_stream);
+    m_stream->synchronize();
 }
 
 } // namespace rmcl

@@ -1,7 +1,5 @@
 #include "rmcl/correction/SphereCorrectorOptix.hpp"
 
-// #include "rmcl/correction/optix/SphereCorrectProgramRW.hpp"
-// #include "rmcl/correction/optix/SphereCorrectProgramSW.hpp"
 
 #include "rmcl/correction/optix/corr_pipelines.h"
 
@@ -53,12 +51,10 @@ void SphereCorrectorOptix::setInputData(
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
-    auto optix_ctx = m_map->context();
-    auto cuda_ctx = optix_ctx->getCudaContext();
-    if(!cuda_ctx->isActive())
+    if(!m_stream->context()->isActive())
     {
         std::cout << "[SphereCorrectorOptix::correct() Need to activate map context" << std::endl;
-        cuda_ctx->use();
+        m_stream->context()->use();
     }
 
     CorrectionResults<rm::VRAM_CUDA> res;
@@ -109,6 +105,11 @@ void SphereCorrectorOptix::compute_covs(
     CorrectionPreResults<rmagine::VRAM_CUDA>& res
 ) const
 {
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::compute_covs() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
     compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 

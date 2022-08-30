@@ -28,6 +28,8 @@
 #include <chrono>
 #include <memory>
 #include <omp.h>
+#include <thread>
+#include <mutex>
 
 #include <Eigen/Dense>
 
@@ -52,15 +54,23 @@ std::string base_frame;
 bool has_base_frame = true;
 std::string sensor_frame;
 
+// for testing
+size_t Nposes = 100;
+
 std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
 
 // Estimate this
 geometry_msgs::TransformStamped T_odom_map;
+std::mutex T_odom_map_mutex;
 // dynamic: ekf
 geometry_msgs::TransformStamped T_base_odom;
 // static: urdf
 geometry_msgs::TransformStamped T_sensor_base;
+
+
+std::thread correction_thread;
+bool stop_correction_thread = false;
 
 
 void publish_model(const OnDnModel& model)
@@ -165,12 +175,10 @@ bool fetchTF()
 
 void correctOnce()
 {
-    StopWatch sw;
-    // std::cout << "correctOnce" << std::endl;
+    std::lock_guard<std::mutex> guard(T_odom_map_mutex);
+    
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
-    
-    size_t Nposes = 1;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
@@ -178,16 +186,8 @@ void correctOnce()
         convert(T_base_map.transform, poses[i]);
     }
     
-    // std::cout << "Correct!" << std::endl;
-    // upload
     Memory<Transform, VRAM_CUDA> poses_ = poses;
-    sw();
     auto corrRes = ondn_correct->correct(poses_);
-    double el = sw();
-
-    ROS_INFO_STREAM("correctOnce: poses " << Nposes << " in " << el << "s");
-
-    // std::cout << corrRes.Tdelta[0] << std::endl;
 
     poses_ = multNxN(poses_, corrRes.Tdelta);
     // download
@@ -195,15 +195,30 @@ void correctOnce()
 
     // Update T_odom_map
     convert(poses[0], T_base_map.transform);
+
     T_odom_map = T_base_map * ~T_base_odom;
 }
+
+
+void correct()
+{
+    if(pose_received && scan_received)
+    {
+        fetchTF();
+        correctOnce();
+    }
+}
+
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame
 void poseCB(geometry_msgs::PoseStamped msg)
 {
-    // std::cout << "poseCB" << std::endl;
-    msg.pose.position.z += 0.0;
+    std::lock_guard<std::mutex> guard(T_odom_map_mutex);
+
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " Received new pose guess");
+    
+    // msg.pose.position.z += 0.0;
     map_frame = msg.header.frame_id;
     pose_received = true;
 
@@ -217,6 +232,8 @@ void poseCB(geometry_msgs::PoseStamped msg)
 
     T_odom_map = T_base_map * ~T_base_odom;
 }
+
+
 
 // Storing scan information globally
 // updating real data inside the global scan corrector
@@ -282,11 +299,11 @@ void scanCB(const sensor_msgs::LaserScan::ConstPtr& msg)
     last_scan = msg->header.stamp;
     scan_received = true;
 
-    if(pose_received)
-    {
-        fetchTF();
-        correctOnce();
-    }
+    // if(pose_received)
+    // {
+    //     fetchTF();
+    //     correctOnce();
+    // }
 }
 
 void updateTF()
@@ -318,11 +335,11 @@ void updateTF()
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "lidar_corrector_embree");
+    ros::init(argc, argv, "ondn_corrector_optix");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Optix Corrector started");
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " started");
 
     std::string map_frame;
     std::string meshfile;
@@ -343,17 +360,28 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
+    double tf_rate;
+    nh_p.param<double>("tf_rate", tf_rate, 30);
+
+    double corr_rate_max;
+    nh_p.param<double>("corr_rate_max", corr_rate_max, 30);
+
+    int Nposes_tmp;
+    nh_p.param<int>("poses", Nposes_tmp, 1);
+    Nposes = Nposes_tmp;
+
+
+
     OptixMapPtr map = importOptixMap(meshfile);
-    
     ondn_correct.reset(new OnDnCorrectorOptixROS(map));
-    // scan_correct.reset(new SphereCorrectorEmbreeROS(map));
+    
 
     CorrectionParams corr_params;
     nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);
     ondn_correct->setParams(corr_params);
-    // scan_correct->setParams(corr_params);
 
     std::cout << "Max Distance: " << corr_params.max_distance << std::endl;
+
 
     // get TF of scanner
     tfBuffer.reset(new tf2_ros::Buffer);
@@ -363,10 +391,36 @@ int main(int argc, char** argv)
     ros::Subscriber sub = nh.subscribe<sensor_msgs::LaserScan>("scan", 1, scanCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
 
-    ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
-    // TF rate
-    ros::Rate r(30);
+
+    // CORRECTION THREAD
+    stop_correction_thread = false;
+    correction_thread = std::thread([corr_rate_max](){
+        StopWatch sw;
+        double el;
+
+        // minimum duration for one loop
+        double el_min = 1.0 / corr_rate_max;
+
+        while(!stop_correction_thread)
+        {
+            sw();
+            correct();
+            el = sw();
+            double el_left = el_min - el;
+            if(el_left > 0.0)
+            {
+                std::this_thread::sleep_for(std::chrono::duration<double>(el_left));
+            }
+            // std::cout << "Current Correction Rate: " << 1.0 / el << std::endl;
+        }
+
+        stop_correction_thread = false;
+    });
+
+    // MAIN LOOP (TF)
+    ros::Rate r(tf_rate);
     ros::Time stamp = ros::Time::now();
 
     while(ros::ok())

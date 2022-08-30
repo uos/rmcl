@@ -58,12 +58,10 @@ void PinholeCorrectorOptix::setOptical(bool optical)
 CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
-    auto optix_ctx = m_map->context();
-    auto cuda_ctx = optix_ctx->getCudaContext();
-    if(!cuda_ctx->isActive())
+    if(!m_stream->context()->isActive())
     {
-        std::cout << "[SphereCorrectorOptix::correct() Need to activate map context" << std::endl;
-        cuda_ctx->use();
+        std::cout << "[PinholeCorrectorOptix::correct() Need to activate map context" << std::endl;
+        m_stream->context()->use();
     }
 
     CorrectionResults<rm::VRAM_CUDA> res;
@@ -209,6 +207,11 @@ void PinholeCorrectorOptix::compute_covs(
     CorrectionPreResults<rmagine::VRAM_CUDA>& res
 ) const
 {
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[PinholeCorrectorOptix::compute_covs() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
     compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 
