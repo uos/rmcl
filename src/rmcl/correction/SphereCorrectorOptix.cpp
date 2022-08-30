@@ -33,8 +33,7 @@ SphereCorrectorOptix::SphereCorrectorOptix(
     // programs[0].reset(new SphereCorrectProgramRW(map));
     // programs[1].reset(new SphereCorrectProgramSW(map));
 
-    // CUDA_CHECK( cudaStreamCreate(&m_stream) );
-    m_svd.reset(new rm::SVDCuda(Base::m_stream));
+    m_svd = std::make_shared<rm::SVDCuda>(Base::m_stream);
 
     // default params
     CorrectionParams params;
@@ -50,7 +49,7 @@ void SphereCorrectorOptix::setParams(
 }
 
 void SphereCorrectorOptix::setInputData(
-    const rmagine::MemoryView<float, rmagine::VRAM_CUDA>& ranges)
+    const rm::MemoryView<float, rmagine::VRAM_CUDA>& ranges)
 {
     m_ranges = ranges;
 }
@@ -58,7 +57,15 @@ void SphereCorrectorOptix::setInputData(
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms) const
 {
-    // std::cout << "Start correction." << std::endl;
+
+    auto optix_ctx = m_map->context();
+    auto cuda_ctx = optix_ctx->getCudaContext();
+    if(!cuda_ctx->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::correct() Need to activate map context" << std::endl;
+        cuda_ctx->use();
+    }
+
     CorrectionResults<rm::VRAM_CUDA> res;
     res.Ncorr.resize(Tbms.size());
     res.Tdelta.resize(Tbms.size());
@@ -83,11 +90,11 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
 }
 
 void SphereCorrectorOptix::compute_covs(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
-    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
-    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
-    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
-    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr) const
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& ms,
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& ds,
+    rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
+    rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr) const
 {
     // TODO how to make this dynamic somehow
     constexpr unsigned int POSE_SWITCH = 1024 * 8;
