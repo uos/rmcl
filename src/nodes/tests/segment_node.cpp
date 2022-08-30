@@ -42,6 +42,9 @@ using namespace rmagine;
 SphereSimulatorOptixPtr scan_sim;
 
 
+float min_dist_outlier_scan;
+float min_dist_outlier_map;
+
 std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
 
@@ -50,8 +53,9 @@ std::string map_frame;
 
 geometry_msgs::TransformStamped T_sensor_map;
 
+ros::Publisher pub_outlier_scan;
+ros::Publisher pub_outlier_map;
 
-ros::Publisher pub_cloud;
 
 void scanCB(const ScanStamped::ConstPtr& msg)
 {
@@ -92,28 +96,35 @@ void scanCB(const ScanStamped::ConstPtr& msg)
     // float total_error = 0.0;
     // float dev = 0.0;
 
-    sensor_msgs::PointCloud cloud;
-    cloud.header.stamp = msg->header.stamp;
-    cloud.header.frame_id = msg->header.frame_id;
+    sensor_msgs::PointCloud cloud_outlier_scan;
+    cloud_outlier_scan.header.stamp = msg->header.stamp;
+    cloud_outlier_scan.header.frame_id = msg->header.frame_id;
 
-    float max_error = 0.1;
+    sensor_msgs::PointCloud cloud_outlier_map;
+    cloud_outlier_map.header.stamp = msg->header.stamp;
+    cloud_outlier_map.header.frame_id = msg->header.frame_id;
+
 
     for(size_t vid = 0; vid < model.getHeight(); vid++)
     {
         for(size_t hid = 0; hid < model.getWidth(); hid++)
         {
-            size_t bid = model.getBufferId(vid, hid);
+            const size_t bid = model.getBufferId(vid, hid);
 
-            float range_sim = ranges[bid];
-            float range_real = msg->scan.ranges[bid];
+            const float range_real = msg->scan.ranges[bid];
+            const float range_sim = ranges[bid];
+            
 
-            bool add_point = false;
+            const bool range_real_valid = model.range.inside(range_real);
+            const bool range_sim_valid = model.range.inside(range_sim);
 
-            if(model.range.inside(range_real))
+            if(range_real_valid)
             {
-                if(model.range.inside(range_sim))
+                Vector preal_s = model.getDirection(vid, hid) * range_real;
+
+                if(range_sim_valid)
                 {
-                    Vector preal_s = model.getDirection(vid, hid) * range_real;
+                    
                     Vector pint_s = model.getDirection(vid, hid) * range_sim;
                     Vector nint_s = normals[bid];
                     nint_s.normalize();
@@ -122,31 +133,56 @@ void scanCB(const ScanStamped::ConstPtr& msg)
                     const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
                     const float plane_distance = (pmesh_s - preal_s).l2norm();
 
-                    // sim and real point are valid: check if they are different enough
-                    if( plane_distance > max_error )
+                    if(range_real < range_sim)
                     {
-                        add_point = true;
+                        // something is in front of surface
+                        if( plane_distance > min_dist_outlier_scan )
+                        {
+                            geometry_msgs::Point32 p_ros;
+                            p_ros.x = preal_s.x;
+                            p_ros.y = preal_s.y;
+                            p_ros.z = preal_s.z;
+                            cloud_outlier_scan.points.push_back(p_ros);
+                        }
+                    } else {
+                        // ray cutted the surface
+                        if( plane_distance > min_dist_outlier_map )
+                        {
+                            geometry_msgs::Point32 p_ros;
+                            p_ros.x = pint_s.x;
+                            p_ros.y = pint_s.y;
+                            p_ros.z = pint_s.z;
+                            cloud_outlier_map.points.push_back(p_ros);
+                        }
                     }
+                    
                 } else {
                     // point in real scan but not in simulated
-                    add_point = true;
+                    geometry_msgs::Point32 p_ros;
+                    p_ros.x = preal_s.x;
+                    p_ros.y = preal_s.y;
+                    p_ros.z = preal_s.z;
+                    cloud_outlier_scan.points.push_back(p_ros);
                 }
-            }
-
-            if(add_point)
-            {
-                Vector p = model.getDirection(vid, hid) * range_real;
-                geometry_msgs::Point32 p_ros;
-                p_ros.x = p.x;
-                p_ros.y = p.y;
-                p_ros.z = p.z;
-                cloud.points.push_back(p_ros);
+            } else {
+                if(range_sim_valid)
+                {
+                    // sim hits surface but real not: map could be wrong
+                    Vector pint_s = model.getDirection(vid, hid) * range_sim;
+                    geometry_msgs::Point32 p_ros;
+                    p_ros.x = pint_s.x;
+                    p_ros.y = pint_s.y;
+                    p_ros.z = pint_s.z;
+                    cloud_outlier_map.points.push_back(p_ros);
+                } else {
+                    // both sim and real does not hit the map
+                }
             }
         }
     }
 
-
-    pub_cloud.publish(cloud);
+    pub_outlier_scan.publish(cloud_outlier_scan);
+    pub_outlier_map.publish(cloud_outlier_map);
 }
 
 int main(int argc, char** argv)
@@ -162,6 +198,9 @@ int main(int argc, char** argv)
     nh_p.param<std::string>("map_file", meshfile, "/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae");
     nh_p.param<std::string>("map_frame", map_frame, "map");
 
+    nh_p.param<float>("min_dist_outlier_scan", min_dist_outlier_scan, 0.15);
+    nh_p.param<float>("min_dist_outlier_map", min_dist_outlier_map, 0.15);
+
     OptixMapPtr map = importOptixMap(meshfile);
     scan_sim = std::make_shared<SphereSimulatorOptix>(map);
     scan_sim->setTsb(Transform::Identity());
@@ -173,7 +212,8 @@ int main(int argc, char** argv)
 
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
 
-    pub_cloud = nh_p.advertise<sensor_msgs::PointCloud>("outlier", 1);
+    pub_outlier_scan = nh_p.advertise<sensor_msgs::PointCloud>("outlier_scan", 1);
+    pub_outlier_map = nh_p.advertise<sensor_msgs::PointCloud>("outlier_map", 1);
 
     ros::spin();
 
