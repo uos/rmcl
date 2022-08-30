@@ -187,7 +187,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "segment_node");
+    ros::init(argc, argv, "segment_node_optix");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 

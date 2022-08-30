@@ -51,7 +51,7 @@
     <remap from="pose" to="/move_base_simple/goal"/>
 </node>
 
-<node pkg="rmcl" type="segment_node" name="segment_node" 
+<node pkg="rmcl" type="segment_node_optix" name="segment_node" 
     output="screen">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="map_frame" type="string" value="map" />
