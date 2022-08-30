@@ -431,4 +431,21 @@ target_link_libraries(clustering_node
     rmcl_optix_ros
 )
 
+
+add_executable(segment_node src/nodes/tests/segment_node.cpp)
+
+add_dependencies(segment_node 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(segment_node
+    ${catkin_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
+
+
 endif()

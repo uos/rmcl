@@ -5,7 +5,7 @@
 #include <tf2_ros/transform_listener.h>
 
 // Rmagine deps
-#include <rmagine/map/EmbreeMap.hpp>
+#include <rmagine/map/OptixMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/math/math.cuh>
 #include <rmagine/util/prints.h>
@@ -36,7 +36,13 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-SphereCorrectorOptixROSPtr scan_correct;
+SphereCorrectorOptixROSPtr  scan_correct;
+CorrectionParams            corr_params;
+
+float max_distance;
+
+bool adaptive_max_dist = false;
+float adaptive_max_dist_min = 0.15;
 
 bool        pose_received = false;
 ros::Time   last_pose;
@@ -148,15 +154,52 @@ void correctOnce()
     poses_ = poses;
     // sw();
     auto corrRes = scan_correct->correct(poses_);
+
     
-
-
+    
     // Tdelta -> T_base_new_base_old
     // T_base_new_to_map = T_base_old_map * T_base_new_base_old
     poses_ = multNxN(poses_, corrRes.Tdelta);
     // not: P = Tdelta * P 
     // download to CPU
     poses = poses_;
+
+
+
+    Memory<Transform, RAM> Tdelta0 = corrRes.Tdelta(0,1);
+    Memory<unsigned int, RAM> Ncorr0 = corrRes.Ncorr(0,1);
+
+
+    Transform Td = Tdelta0[0];
+    float trans_force = Td.t.l2norm();
+    float trans_progress = 1.0 / exp(10.0 * trans_force);
+
+    Quaternion qunit;
+    qunit.setIdentity();
+    float qscalar = Td.R.dot(qunit);
+    float rot_progress = qscalar * qscalar;
+
+    
+    float match_ratio = static_cast<float>(Ncorr0[0]) / static_cast<float>(valid_scan_ranges);
+
+    
+
+    // std::cout << "Correction Stats:" << std::endl;
+    // std::cout << "- match ratio: " << match_ratio << std::endl;
+    // std::cout << "- trans progress: " << trans_progress << std::endl;
+    // std::cout << "- rot progress:   " << rot_progress << std::endl;
+    // std::cout << "- magic_number: " << magic_number << std::endl;
+
+    if(adaptive_max_dist)
+    {
+        float adaption_rate = trans_progress * rot_progress * match_ratio;
+        corr_params.max_distance = max_distance + (adaptive_max_dist_min - max_distance) * adaption_rate;
+        // std::cout << "Adjusting max distance to: " << corr_params.max_distance << std::endl;
+    }
+    
+    
+
+    scan_correct->setParams(corr_params);
 
     convert(poses[0], T_base_map.transform);
     T_odom_map = T_base_map * ~T_base_odom;
@@ -179,6 +222,11 @@ void poseCB(geometry_msgs::PoseStamped msg)
     std::lock_guard<std::mutex> guard(T_odom_map_mutex);
 
     ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " Received new pose guess");
+
+    // rest max distance
+    corr_params.max_distance = max_distance;
+    scan_correct->setParams(corr_params);
+
 
     map_frame = msg.header.frame_id;
     pose_received = true;
@@ -289,17 +337,20 @@ int main(int argc, char** argv)
 
 
     OptixMapPtr map = importOptixMap(meshfile);
-    scan_correct.reset(new SphereCorrectorOptixROS(map));
+    scan_correct = std::make_shared<SphereCorrectorOptixROS>(map);
     
 
-    CorrectionParams corr_params;
-    nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);
+    
+    nh_p.param<float>("max_distance", max_distance, 0.8);
+    nh_p.param<bool>("adaptive_max_dist", adaptive_max_dist, false);
+    nh_p.param<float>("adaptive_max_dist_min", adaptive_max_dist_min, 0.15);
+
+
+
+    corr_params.max_distance = max_distance;
     scan_correct->setParams(corr_params);
 
     std::cout << "Max Distance: " << corr_params.max_distance << std::endl;
-
-    
-
 
     // get TF of scanner
     tfBuffer.reset(new tf2_ros::Buffer);

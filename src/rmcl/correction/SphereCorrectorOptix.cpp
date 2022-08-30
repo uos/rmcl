@@ -137,6 +137,21 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
     ) const
 {
+    if(!m_map)
+    {
+        throw std::runtime_error("NO MAP");
+    }
+
+    if(!m_map->scene())
+    {
+        throw std::runtime_error("EMPTY MAP");
+    }
+
+    if(!m_map->scene()->as())
+    {
+        throw std::runtime_error("MAP SCENE NOT COMMITTED");
+    }
+
     size_t scanSize = m_width * m_height;
     // size_t scanSize = m_model_ram->width * m_model_ram->height;
     size_t Nrays = Tbm.size() * scanSize;
@@ -157,9 +172,10 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
 
+
+
     rm::Memory<SphereCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, m_stream);
-
 
     rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 0);
 
