@@ -10,6 +10,9 @@
 
 using namespace rmcl;
 
+
+bool debug_cloud = false;
+
 ros::Publisher scan_pub;
 ros::Publisher back_conv_pub;
 
@@ -69,6 +72,8 @@ void loadParameters(ros::NodeHandle& nh_p)
     }
     scanner_model.phi_N = phi_N_tmp;
     scanner_model.theta_N = theta_N_tmp;
+
+    nh_p.param<bool>("debug_cloud", debug_cloud, false);
 }
 
 void convert(
@@ -149,10 +154,13 @@ void veloCB(const sensor_msgs::PointCloud2::ConstPtr& msg)
     
     scan_pub.publish(scan);
 
-    sensor_msgs::PointCloud cloud;
-    rmcl::convert(scan, cloud);
-    cloud.header.stamp = msg->header.stamp;
-    back_conv_pub.publish(cloud);
+    if(debug_cloud)
+    {
+        sensor_msgs::PointCloud cloud;
+        rmcl::convert(scan, cloud);
+        cloud.header.stamp = msg->header.stamp;
+        back_conv_pub.publish(cloud);
+    }
 }
 
 int main(int argc, char** argv)
