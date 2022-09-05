@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 
 #include <sensor_msgs/PointCloud.h>
+#include <visualization_msgs/Marker.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -15,6 +16,7 @@
 #include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
+#include <rmcl/math/math.h>
 
 // rosmath
 #include <rosmath/sensor_msgs/conversions.h>
@@ -24,6 +26,8 @@
 #include <chrono>
 #include <memory>
 #include <omp.h>
+#include <thread>
+#include <mutex>
 
 #include <Eigen/Dense>
 
@@ -33,11 +37,19 @@ using namespace rmcl_msgs;
 using namespace rmagine;
 
 SphereCorrectorEmbreeROSPtr scan_correct;
+CorrectionParams            corr_params;
+
+float max_distance;
+
+bool adaptive_max_dist = false;
+float adaptive_max_dist_min = 0.15;
+
 
 bool        pose_received = false;
 ros::Time   last_pose;
 bool        scan_received = false;
 ros::Time   last_scan;
+size_t      valid_scan_ranges;
 
 std::string map_frame;
 std::string odom_frame;
@@ -46,15 +58,27 @@ std::string base_frame;
 bool has_base_frame = true;
 std::string sensor_frame;
 
+// for testing
+size_t Nposes = 100;
+
+
 std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
 
 // Estimate this
 geometry_msgs::TransformStamped T_odom_map;
+std::mutex                      T_odom_map_mutex;
 // dynamic: ekf
 geometry_msgs::TransformStamped T_base_odom;
 // static: urdf
 geometry_msgs::TransformStamped T_sensor_base;
+
+
+
+std::thread correction_thread;
+bool stop_correction_thread = false;
+
+
 
 /**
  * @brief Update T_sensor_base and T_base_odom globally
@@ -115,13 +139,13 @@ bool fetchTF()
 
 void correctOnce()
 {
+    std::lock_guard<std::mutex> guard(T_odom_map_mutex);
+
     StopWatch sw;
     double el;
     // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
-    
-    size_t Nposes = 1;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
@@ -129,23 +153,48 @@ void correctOnce()
         convert(T_base_map.transform, poses[i]);
     }
     
-    sw();
-    auto corrRes = scan_correct->correct(poses);
-    el = sw();
-    // ROS_INFO_STREAM("- correctOnce: poses " << Nposes << " in " << el << "s");
 
     
-    poses = multNxN(poses, corrRes.Tdelta);
+
+    // {
+    //     auto pre_results = scan_correct->compute_covs(poses);
+    //     auto Tdelta = Correction()(pre_results);
+    //     poses = multNxN(poses, Tdelta);
+    // }
+
+
+    {
+        auto corrRes = scan_correct->correct(poses);
+        poses = multNxN(poses, corrRes.Tdelta);
+    }
 
     // Update T_odom_map
-    convert(poses[poses.size() - 1], T_base_map.transform);
+    convert(poses[0], T_base_map.transform);
     T_odom_map = T_base_map * ~T_base_odom;
 }
+
+void correct()
+{
+    if(pose_received && scan_received)
+    {
+        fetchTF();
+        correctOnce();
+    }
+}
+
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame
 void poseCB(geometry_msgs::PoseStamped msg)
 {
+    std::lock_guard<std::mutex> guard(T_odom_map_mutex);
+
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " Received new pose guess");
+
+    // rest max distance
+    corr_params.max_distance = max_distance;
+    scan_correct->setParams(corr_params);
+
     // std::cout << "poseCB" << std::endl;
     map_frame = msg.header.frame_id;
     pose_received = true;
@@ -167,14 +216,19 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 {
     sensor_frame = msg->header.frame_id;
     scan_correct->setModelAndInputData(msg->scan);
+
+    // count valid
+    valid_scan_ranges = 0;
+    for(size_t i=0; i<msg->scan.ranges.size(); i++)
+    {
+        if(msg->scan.ranges[i] >= msg->scan.info.range_min && msg->scan.ranges[i] <= msg->scan.info.range_max)
+        {
+            valid_scan_ranges++;
+        }
+    }
+
     last_scan = msg->header.stamp;
     scan_received = true;
-
-    if(pose_received)
-    {
-        fetchTF();
-        correctOnce();
-    }
 }
 
 
@@ -211,7 +265,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("Embree Corrector started");
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " started");
 
     std::string map_frame;
     std::string meshfile;
@@ -232,12 +286,26 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
-    
-    scan_correct.reset(new SphereCorrectorEmbreeROS(map));
+    double tf_rate;
+    nh_p.param<double>("tf_rate", tf_rate, 30);
 
-    CorrectionParams corr_params;
-    nh_p.param<float>("max_distance", corr_params.max_distance, 0.5);
+    double corr_rate_max;
+    nh_p.param<double>("corr_rate_max", corr_rate_max, 30);
+
+    int Nposes_tmp;
+    nh_p.param<int>("poses", Nposes_tmp, 1);
+    Nposes = Nposes_tmp;
+
+
+
+    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    scan_correct = std::make_shared<SphereCorrectorEmbreeROS>(map);
+
+    nh_p.param<float>("max_distance", max_distance, 0.8);
+    nh_p.param<bool>("adaptive_max_dist", adaptive_max_dist, false);
+    nh_p.param<float>("adaptive_max_dist_min", adaptive_max_dist_min, 0.15);
+
+    corr_params.max_distance = max_distance;
     scan_correct->setParams(corr_params);
 
     std::cout << "Max Distance: " << corr_params.max_distance << std::endl;
@@ -249,10 +317,38 @@ int main(int argc, char** argv)
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
 
-    ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
+    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
-    ros::Rate r(30);
 
+    // CORRECTION THREAD
+    stop_correction_thread = false;
+    correction_thread = std::thread([corr_rate_max](){
+        StopWatch sw;
+        double el;
+
+        // minimum duration for one loop
+        double el_min = 1.0 / corr_rate_max;
+
+        while(!stop_correction_thread)
+        {
+            sw();
+            correct();
+            el = sw();
+            double el_left = el_min - el;
+            if(el_left > 0.0)
+            {
+                std::this_thread::sleep_for(std::chrono::duration<double>(el_left));
+            }
+            // std::cout << "Current Correction Rate: " << 1.0 / el << std::endl;
+        }
+
+        stop_correction_thread = false;
+    });
+
+
+
+    // MAIN LOOP (TF)
+    ros::Rate r(tf_rate);
     ros::Time stamp = ros::Time::now();
 
     while(ros::ok())
@@ -273,6 +369,9 @@ int main(int argc, char** argv)
         r.sleep();
         ros::spinOnce();
     }
+
+    stop_correction_thread = true;
+    correction_thread.join();
     
     return 0;
 }
