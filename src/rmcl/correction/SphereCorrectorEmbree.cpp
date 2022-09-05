@@ -26,6 +26,9 @@ void SphereCorrectorEmbree::setInputData(
     m_ranges = ranges;
 }
 
+// TODO: move to rmagine
+#pragma omp declare reduction( + : rmagine::Matrix3x3 : omp_out += omp_in )
+
 CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
@@ -37,7 +40,7 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
 
     auto scene = m_map->scene->handle();
 
-    #pragma omp parallel for
+    #pragma omp parallel for default(shared)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -47,13 +50,20 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
 
         const unsigned int glob_shift = pid * m_model->size();
 
-        std::vector<Vector> D, M;
         Vector Dmean = {0.0, 0.0, 0.0};
         Vector Mmean = {0.0, 0.0, 0.0};
         unsigned int Ncorr = 0;
-
+        Matrix3x3 C;
+        C.setZeros();
+        
+        #pragma omp parallel for default(shared) reduction(+:C,Ncorr)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
+            unsigned int Ncorr_inner = 0;
+            Matrix3x3 C_inner;
+            C_inner.setZeros();
+
+            #pragma omp parallel for default(shared) reduction(+:C_inner,Ncorr_inner)
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
@@ -113,12 +123,14 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                     {
                         Dmean += preal_b;
                         Mmean += pmesh_b;
-                        D.push_back(preal_b);
-                        M.push_back(pmesh_b);
-                        Ncorr++;
+                        C_inner += preal_b.multT(pmesh_b);
+                        Ncorr_inner++;
                     }
                 }
             }
+
+            Ncorr += Ncorr_inner;
+            C += C_inner;
         }
 
         res.Ncorr[pid] = Ncorr;
@@ -127,15 +139,6 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
         {
             Dmean /= Ncorr;
             Mmean /= Ncorr;
-            
-            Matrix3x3 C;
-            C.setZeros();
-
-            for(size_t i=0; i<D.size(); i++)
-            {
-                C += (D[i] - Dmean).multT(M[i] - Mmean);
-            }
-
             C /= Ncorr;
 
             Matrix3x3 U, V;
@@ -160,6 +163,8 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
     return res;
 }
 
+
+
 void SphereCorrectorEmbree::compute_covs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
@@ -183,11 +188,19 @@ void SphereCorrectorEmbree::compute_covs(
 
         Vector Dmean = {0.0, 0.0, 0.0};
         Vector Mmean = {0.0, 0.0, 0.0};
-        std::vector<Vector> D, M;
 
         unsigned int Ncorr_ = 0;
+        Matrix3x3 C;
+        C.setZeros();
+
+        #pragma omp parallel for default(shared) reduction(+:C,Ncorr_)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
+            unsigned int Ncorr_inner = 0;
+            Matrix3x3 C_inner;
+            C_inner.setZeros();
+
+            #pragma omp parallel for default(shared) reduction(+:C_inner,Ncorr_inner)
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
@@ -250,12 +263,14 @@ void SphereCorrectorEmbree::compute_covs(
 
                         Dmean += d;
                         Mmean += m;
-                        D.push_back(d);
-                        M.push_back(m);
-                        Ncorr_++;
+                        C_inner += preal_b.multT(pmesh_b);
+                        Ncorr_inner++;
                     }
                 }
             }
+
+            Ncorr_ += Ncorr_inner;
+            C += C_inner;
         }
 
         Ncorr[pid] = Ncorr_;
@@ -264,15 +279,6 @@ void SphereCorrectorEmbree::compute_covs(
         {
             Dmean /= Ncorr_;
             Mmean /= Ncorr_;
-            
-            Matrix3x3 C;
-            C.setZeros();
-
-            for(size_t i=0; i<D.size(); i++)
-            {
-                C += (D[i] - Dmean).multT(M[i] - Mmean);
-            }
-
             C /= Ncorr_;
             
             ms[pid] = Mmean;

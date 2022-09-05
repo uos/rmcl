@@ -134,10 +134,20 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
             Matrix3x3 C;
             C.setZeros();
 
-            for(size_t i=0; i<D.size(); i++)
+            bool use_new = true;
+            if(use_new)
             {
-                C += (D[i] - Dmean).multT(M[i] - Mmean);
+                for(size_t i=0; i<D.size(); i++)
+                {
+                    C += (D[i]).multT(M[i]);
+                }
+            } else {
+                for(size_t i=0; i<D.size(); i++)
+                {
+                    C += (D[i] - Dmean).multT(M[i] - Mmean);
+                }
             }
+
 
             C /= Ncorr;
 
@@ -163,6 +173,9 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
     return res;
 }
 
+// TODO: move to rmagine
+#pragma omp declare reduction( + : rmagine::Matrix3x3 : omp_out += omp_in )
+
 void OnDnCorrectorEmbree::compute_covs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
@@ -174,7 +187,7 @@ void OnDnCorrectorEmbree::compute_covs(
 
     auto scene = m_map->scene->handle();
 
-    #pragma omp parallel for
+    #pragma omp parallel for default(shared)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -186,15 +199,21 @@ void OnDnCorrectorEmbree::compute_covs(
 
         Vector Dmean = {0.0, 0.0, 0.0};
         Vector Mmean = {0.0, 0.0, 0.0};
-        std::vector<Vector> D, M;
 
         unsigned int Ncorr_ = 0;
+        Matrix3x3 C;
+        C.setZeros();
 
+        #pragma omp parallel for default(shared) reduction(+:C,Ncorr_)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
+            unsigned int Ncorr_inner = 0;
+            Matrix3x3 C_inner;
+            C_inner.setZeros();
+
+            #pragma omp parallel for default(shared) reduction(+:C_inner,Ncorr_inner)
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
-                // std::cout << "(vid, hid): " << vid << ", " << hid << std::endl;
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
                 const unsigned int glob_id = glob_shift + loc_id;
 
@@ -256,12 +275,14 @@ void OnDnCorrectorEmbree::compute_covs(
                     {
                         Dmean += preal_b;
                         Mmean += pmesh_b;
-                        D.push_back(preal_b);
-                        M.push_back(pmesh_b);
-                        Ncorr_++;
+                        C_inner += preal_b.multT(pmesh_b);
+                        Ncorr_inner++;
                     }
                 }
             }
+
+            Ncorr_ += Ncorr_inner;
+            C += C_inner;
         }
 
         Ncorr[pid] = Ncorr_;
@@ -270,15 +291,6 @@ void OnDnCorrectorEmbree::compute_covs(
         {
             Dmean /= Ncorr_;
             Mmean /= Ncorr_;
-            
-            Matrix3x3 C;
-            C.setZeros();
-
-            for(size_t i=0; i<D.size(); i++)
-            {
-                C += (D[i] - Dmean).multT(M[i] - Mmean);
-            }
-
             C /= Ncorr_;
 
             ms[pid] = Mmean;
