@@ -191,8 +191,6 @@ void correctOnce()
     // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
-    
-    
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
@@ -205,8 +203,7 @@ void correctOnce()
     auto laser_covs = scan_correct->compute_covs(poses);
     auto wheel_covs = ondn_correct->compute_covs(poses);
     auto merged_covs = weighted_average({laser_covs, wheel_covs}, {0.5, 0.5});
-    auto Tdelta = Correction()(laser_covs);
-    
+    auto Tdelta = Correction()(merged_covs);
 
     poses = multNxN(poses, Tdelta);
 
@@ -233,16 +230,16 @@ void poseCB(geometry_msgs::PoseStamped msg)
     std::lock_guard<std::mutex> guard(T_odom_map_mutex);
 
     // std::cout << "poseCB" << std::endl;
-    msg.pose.position.z += 0.5;
+    // msg.pose.position.z += 0.5;
 
-    EulerAngles e = {0.2, 0.0, 0.0};
-    Quaternion q;
-    q.set(e);
+    // EulerAngles e = {0.2, 0.0, 0.0};
+    // Quaternion q;
+    // q.set(e);
 
-    msg.pose.orientation.x = q.x;
-    msg.pose.orientation.y = q.y;
-    msg.pose.orientation.z = q.z;
-    msg.pose.orientation.w = q.w;
+    // msg.pose.orientation.x = q.x;
+    // msg.pose.orientation.y = q.y;
+    // msg.pose.orientation.z = q.z;
+    // msg.pose.orientation.w = q.w;
 
 
     map_frame = msg.header.frame_id;
