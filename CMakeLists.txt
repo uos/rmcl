@@ -67,6 +67,7 @@ include_directories(
     include
 )
 
+# TODO check if rmagine_EMBREE is available
 add_library(rmcl
     # Correction
     src/rmcl/correction/SphereCorrectorEmbree.cpp
@@ -88,6 +89,15 @@ target_link_libraries(rmcl
     ${rmagine_ext_LIBRARIES}
     Eigen3::Eigen
 )
+
+add_executable(rmcl_correction_embree_benchmark
+    src/nodes/lidar_corrector_embree_benchmark.cpp
+)
+
+target_link_libraries(rmcl_correction_embree_benchmark
+    rmcl
+)
+
 
 add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
@@ -216,6 +226,15 @@ if(${rmagine_optix_FOUND})
         rmcl_optix
         rmcl_ros
     )
+
+    add_executable(rmcl_correction_optix_benchmark
+        src/nodes/lidar_corrector_optix_benchmark.cpp
+    )
+
+    target_link_libraries(rmcl_correction_optix_benchmark
+        rmcl_optix
+    )
+
 endif()
 
 ####### PCL2 to SCAN CONVERTER

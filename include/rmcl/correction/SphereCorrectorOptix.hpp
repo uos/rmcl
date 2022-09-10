@@ -21,6 +21,8 @@ class SphereCorrectorOptix
 public:
     using Base = rmagine::SphereSimulatorOptix;
 
+    SphereCorrectorOptix();
+
     SphereCorrectorOptix(rmagine::OptixMapPtr map);
 
     void setParams(

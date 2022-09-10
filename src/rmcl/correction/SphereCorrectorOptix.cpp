@@ -23,6 +23,17 @@ namespace rm = rmagine;
 namespace rmcl 
 {
 
+
+SphereCorrectorOptix::SphereCorrectorOptix()
+:Base()
+{
+    m_svd = std::make_shared<rm::SVDCuda>(Base::m_stream);
+
+    // default params
+    CorrectionParams params;
+    setParams(params);
+}
+
 SphereCorrectorOptix::SphereCorrectorOptix(
     rmagine::OptixMapPtr map)
 :Base(map)

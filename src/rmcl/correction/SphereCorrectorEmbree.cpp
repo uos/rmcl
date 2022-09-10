@@ -176,7 +176,7 @@ void SphereCorrectorEmbree::compute_covs(
 
     auto scene = m_map->scene->handle();
 
-    #pragma omp parallel for
+    #pragma omp parallel for default(shared)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -193,14 +193,14 @@ void SphereCorrectorEmbree::compute_covs(
         Matrix3x3 C;
         C.setZeros();
 
-        #pragma omp parallel for default(shared) reduction(+:C,Ncorr_)
+        // #pragma omp parallel for default(shared) reduction(+:C,Ncorr_)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             unsigned int Ncorr_inner = 0;
             Matrix3x3 C_inner;
             C_inner.setZeros();
 
-            #pragma omp parallel for default(shared) reduction(+:C_inner,Ncorr_inner)
+            // #pragma omp parallel for default(shared) reduction(+:C_inner,Ncorr_inner)
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
