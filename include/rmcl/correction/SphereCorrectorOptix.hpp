@@ -53,6 +53,18 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
     
+
+    struct Timings
+    {   
+        double sim = 0.0;
+        double red = 0.0;
+        double svd = 0.0;
+    };
+
+    Timings benchmark(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms, 
+        size_t Ntests = 100);
+
 protected:
     rmagine::Memory<float, rmagine::VRAM_CUDA> m_ranges;
     rmagine::Memory<CorrectionParams, rmagine::VRAM_CUDA> m_params;

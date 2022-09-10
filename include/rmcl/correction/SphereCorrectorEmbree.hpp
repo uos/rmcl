@@ -104,6 +104,17 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
+    struct Timings
+    {   
+        double sim = 0.0;
+        double red = 0.0;
+        double svd = 0.0;
+    };
+
+    Timings benchmark(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms, 
+        size_t Ntests = 100);
+
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;
 

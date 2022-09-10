@@ -119,21 +119,42 @@ int main(int argc, char** argv)
     correct.simulate(T_dest_, sim_res);
     correct.setInputData(sim_res.ranges);
 
-    double el_total = 0.0;
-    
 
-    for(size_t i=0; i<Nruns; i++)
+    // timings:
+    // - 0: measure outer timings
+    // - 1: measure inner timings
+
+    int timings = 1;
+
+    if(timings == 0)
     {
-        sw();
-        auto corr_res = correct.correct(T_curr_);
-        el = sw();
-        el_total += el;
-        T_curr_ = multNxN(T_curr_, corr_res.Tdelta);
+        double el_total = 0.0;
+        for(size_t i=0; i<Nruns; i++)
+        {
+            sw();
+            auto corr_res = correct.correct(T_curr_);
+            el = sw();
+            el_total += el;
+            T_curr_ = multNxN(T_curr_, corr_res.Tdelta);
+        }
+
+        std::cout << "- runtime: " << std::endl;
+        std::cout << Nfaces << "," << Nposes << "," << el_total/static_cast<double>(Nruns) << std::endl;
+
+    } else if(timings == 1) {
+        auto bres = correct.benchmark(T_curr_, Nruns);
+        std::cout << "Absolute:"  << std::endl;
+        std::cout << "- Sim: " << bres.sim << std::endl;
+        std::cout << "- Red: " << bres.red << std::endl;
+        std::cout << "- SVD: " << bres.svd << std::endl;
+
+        double total = bres.sim + bres.red + bres.svd;
+        std::cout << "- Total: " << total <<  std::endl;
+        std::cout << "- Relative: " << std::endl;
+        std::cout << bres.sim / total << "," << bres.red / total << "," << bres.svd / total << std::endl;
     }
 
-    std::cout << "- runtime: " << std::endl;
-    std::cout << Nfaces << "," << Nposes << "," << el_total/static_cast<double>(Nruns) << std::endl;
-
+    // TIMINGS 0
 
     // AMOCKHOME
     // #faces, #poses, correction runtime 
@@ -147,7 +168,19 @@ int main(int argc, char** argv)
     // 8000000,1000,0.0291446
     // 10000000,1000,0.0311896
 
-    
+
+    // TIMINGS 1
+
+    // AMOCKHOME
+    // 
+    // args 1000000 1000
+    // Absolute:
+    // - Sim: 0.0119368
+    // - Red: 1.32316e-05
+    // - SVD: 0.0028495
+    // - Total: 0.0147996
+    // - Relative: 
+    // 0.806567,0.000894055,0.192539
 
 
     return 0;

@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 
     size_t Nfaces = atoi(argv[1]);
     size_t Nposes = atoi(argv[2]);
-    size_t Nruns = 100;
+    size_t Nruns = 10;
 
 
     std::cout << "Running benchmark with " << Nfaces << " faces and " << Nposes << " poses" << std::endl;
@@ -117,22 +117,46 @@ int main(int argc, char** argv)
     correct.simulate(T_dest, sim_res);
     correct.setInputData(sim_res.ranges);
 
-    double el_total = 0.0;
-    
 
-    for(size_t i=0; i<Nruns; i++)
+    // timings:
+    // - 0: measure outer timings
+    // - 1: measure inner timings
+
+    int timings = 1;
+
+    if(timings == 0)
     {
-        sw();
-        auto corr_res = correct.correct(T_curr);
-        el = sw();
-        el_total += el;
-        T_curr = multNxN(T_curr, corr_res.Tdelta);
-        // std::cout << i << ": " << T_curr[0].t.z << std::endl;
+        double el_total = 0.0;
+        for(size_t i=0; i<Nruns; i++)
+        {
+            sw();
+            auto corr_res = correct.correct(T_curr);
+            el = sw();
+            el_total += el;
+            T_curr = multNxN(T_curr, corr_res.Tdelta);
+            // std::cout << i << ": " << T_curr[0].t.z << std::endl;
+        }
+
+        std::cout << "- runtime: " << std::endl;
+        std::cout << Nfaces << "," << Nposes << "," << el_total/static_cast<double>(Nruns) << std::endl;
+    } else if(timings == 1) {
+        auto bres = correct.benchmark(T_curr, Nruns);
+        std::cout << "Absolute:"  << std::endl;
+        std::cout << "- Sim: " << bres.sim << std::endl;
+        std::cout << "- Red: " << bres.red << std::endl;
+        std::cout << "- SVD: " << bres.svd << std::endl;
+
+        double total = bres.sim + bres.red + bres.svd;
+        std::cout << "- Total: " << total <<  std::endl;
+        std::cout << "- Relative: " << std::endl;
+        std::cout << bres.sim / total << "," << bres.red / total << "," << bres.svd / total << std::endl;
+        
     }
 
-    std::cout << "- runtime: " << std::endl;
-    std::cout << Nfaces << "," << Nposes << "," << el_total/static_cast<double>(Nruns) << std::endl;
+    
 
+    
+    // TIMINGS 0
 
     // AMOCKHOME
     // #faces, #poses, correction runtime 
@@ -143,8 +167,23 @@ int main(int argc, char** argv)
     // 3000000,1000,0.341999
     // 4000000,1000,0.350003
     // 6000000,1000,0.419774
-    // 8000000,1000,0.450916
-    // 10000000,1000,0.438939
+    // 8000000,1000,0.448595
+    // 10000000,1000,0.455784
+
+
+    // TIMINGS 1
+
+    // AMOCKHOME
+    // 
+    // args: 1000000 1000
+    // Absolute:
+    // - Sim: 2.35949
+    // - Red: 0.0771303
+    // - SVD: 0.000365363
+    // - Total: 2.43698
+    // - Relative: 
+    // 0.9682,0.0316499,0.000149924
+
 
 
     return 0;
