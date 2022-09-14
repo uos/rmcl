@@ -122,7 +122,7 @@ int main(int argc, char** argv)
     // - 0: measure outer timings
     // - 1: measure inner timings
 
-    int timings = 1;
+    int timings = 0;
 
     if(timings == 0)
     {
@@ -158,7 +158,7 @@ int main(int argc, char** argv)
     
     // TIMINGS 0
 
-    // AMOCKHOME
+    // DPC (AMOCKHOME)
     // #faces, #poses, correction runtime 
     // 100000,1000,0.18301
     // 500000,1000,0.203063
@@ -172,10 +172,10 @@ int main(int argc, char** argv)
 
 
     // TIMINGS 1
-
-    // AMOCKHOME
-    // 
     // args: 1000000 1000
+
+    // DPC (AMOCKHOME)
+    //
     // Absolute:
     // - Sim: 2.35949
     // - Red: 0.0771303
@@ -183,6 +183,19 @@ int main(int argc, char** argv)
     // - Total: 2.43698
     // - Relative: 
     // 0.9682,0.0316499,0.000149924
+    //
+    // NUC
+    // 
+    // Absolute:
+    // - Sim: 2.39404
+    // - Red: 0.0890634
+    // - SVD: 0.000354392
+    // - Total: 2.48346
+    // - Relative: 
+    // 0.963995,0.0358627,0.000142701
+
+
+
 
 
 
