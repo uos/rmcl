@@ -30,12 +30,18 @@ void Correction::correction_from_covs(
     {
         if(Ncorr[pid] > 0)
         {
-            Matrix3x3 U, V;
-
+            Matrix3x3 U, V, S;
+            
             m_svd->calcUV(Cs[pid], U, V);
 
+            S.setIdentity();
+            if(U.det() * V.det() < 0)
+            {
+                S(2, 2) = -1;
+            }
+
             Quaternion R;
-            R.set(U * V.transpose());
+            R.set(U * S * V.transpose());
             R.normalize();
             Tdelta[pid].R = R;
             Tdelta[pid].t = ds[pid] - R * ms[pid];
@@ -59,12 +65,18 @@ void Correction::correction_from_covs(
     {
         if(Ncorr[pid] > 0)
         {
-            Matrix3x3 U, V;
+            Matrix3x3 U, V, S;
 
             m_svd->calcUV(Cs[pid], U, V);
 
+            S.setIdentity();
+            if(U.det() * V.det() < 0)
+            {
+                S(2, 2) = -1;
+            }
+
             Quaternion R;
-            R.set(U * V.transpose());
+            R.set(U * S * V.transpose());
             R.normalize();
             Rdelta[pid] = R;
             tdelta[pid] = ds[pid] - R * ms[pid];

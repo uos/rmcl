@@ -1,71 +1,31 @@
-#include <rmcl/correction/PinholeCorrectorEmbree.hpp>
+#include <rmcl/correction/O1DnCorrectorEmbree.hpp>
 #include <Eigen/Dense>
+
+#include <rmcl/math/math.h>
 
 #include <rmagine/math/omp.h>
 
 // DEBUG
-// #include <rmagine/util/prints.h>
+#include <rmagine/util/prints.h>
 
 using namespace rmagine;
 
 namespace rmcl
 {
 
-void PinholeCorrectorEmbree::setParams(
+void O1DnCorrectorEmbree::setParams(
     const CorrectionParams& params)
 {
     m_params = params;
 }
 
-void PinholeCorrectorEmbree::setInputData(
+void O1DnCorrectorEmbree::setInputData(
     const rmagine::MemoryView<float, rmagine::RAM>& ranges)
 {
     m_ranges = ranges;
 }
 
-void PinholeCorrectorEmbree::setOptical(bool optical)
-{
-    m_optical = optical;
-}
-
-static Eigen::Matrix4f my_umeyama(
-    const Eigen::Matrix<float, 3, -1>& from, 
-    const Eigen::Matrix<float, 3, -1>& to)
-{
-    // (M, N): (Dim, N measurements)
-    const size_t N = to.cols();
-
-    const Eigen::Vector3f from_mean = from.rowwise().mean();
-    const Eigen::Vector3f to_mean = to.rowwise().mean();
-
-    const auto from_centered = from.colwise() - from_mean;
-    const auto to_centered = to.colwise() - to_mean;
-
-    float N_d = from.cols();
-    
-    // covariance matrix
-    const Eigen::Matrix3f C = (from_centered * to_centered.transpose()) / N_d;
-
-    // singular value decomposition of covariance matrix. classic ICP solving
-    Eigen::JacobiSVD<Eigen::Matrix3f> svd(C, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-    // why?
-    Eigen::Vector3f S = Eigen::Vector3f::Ones(3);
-    if( svd.matrixU().determinant() * svd.matrixV().determinant() < 0 )
-    {
-        std::cout << "my_umeyama special case occurred !!! TODO find out why" << std::endl;
-        S(2) = -1;
-    }
-
-    Eigen::Matrix4f T = Eigen::Matrix4f::Identity();
-    // rotational part
-    T.block<3,3>(0,0).noalias() = svd.matrixU() * S.asDiagonal() * svd.matrixV().transpose();
-    // translational part
-    T.block<3,1>(0,3).noalias() = from_mean - T.topLeftCorner(3,3) * to_mean;
-    return T;
-}
-
-CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
+CorrectionResults<rmagine::RAM> O1DnCorrectorEmbree::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionResults<RAM> res;
@@ -92,7 +52,7 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
         Matrix3x3 C;
         C.setZeros();
 
-        // #pragma omp parallel for
+        #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             Vector Dmean_inner = {0.0, 0.0, 0.0};
@@ -103,6 +63,7 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
 
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
+                // std::cout << "(vid, hid): " << vid << ", " << hid << std::endl;
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
                 const unsigned int glob_id = glob_shift + loc_id;
 
@@ -113,21 +74,18 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
                     continue;
                 }
 
-                Vector ray_dir_s;
-                if(m_optical)
-                {
-                    ray_dir_s = m_model->getDirectionOptical(vid, hid);
-                } else {
-                    ray_dir_s = m_model->getDirection(vid, hid);
-                }
+                const Vector ray_orig_s = m_model->getOrigin(vid, hid);
+                const Vector ray_orig_b = Tsb * ray_orig_s;
+                const Vector ray_orig_m = Tsm * ray_orig_s;
 
+                const Vector ray_dir_s = m_model->getDirection(vid, hid);
                 const Vector ray_dir_b = Tsb.R * ray_dir_s;
                 const Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 RTCRayHit rayhit;
-                rayhit.ray.org_x = Tsm.t.x;
-                rayhit.ray.org_y = Tsm.t.y;
-                rayhit.ray.org_z = Tsm.t.z;
+                rayhit.ray.org_x = ray_orig_m.x;
+                rayhit.ray.org_y = ray_orig_m.y;
+                rayhit.ray.org_z = ray_orig_m.z;
                 rayhit.ray.dir_x = ray_dir_m.x;
                 rayhit.ray.dir_y = ray_dir_m.y;
                 rayhit.ray.dir_z = ray_dir_m.z;
@@ -145,10 +103,10 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
                 {
                     // Do point to plane ICP here
                     Vector preal_b, pint_b, nint_m, nint_b;
-                    preal_b = ray_dir_b * range_real;
+                    preal_b = ray_orig_b + ray_dir_b * range_real;
 
                     // search point on surface that is more nearby
-                    pint_b = ray_dir_b * rayhit.ray.tfar;
+                    pint_b = ray_orig_b + ray_dir_b * rayhit.ray.tfar;
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
@@ -201,10 +159,9 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
             }
 
             S.setIdentity();
-
-            if(U.det() * V.det() < 0.0)
+            if(U.det() * V.det() < 0)
             {
-                S(2,2) = -1.0;
+                S(2, 2) = -1;
             }
 
             res.Tdelta[pid].R.set( U * S * V.transpose() );
@@ -217,8 +174,10 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
     return res;
 }
 
+// TODO: move to rmagine
+#pragma omp declare reduction( + : rmagine::Matrix3x3 : omp_out += omp_in )
 
-void PinholeCorrectorEmbree::compute_covs(
+void O1DnCorrectorEmbree::compute_covs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
@@ -229,7 +188,7 @@ void PinholeCorrectorEmbree::compute_covs(
 
     auto scene = m_map->scene->handle();
 
-    #pragma omp parallel for
+    #pragma omp parallel for default(shared)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -245,7 +204,7 @@ void PinholeCorrectorEmbree::compute_covs(
         Matrix3x3 C;
         C.setZeros();
 
-        #pragma omp parallel for default(shared) reduction(+:Dmean,Mmean,Ncorr_,C)
+        #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr_, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             Vector Dmean_inner = {0.0, 0.0, 0.0};
@@ -266,21 +225,18 @@ void PinholeCorrectorEmbree::compute_covs(
                     continue;
                 }
 
-                Vector ray_dir_s;
-                if(m_optical)
-                {
-                    ray_dir_s = m_model->getDirectionOptical(vid, hid);
-                } else {
-                    ray_dir_s = m_model->getDirection(vid, hid);
-                }
+                const Vector ray_orig_s = m_model->getOrigin(vid, hid);
+                const Vector ray_orig_b = Tsb * ray_orig_s;
+                const Vector ray_orig_m = Tsm * ray_orig_s;
 
+                const Vector ray_dir_s = m_model->getDirection(vid, hid);
                 const Vector ray_dir_b = Tsb.R * ray_dir_s;
                 const Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 RTCRayHit rayhit;
-                rayhit.ray.org_x = Tsm.t.x;
-                rayhit.ray.org_y = Tsm.t.y;
-                rayhit.ray.org_z = Tsm.t.z;
+                rayhit.ray.org_x = ray_orig_m.x;
+                rayhit.ray.org_y = ray_orig_m.y;
+                rayhit.ray.org_z = ray_orig_m.z;
                 rayhit.ray.dir_x = ray_dir_m.x;
                 rayhit.ray.dir_y = ray_dir_m.y;
                 rayhit.ray.dir_z = ray_dir_m.z;
@@ -298,10 +254,10 @@ void PinholeCorrectorEmbree::compute_covs(
                 {
                     // Do point to plane ICP here
                     Vector preal_b, pint_b, nint_m, nint_b;
-                    preal_b = ray_dir_b * range_real;
+                    preal_b = ray_orig_b + ray_dir_b * range_real;
 
                     // search point on surface that is more nearby
-                    pint_b = ray_dir_b * rayhit.ray.tfar;
+                    pint_b = ray_orig_b + ray_dir_b * rayhit.ray.tfar;
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
@@ -340,7 +296,7 @@ void PinholeCorrectorEmbree::compute_covs(
             Dmean /= Ncorr_;
             Mmean /= Ncorr_;
             C /= Ncorr_;
-            
+
             ms[pid] = Mmean;
             ds[pid] = Dmean;
             Cs[pid] = C;
@@ -352,17 +308,18 @@ void PinholeCorrectorEmbree::compute_covs(
     }
 }
 
-void PinholeCorrectorEmbree::compute_covs(
+void O1DnCorrectorEmbree::compute_covs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     CorrectionPreResults<rmagine::RAM>& res)
 {
     compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 
-CorrectionPreResults<rmagine::RAM> PinholeCorrectorEmbree::compute_covs(
+CorrectionPreResults<rmagine::RAM> O1DnCorrectorEmbree::compute_covs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionPreResults<rmagine::RAM> res;
+
     res.ms.resize(Tbms.size());
     res.ds.resize(Tbms.size());
     res.Cs.resize(Tbms.size());

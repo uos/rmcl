@@ -3,6 +3,8 @@
 
 #include <rmcl/math/math.h>
 
+#include <rmagine/math/omp.h>
+
 // DEBUG
 #include <rmagine/util/prints.h>
 
@@ -46,12 +48,19 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
 
         Vector Dmean = {0.0, 0.0, 0.0};
         Vector Mmean = {0.0, 0.0, 0.0};
-        std::vector<Vector> D, M;
-
         unsigned int Ncorr = 0;
+        Matrix3x3 C;
+        C.setZeros();
 
+        #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
+            Vector Dmean_inner = {0.0, 0.0, 0.0};
+            Vector Mmean_inner = {0.0, 0.0, 0.0};
+            unsigned int Ncorr_inner = 0;
+            Matrix3x3 C_inner;
+            C_inner.setZeros();
+
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
                 // std::cout << "(vid, hid): " << vid << ", " << hid << std::endl;
@@ -114,14 +123,19 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
 
                     if(distance < max_distance)
                     {
-                        Dmean += preal_b;
-                        Mmean += pmesh_b;
-                        D.push_back(preal_b);
-                        M.push_back(pmesh_b);
-                        Ncorr++;
+                        Dmean_inner += preal_b;
+                        Mmean_inner += pmesh_b;
+                        C_inner += preal_b.multT(pmesh_b);
+                        Ncorr_inner++;
                     }
                 }
             }
+
+            // reduction
+            Dmean += Dmean_inner;
+            Mmean += Mmean_inner;
+            Ncorr += Ncorr_inner;
+            C += C_inner;
         }
 
         res.Ncorr[pid] = Ncorr;
@@ -130,28 +144,9 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
         {
             Dmean /= Ncorr;
             Mmean /= Ncorr;
-            
-            Matrix3x3 C;
-            C.setZeros();
-
-            bool use_new = true;
-            if(use_new)
-            {
-                for(size_t i=0; i<D.size(); i++)
-                {
-                    C += (D[i]).multT(M[i]);
-                }
-            } else {
-                for(size_t i=0; i<D.size(); i++)
-                {
-                    C += (D[i] - Dmean).multT(M[i] - Mmean);
-                }
-            }
-
-
             C /= Ncorr;
 
-            Matrix3x3 U, V;
+            Matrix3x3 U, V, S;
 
             { // the only Eigen code left
                 const Eigen::Matrix3f* Ceig = reinterpret_cast<const Eigen::Matrix3f*>(&C);
@@ -163,7 +158,13 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
                 Veig[0] = svd.matrixV();
             }
 
-            res.Tdelta[pid].R.set( U * V.transpose() );
+            S.setIdentity();
+            if(U.det() * V.det() < 0)
+            {
+                S(2, 2) = -1;
+            }
+
+            res.Tdelta[pid].R.set( U * S * V.transpose() );
             res.Tdelta[pid].t = Dmean - res.Tdelta[pid].R * Mmean;
         } else {
             res.Tdelta[pid].setIdentity();
@@ -199,19 +200,19 @@ void OnDnCorrectorEmbree::compute_covs(
 
         Vector Dmean = {0.0, 0.0, 0.0};
         Vector Mmean = {0.0, 0.0, 0.0};
-
         unsigned int Ncorr_ = 0;
         Matrix3x3 C;
         C.setZeros();
 
-        #pragma omp parallel for default(shared) reduction(+:C,Ncorr_)
+        #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr_, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
+            Vector Dmean_inner = {0.0, 0.0, 0.0};
+            Vector Mmean_inner = {0.0, 0.0, 0.0};
             unsigned int Ncorr_inner = 0;
             Matrix3x3 C_inner;
             C_inner.setZeros();
 
-            #pragma omp parallel for default(shared) reduction(+:C_inner,Ncorr_inner)
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
@@ -273,14 +274,17 @@ void OnDnCorrectorEmbree::compute_covs(
 
                     if(distance < max_distance)
                     {
-                        Dmean += preal_b;
-                        Mmean += pmesh_b;
+                        Dmean_inner += preal_b;
+                        Mmean_inner += pmesh_b;
                         C_inner += preal_b.multT(pmesh_b);
                         Ncorr_inner++;
                     }
                 }
             }
 
+            // reduction
+            Dmean += Dmean_inner;
+            Mmean += Mmean_inner;
             Ncorr_ += Ncorr_inner;
             C += C_inner;
         }

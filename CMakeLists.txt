@@ -72,6 +72,7 @@ add_library(rmcl
     # Correction
     src/rmcl/correction/SphereCorrectorEmbree.cpp
     src/rmcl/correction/PinholeCorrectorEmbree.cpp
+    src/rmcl/correction/O1DnCorrectorEmbree.cpp
     src/rmcl/correction/OnDnCorrectorEmbree.cpp
     # Math
     src/rmcl/math/math.cpp
@@ -103,6 +104,7 @@ add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
     src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
     src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
+    src/rmcl/correction/O1DnCorrectorEmbreeROS.cpp
     src/rmcl/correction/OnDnCorrectorEmbreeROS.cpp
 )
 
