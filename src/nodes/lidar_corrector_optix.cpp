@@ -244,6 +244,14 @@ void poseCB(geometry_msgs::PoseStamped msg)
     T_odom_map = T_base_map * ~T_base_odom;
 }
 
+void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
+{
+    geometry_msgs::PoseStamped pose;
+    pose.header = msg.header;
+    pose.pose = msg.pose.pose;
+    poseCB(pose);
+}
+
 
 // Storing scan information globally
 // updating real data inside the global scan corrector
@@ -358,6 +366,8 @@ int main(int argc, char** argv)
 
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
+    ros::Subscriber pose_wc_sub = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);
+
 
     ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 
