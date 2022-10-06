@@ -64,11 +64,11 @@ rm::ProgramModulePtr make_program_module_corr_sw(
         #include "kernels/PinholeCorrectProgramSWString.h"
         ;
         ret->ptx = std::string(kernel);
-    // } else if(sensor_id == 2) {
-    //     const char *kernel =
-    //     #include "kernels/O1DnCorrectProgramSWString.h"
-    //     ;
-    //     ret->ptx = std::string(kernel);
+    } else if(sensor_id == 2) {
+        const char *kernel =
+        #include "kernels/O1DnCorrectProgramSWString.h"
+        ;
+        ret->ptx = std::string(kernel);
     } else if(sensor_id == 3) {
         const char *kernel =
         #include "kernels/OnDnCorrectProgramSWString.h"
@@ -173,11 +173,11 @@ rmagine::ProgramModulePtr make_program_module_corr_rw(
         #include "kernels/PinholeCorrectProgramRWString.h"
         ;
         ret->ptx = std::string(kernel);
-    // } else if(sensor_id == 2) {
-    //     const char *kernel =
-    //     #include "kernels/O1DnCorrectProgramSWString.h"
-    //     ;
-    //     ret->ptx = std::string(kernel);
+    } else if(sensor_id == 2) {
+        const char *kernel =
+        #include "kernels/O1DnCorrectProgramRWString.h"
+        ;
+        ret->ptx = std::string(kernel);
     } else if(sensor_id == 3) {
         const char *kernel =
         #include "kernels/OnDnCorrectProgramRWString.h"

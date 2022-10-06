@@ -1,5 +1,5 @@
-#ifndef RMCL_ONDN_CORRECTOR_OPTIX_ROS_HPP
-#define RMCL_ONDN_CORRECTOR_OPTIX_ROS_HPP
+#ifndef RMCL_O1DN_CORRECTOR_OPTIX_ROS_HPP
+#define RMCL_O1DN_CORRECTOR_OPTIX_ROS_HPP
 
 #include <ros/ros.h>
 
@@ -11,7 +11,7 @@
 // Rmagine deps
 
 // Internal deps
-#include "OnDnCorrectorOptix.hpp"
+#include "O1DnCorrectorOptix.hpp"
 
 // RCML msgs
 // #include <rmcl_msgs/ScanStamped.h>
@@ -21,10 +21,10 @@
 namespace rmcl
 {
 
-class OnDnCorrectorOptixROS : public OnDnCorrectorOptix
+class O1DnCorrectorOptixROS : public O1DnCorrectorOptix
 {
 public:
-    using Base = OnDnCorrectorOptix;
+    using Base = O1DnCorrectorOptix;
 
     using Base::Base;
     using Base::setParams;
@@ -75,8 +75,8 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> m_tf_listener;
 };
 
-using OnDnCorrectorOptixROSPtr = std::shared_ptr<OnDnCorrectorOptixROS>;
+using O1DnCorrectorOptixROSPtr = std::shared_ptr<O1DnCorrectorOptixROS>;
 
 } // namespace rmcl
 
-#endif // RMCL_ONDN_CORRECTOR_OPTIX_ROS_HPP
+#endif // RMCL_O1DN_CORRECTOR_OPTIX_ROS_HPP

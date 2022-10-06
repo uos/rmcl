@@ -1,0 +1,44 @@
+# required
+base_frame: base
+map_frame: map
+
+
+
+# optional
+odom_frame: odom # optional - recommended
+
+
+max_distance: 1.0
+
+# adjust max distance dependend of the state of localization
+adaptive_max_dist: True
+adaptive_max_dist_min: 0.15
+
+# rates
+tf_rate: 50
+corr_rate_max: 300
+
+sensors: # list of range sensors - at least one is required
+  velodyne:
+    type: spherical
+    model:
+      range_min: 0.5
+      range_max: 130.0
+      phi_min: -0.261799067259
+      phi_inc: 0.03490658503988659
+      phi_N: 16
+      theta_min: -3.14159011841
+      theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
+      theta_N: 440
+    topic: velodyne_points
+    weight: 10
+  sick:
+    topic: scan
+    weight: 2
+  kinect:
+    topic: kinect/depth/image_raw
+    info_topic:  kinect/depth/camera_info
+    weight: 1
+
+# DEBUG
+poses: 1

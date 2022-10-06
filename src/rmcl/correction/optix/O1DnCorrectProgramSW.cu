@@ -6,7 +6,7 @@
 namespace rm = rmagine;
 
 extern "C" {
-__constant__ rmcl::SphereCorrectionDataSW mem;
+__constant__ rmcl::O1DnCorrectionDataSW mem;
 }
 
 extern "C" __global__ void __raygen__rg()
@@ -33,18 +33,13 @@ extern "C" __global__ void __raygen__rg()
         const rmagine::Transform Tmb = Tbm.inv();
 
         // TODO: is it possible to not doing optixTrace twice?
-        // - solution: fixing the rotation center to the robot's base
-        // -- expected cons: slower convergence
-        // -- expected pros:
-        // --- better stability. never glitch through walls: better recovery after an error
-        // --- faster: 2x
         rmagine::Vector Dmean = {0.0, 0.0, 0.0};
         rmagine::Vector Mmean = {0.0, 0.0, 0.0};
         unsigned int Ncorr = 0;
         rmagine::Matrix3x3 C;
         C.setZeros();
         
-        // Computing Means
+        // Detecting Means
         for(unsigned int vid = 0; vid < Nvertical; vid++)
         {
             for(unsigned int hid = 0; hid < Nhorizontal; hid++)
@@ -55,15 +50,20 @@ extern "C" __global__ void __raygen__rg()
                 const float real_range = mem.ranges[loc_id];
                 if(real_range < rangeMin || real_range > rangeMax){continue;}
 
-                const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
+                // Origin
+                const rmagine::Vector ray_orig_s = mem.model->getOrigin(vid, hid);
+                const rmagine::Vector ray_orig_b = Tsb * ray_orig_s;
+                const rmagine::Vector ray_orig_m = Tsm * ray_orig_s;
 
+                // Direction
+                const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
                 const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
                 const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 unsigned int p0, p1, p2, p3;
                 optixTrace(
                         mem.handle,
-                        make_float3(Tsm.t.x, Tsm.t.y, Tsm.t.z),
+                        make_float3(ray_orig_m.x, ray_orig_m.y, ray_orig_m.z),
                         make_float3(ray_dir_m.x, ray_dir_m.y, ray_dir_m.z),
                         0.0f,               // Min intersection distance
                         rangeMax,                   // Max intersection distance
@@ -81,8 +81,8 @@ extern "C" __global__ void __raygen__rg()
                     continue;
                 }
 
-                const rmagine::Vector preal_b = ray_dir_b * real_range;
-                const rmagine::Vector pint_b = ray_dir_b * range;
+                const rmagine::Vector preal_b = ray_orig_b + ray_dir_b * real_range;
+                const rmagine::Vector pint_b = ray_orig_b + ray_dir_b * range;
 
                 const rmagine::Vector nint_m = {
                     __uint_as_float( p1 ),
@@ -114,6 +114,7 @@ extern "C" __global__ void __raygen__rg()
 
         mem.Ncorr[pid] = Ncorr;
 
+
         if(Ncorr > 0)
         {
             Dmean /= static_cast<float>(Ncorr);
@@ -125,41 +126,4 @@ extern "C" __global__ void __raygen__rg()
         mem.m1[pid] = Dmean;
         mem.m2[pid] = Mmean;
     }
-}
-
-extern "C" __global__ void __miss__ms()
-{
-    optixSetPayload_0( __float_as_uint( mem.model->range.max + 1.0f ) );
-}
-
-extern "C" __global__ void __closesthit__ch()
-{
-    const float t = optixGetRayTmax();
-    const unsigned int face_id = optixGetPrimitiveIndex();
-    const unsigned int inst_id = optixGetInstanceId();
-    const unsigned int gas_id = optixGetSbtGASIndex();
-
-    rm::OptixSceneSBT* scene_data  = reinterpret_cast<rm::OptixSceneSBT*>( optixGetSbtDataPointer() );
-
-    rm::OptixMeshSBT* mesh_data = nullptr;
-    if(scene_data->type == rm::OptixSceneType::INSTANCES)
-    {
-        // instance hierarchy
-        rm::OptixSceneSBT* inst_scene = scene_data->geometries[inst_id].inst_data.scene;
-        mesh_data = &(inst_scene->geometries[gas_id].mesh_data);
-    } else {
-        mesh_data = &scene_data->geometries[gas_id].mesh_data;
-    }
-
-    const float3 normal = make_float3(
-        mesh_data->face_normals[face_id].x, 
-        mesh_data->face_normals[face_id].y, 
-        mesh_data->face_normals[face_id].z);
-
-    float3 normal_world = optixTransformNormalFromObjectToWorldSpace(normal);
-
-    optixSetPayload_0( __float_as_uint( t ) );
-    optixSetPayload_1( __float_as_uint( normal_world.x ) );
-    optixSetPayload_2( __float_as_uint( normal_world.y ) );
-    optixSetPayload_3( __float_as_uint( normal_world.z ) );
 }

@@ -91,6 +91,8 @@ target_link_libraries(rmcl
     Eigen3::Eigen
 )
 
+add_definitions(-DRMCL_EMBREE)
+
 add_executable(rmcl_correction_embree_benchmark
     src/nodes/lidar_corrector_embree_benchmark.cpp
 )
@@ -141,6 +143,8 @@ if(${rmagine_optix_FOUND})
 
     set(CUDA_GENERATED_OUTPUT_DIR ${RMCL_OPTIX_PTX_DIR})
 
+    add_definitions(-DRMCL_OPTIX)
+
     add_definitions( -DWITH_OPTIX )
     add_definitions( -DRMCL_OPTIX_PTX_DIR="${RMCL_OPTIX_PTX_DIR}" )
     add_definitions( -DRMCL_OPTIX_PTX_GLOB_DIR="${RMCL_OPTIX_PTX_GLOB_DIR}")
@@ -156,6 +160,8 @@ if(${rmagine_optix_FOUND})
         src/rmcl/correction/optix/PinholeCorrectProgramRW.cu
         src/rmcl/correction/optix/PinholeCorrectProgramSW.cu
         ## O1Dn
+        src/rmcl/correction/optix/O1DnCorrectProgramRW.cu
+        src/rmcl/correction/optix/O1DnCorrectProgramSW.cu
         ## OnDn
         src/rmcl/correction/optix/OnDnCorrectProgramRW.cu
         src/rmcl/correction/optix/OnDnCorrectProgramSW.cu
@@ -185,19 +191,9 @@ if(${rmagine_optix_FOUND})
         # Correction
         src/rmcl/correction/SphereCorrectorOptix.cpp
         src/rmcl/correction/PinholeCorrectorOptix.cpp
+        src/rmcl/correction/O1DnCorrectorOptix.cpp
         src/rmcl/correction/OnDnCorrectorOptix.cpp
         # Correction Programs
-        ## Spherical
-        # src/rmcl/correction/optix/SphereCorrectProgramRW.cpp
-        # src/rmcl/correction/optix/SphereCorrectProgramSW.cpp
-        ## Pinhole
-        # src/rmcl/correction/optix/PinholeCorrectProgramRW.cpp
-        # src/rmcl/correction/optix/PinholeCorrectProgramSW.cpp
-        ## O1Dn
-        ## OnDn
-        # src/rmcl/correction/optix/OnDnCorrectProgramRW.cpp
-        # src/rmcl/correction/optix/OnDnCorrectProgramSW.cpp
-        ## NEW
         src/rmcl/correction/optix/corr_modules.cpp
         src/rmcl/correction/optix/corr_program_groups.cpp
         src/rmcl/correction/optix/corr_pipelines.cpp
@@ -220,8 +216,11 @@ if(${rmagine_optix_FOUND})
         # Pinhole
         src/rmcl/correction/PinholeCorrectorOptixROS.cpp
         # O1Dn
+        src/rmcl/correction/O1DnCorrectorOptixROS.cpp
         # OnDn
         src/rmcl/correction/OnDnCorrectorOptixROS.cpp
+        # MICP
+        src/rmcl/correction/MICP.cpp
     )
 
     target_link_libraries(rmcl_optix_ros
@@ -284,6 +283,29 @@ target_link_libraries(image_to_depth
     rmcl
     rmcl_ros
 )
+
+##############
+#### MICP ####
+##############
+add_executable(micp_localization src/nodes/micp_localization.cpp)
+
+add_dependencies(micp_localization 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(micp_localization
+    ${catkin_LIBRARIES}
+    ${rmagine_ext_LIBRARIES}
+    rmcl
+    rmcl_ros
+    rmcl_optix_ros
+)
+
+
+### TESTS ###
+
 
 ###### CORRECTION CPU #######
 add_executable(lidar_corrector_embree src/nodes/lidar_corrector_embree.cpp)

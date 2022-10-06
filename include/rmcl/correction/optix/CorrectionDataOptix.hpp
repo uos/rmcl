@@ -75,6 +75,7 @@ struct CorrectionDataSW
 
 using SphereCorrectionDataSW = CorrectionDataSW<rmagine::SphericalModel>;
 using PinholeCorrectionDataSW = CorrectionDataSW<rmagine::PinholeModel>;
+using O1DnCorrectionDataSW = CorrectionDataSW<rmagine::O1DnModel_<rmagine::VRAM_CUDA> >;
 using OnDnCorrectionDataSW = CorrectionDataSW<rmagine::OnDnModel_<rmagine::VRAM_CUDA> >;
 
 /**
@@ -102,6 +103,7 @@ struct CorrectionDataRW
 
 using SphereCorrectionDataRW = CorrectionDataRW<rmagine::SphericalModel>;
 using PinholeCorrectionDataRW = CorrectionDataRW<rmagine::PinholeModel>;
+using O1DnCorrectionDataRW = CorrectionDataRW<rmagine::O1DnModel_<rmagine::VRAM_CUDA> >;
 using OnDnCorrectionDataRW = CorrectionDataRW<rmagine::OnDnModel_<rmagine::VRAM_CUDA> >;
 
 } // namespace rmcl

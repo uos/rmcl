@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<launch>
+
+<arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
+
+<node pkg="rmcl" type="micp_localization" name="micp_localization" output="screen">
+    <param name="map_file" type="string" value="$(arg meshfile)" />
+    <rosparam command="load" file="$(find rmcl)/config/micp.yaml" />
+    <remap from="pose_wc" to="/initialpose" />
+</node>
+
+
+</launch>
