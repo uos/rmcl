@@ -96,16 +96,7 @@ __global__ void sumFancyBatched_kernel(
             {
                 const rm::Vector a = data1[globId + blockSize * i] - center1[blockIdx.x];
                 const rm::Vector b = data2[globId + blockSize * i] - center2[blockIdx.x];
-
-                sdata[tid](0,0) += a.x * b.x;
-                sdata[tid](1,0) += a.x * b.y;
-                sdata[tid](2,0) += a.x * b.z;
-                sdata[tid](0,1) += a.y * b.x;
-                sdata[tid](1,1) += a.y * b.y;
-                sdata[tid](2,1) += a.y * b.z;
-                sdata[tid](0,2) += a.z * b.x;
-                sdata[tid](1,2) += a.z * b.y;
-                sdata[tid](2,2) += a.z * b.z;
+                sdata[tid] += b.multT(a);
             }
         }
     }
@@ -159,16 +150,65 @@ __global__ void covFancyBatched_kernel(
             {
                 const rm::Vector a = data1[globId + blockSize * i] - center1[blockIdx.x];
                 const rm::Vector b = data2[globId + blockSize * i] - center2[blockIdx.x];
+                sdata[tid] += b.multT(a);
+            }
+        }
+    }
+    __syncthreads();
+    
+    for(unsigned int s = blockSize / 2; s > 32; s >>= 1)
+    {
+        if(tid < s)
+        {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
 
-                sdata[tid](0,0) += a.x * b.x;
-                sdata[tid](1,0) += a.x * b.y;
-                sdata[tid](2,0) += a.x * b.z;
-                sdata[tid](0,1) += a.y * b.x;
-                sdata[tid](1,1) += a.y * b.y;
-                sdata[tid](2,1) += a.y * b.z;
-                sdata[tid](0,2) += a.z * b.x;
-                sdata[tid](1,2) += a.z * b.y;
-                sdata[tid](2,2) += a.z * b.z;
+    if(tid < blockSize / 2 && tid < 32)
+    {
+        warpReduce<blockSize>(sdata, tid);
+    }
+
+    if(tid == 0)
+    {
+        const unsigned int Ncorr_ = Ncorr[blockIdx.x];
+        if(Ncorr_ > 0)
+        {
+            Cs[blockIdx.x] = sdata[0] / Ncorr_;
+        } else {
+            Cs[blockIdx.x].setZeros();
+        }
+    }
+}
+
+
+template<unsigned int blockSize>
+__global__ void covFancyBatched_kernel(
+    const rm::Vector* data1, // to
+    const rm::Vector* data2, // from
+    const unsigned int* mask,
+    const unsigned int* Ncorr,
+    unsigned int chunkSize,
+    rm::Matrix3x3* Cs)
+{
+    __shared__ rm::Matrix3x3 sdata[blockSize];
+
+    const unsigned int tid = threadIdx.x;
+    const unsigned int globId = chunkSize * blockIdx.x + threadIdx.x;
+    const unsigned int rows = (chunkSize + blockSize - 1) / blockSize;
+
+    sdata[tid].setZeros();
+
+    for(unsigned int i=0; i<rows; i++)
+    {
+        if(tid + blockSize * i < chunkSize)
+        {
+            if(mask[globId + blockSize * i] > 0)
+            {
+                const rm::Vector a = data1[globId + blockSize * i];
+                const rm::Vector b = data2[globId + blockSize * i];
+                sdata[tid] += b.multT(a);
             }
         }
     }
@@ -289,6 +329,36 @@ rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> covFancyBatched(
     unsigned int Nchunks = center1.size();
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Nchunks);
     covFancyBatched(data1, center1, data2, center2, mask, Ncorr, Cs);
+    return Cs;
+}
+
+
+void covFancyBatched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from, dataset
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to, model
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs)
+{
+    unsigned int Nchunks = Ncorr.size();
+    unsigned int batchSize = data1.size() / Nchunks;
+    constexpr unsigned int blockSize = 64; // TODO: get best value for this one
+
+    covFancyBatched_kernel<blockSize> <<<Nchunks, blockSize>>>(
+        data1.raw(), data2.raw(), 
+        mask.raw(), Ncorr.raw(), 
+        batchSize, Cs.raw());
+}
+
+rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> covFancyBatched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from, dataset
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to, model
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr)
+{
+    unsigned int Nchunks = Ncorr.size();
+    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Nchunks);
+    covFancyBatched(data1, data2, mask, Ncorr, Cs);
     return Cs;
 }
     

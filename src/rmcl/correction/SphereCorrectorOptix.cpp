@@ -102,6 +102,7 @@ void SphereCorrectorOptix::compute_covs(
 {
     // TODO how to make this dynamic somehow
     constexpr unsigned int POSE_SWITCH = 1024 * 8;
+    // constexpr unsigned int POSE_SWITCH = 1024 * 0;
 
     if(Tbms.size() > POSE_SWITCH)
     {
@@ -150,7 +151,6 @@ SphereCorrectorOptix::Timings SphereCorrectorOptix::benchmark(
     timings.sim = 0.0;
     timings.red = 0.0;
     timings.svd = 0.0;
-
 
     for(size_t i=0; i<Ntests; i++)
     {
@@ -326,8 +326,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     meanBatched(dataset_points, corr_valid, Ncorr, m1);
     meanBatched(model_points, corr_valid, Ncorr, m2);
 
-    covFancyBatched(model_points, m2, 
-            dataset_points, m1, 
+    covFancyBatched(model_points, dataset_points,
             corr_valid, Ncorr, Cs);
 }
 

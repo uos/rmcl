@@ -79,7 +79,6 @@ rm::ProgramModulePtr make_program_module_corr_sw(
         throw std::runtime_error("[OptixScene::raygen_ptx_from_model_type] ERROR loading ptx");
     }
 
-
     // TODO: share this between nearly any module?
     // depends on:
     // - scene : traversableGraphFlags
@@ -161,6 +160,7 @@ rmagine::ProgramModulePtr make_program_module_corr_rw(
         ret->compile_options->debugLevel           = OPTIX_COMPILE_DEBUG_LEVEL_NONE;
         #endif
     #endif
+
 
     if(sensor_id == 0)
     {
