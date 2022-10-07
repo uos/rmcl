@@ -107,6 +107,10 @@ private:
 
     bool checkTF(bool prints = false);
 
+    void checkTopic(
+        TopicInfo& info, 
+        ros::Duration timeout = ros::Duration(5.0));
+
     ros::NodeHandle m_nh;
     ros::NodeHandle m_nh_p;
 

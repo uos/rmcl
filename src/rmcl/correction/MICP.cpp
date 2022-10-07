@@ -45,162 +45,6 @@ MICP::~MICP()
 }
 
 
-void check_topic_data(
-    TopicInfo& info,
-    ros::NodeHandle nh,
-    ros::Duration timeout = ros::Duration(5.0))
-{
-    info.data = false;
-    info.frame = "";
-
-    ros::Time curr = ros::Time::now();
-
-    // returns zero on startup
-    while(curr == ros::Time(0))
-    {
-        ros::Duration(0.01).sleep();
-        ros::spinOnce();
-        curr = ros::Time::now();
-    }
-
-    ros::Time end = curr + timeout;
-    // std::cout << curr.toSec() << " -> " << end.toSec() << std::endl;
-
-    ros::Duration timeout_inner(0.1);
-
-    while(ros::ok() && curr < end && !info.data)
-    {
-        if(info.msg == "sensor_msgs/PointCloud2")
-        {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(info.name, nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/PointCloud") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud>(info.name, nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/LaserScan") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(info.name, nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/Image") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::Image>(info.name, nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/CameraInfo") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(info.name, nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "rmcl_msgs/ScanStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(info.name, nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "rmcl_msgs/DepthStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(info.name, nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else {
-            // unknown type
-            return;
-        }
-
-        ros::spinOnce();
-        timeout_inner.sleep();
-        curr = ros::Time::now();
-    }
-}
-
-TopicInfo check_topic_data(
-    std::string name, 
-    std::string msg, 
-    ros::NodeHandle nh,
-    ros::Duration timeout = ros::Duration(5.0))
-{
-    TopicInfo info = {};
-    info.name = name;
-    info.msg    = msg;
-    
-    check_topic_data(info, nh, timeout);
-
-    return info;
-}
-
-bool MICP::checkTF(bool prints)
-{
-    std::cout << std::endl;
-    std::cout << "-------------------------" << std::endl;
-    std::cout << "     --- FRAMES ---      " << std::endl;
-    std::cout << "-------------------------" << std::endl;
-    std::cout << "- base:\t\t\t" << TC_FRAME << m_base_frame << TC_END << std::endl;
-    
-    if(m_use_odom_frame)
-    {
-        std::cout << "- odom:\t\t\t" << TC_FRAME << m_odom_frame << TC_END << std::endl;
-
-        // check connection to base
-        bool odom_to_base_available = false;
-        
-        int num_tries = 10;
-        ros::Rate r(20);
-
-        while(ros::ok() && num_tries > 0 && !odom_to_base_available )
-        {
-            try {
-                auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, ros::Time(0));
-                odom_to_base_available = true;
-            } catch (tf2::TransformException &ex) {
-                odom_to_base_available = false;
-            }
-
-            r.sleep();
-            ros::spinOnce();
-            num_tries--;
-        }
-
-        if(odom_to_base_available)
-        {
-            std::cout << "  - base -> odom:\t" << TC_GREEN << "yes" << TC_END << std::endl;
-        } else {
-            std::cout << "  - base -> odom:\t" << TC_RED << "no" << TC_END << std::endl;
-        }
-    } else {
-        std::cout << "- odom:\t\t\tdisabled" << std::endl; 
-    }
-
-    std::cout << "- map:\t\t\t" << TC_FRAME << m_map_frame << TC_END << std::endl;
-
-    std::cout << "Estimating: " << TC_FRAME << m_base_frame << TC_END << " -> " << TC_FRAME << m_map_frame << TC_END << std::endl;
-    if(m_use_odom_frame)
-    {
-        std::cout << "Providing: " << TC_FRAME << m_odom_frame << TC_END << " -> " << TC_FRAME << m_map_frame << TC_END << std::endl;
-    } else {
-        std::cout << "Providing: " << TC_FRAME << m_base_frame << TC_END << " -> " << TC_FRAME << m_map_frame << TC_END << std::endl;
-    }
-
-    return true;
-}
-
 void MICP::loadParams()
 {
     std::cout << "MICP load params" << std::endl;
@@ -245,8 +89,6 @@ void MICP::loadParams()
 bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params)
 {
     MICPRangeSensor sensor;
-
-
 
     // std::string sensor_name = sensor_xml.first;
     std::string sensor_type;
@@ -306,19 +148,22 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
     if(sensor.data_topic.msg != "")
     {
-        if(sensor.data_topic.msg == "sensor_msgs/LaserScan" || sensor.data_topic.msg == "rmcl_msgs/ScanStamped")
+        if(sensor.data_topic.msg == "sensor_msgs/LaserScan" 
+            || sensor.data_topic.msg == "rmcl_msgs/ScanStamped")
         {
             sensor_type = "spherical";
             sensor_type_found = true;
+        } else if(sensor.data_topic.msg == "sensor_msgs/Image" 
+            || sensor.data_topic.msg == "rmcl_msgs/DepthStamped") 
+        {
+            // is image always pinhole? counterexample: cylindrical image e.g. panorama
+            sensor_type = "pinhole";
+            sensor_type_found = true;
         }
-
 
         std::cout << "    - msg:\t\t" << TC_MSG << sensor.data_topic.msg << TC_END << std::endl;
         // check if topic is valid
-        check_topic_data(sensor.data_topic, m_nh, ros::Duration(5.0));
-
-        // auto topic_data_info = check_topic_data(sensor.data_topic.name, topic_msg, m_nh, ros::Duration(5.0));
-        // topic_valid = topic_data_info.data;
+        checkTopic(sensor.data_topic, ros::Duration(5.0));
 
         if(sensor.data_topic.data)
         {
@@ -373,8 +218,6 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
     
     // load
-
-    
     bool model_loaded = false;
 
     if(sensor_type == "spherical") {
@@ -402,9 +245,6 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             // loadSensorInfo<rm::SphericalModel>();
         }
 
-        
-
-
         sensor.model = model;
     } else if(sensor_type == "pinhole") {
         rm::PinholeModel model;
@@ -418,9 +258,8 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         rm::OnDnModel model;
 
         sensor.model = model;
-    } else {
-        // std::cout << "  - type:\t\t" << TC_RED << "unknown" << std::endl;
     }
+
 
     if(sensor_type_found)
     {
@@ -432,9 +271,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         }
     } else {
         std::cout << "  - type:\t\t" << TC_RED << "unknown" << std::endl;
-    }
-
-    
+    }   
 
     return true;
 }
@@ -449,5 +286,147 @@ void MICP::loadMap(std::string filename)
     m_map_optix = rm::importOptixMap(filename);
     #endif // RMCL_OPTIX
 }
+
+bool MICP::checkTF(bool prints)
+{
+    std::cout << std::endl;
+    std::cout << "-------------------------" << std::endl;
+    std::cout << "     --- FRAMES ---      " << std::endl;
+    std::cout << "-------------------------" << std::endl;
+    std::cout << "- base:\t\t\t" << TC_FRAME << m_base_frame << TC_END << std::endl;
+    
+    if(m_use_odom_frame)
+    {
+        std::cout << "- odom:\t\t\t" << TC_FRAME << m_odom_frame << TC_END << std::endl;
+
+        // check connection to base
+        bool odom_to_base_available = false;
+        
+        int num_tries = 10;
+        ros::Rate r(20);
+
+        while(ros::ok() && num_tries > 0 && !odom_to_base_available )
+        {
+            try {
+                auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, ros::Time(0));
+                odom_to_base_available = true;
+            } catch (tf2::TransformException &ex) {
+                odom_to_base_available = false;
+            }
+
+            r.sleep();
+            ros::spinOnce();
+            num_tries--;
+        }
+
+        if(odom_to_base_available)
+        {
+            std::cout << "  - base -> odom:\t" << TC_GREEN << "yes" << TC_END << std::endl;
+        } else {
+            std::cout << "  - base -> odom:\t" << TC_RED << "no" << TC_END << std::endl;
+        }
+    } else {
+        std::cout << "- odom:\t\t\tdisabled" << std::endl; 
+    }
+
+    std::cout << "- map:\t\t\t" << TC_FRAME << m_map_frame << TC_END << std::endl;
+
+    std::cout << "Estimating: " << TC_FRAME << m_base_frame << TC_END << " -> " << TC_FRAME << m_map_frame << TC_END << std::endl;
+    if(m_use_odom_frame)
+    {
+        std::cout << "Providing: " << TC_FRAME << m_odom_frame << TC_END << " -> " << TC_FRAME << m_map_frame << TC_END << std::endl;
+    } else {
+        std::cout << "Providing: " << TC_FRAME << m_base_frame << TC_END << " -> " << TC_FRAME << m_map_frame << TC_END << std::endl;
+    }
+
+    return true;
+}
+
+
+void MICP::checkTopic(
+    TopicInfo& info, 
+    ros::Duration timeout)
+{
+    info.data = false;
+    info.frame = "";
+
+    ros::Time curr = ros::Time::now();
+
+    // returns zero on startup
+    while(curr == ros::Time(0))
+    {
+        ros::Duration(0.01).sleep();
+        ros::spinOnce();
+        curr = ros::Time::now();
+    }
+
+    ros::Time end = curr + timeout;
+    // std::cout << curr.toSec() << " -> " << end.toSec() << std::endl;
+
+    ros::Duration timeout_inner(0.1);
+
+    while(ros::ok() && curr < end && !info.data)
+    {
+        if(info.msg == "sensor_msgs/PointCloud2")
+        {
+            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(info.name, m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "sensor_msgs/PointCloud") {
+            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud>(info.name, m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "sensor_msgs/LaserScan") {
+            auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(info.name, m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "sensor_msgs/Image") {
+            auto msg = ros::topic::waitForMessage<sensor_msgs::Image>(info.name, m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "sensor_msgs/CameraInfo") {
+            auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(info.name, m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "rmcl_msgs/ScanStamped") {
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(info.name, m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "rmcl_msgs/DepthStamped") {
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(info.name, m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else {
+            // unknown type
+            return;
+        }
+
+        ros::spinOnce();
+        timeout_inner.sleep();
+        curr = ros::Time::now();
+    }
+}
+
 
 } // namespace rmcl
