@@ -1,8 +1,6 @@
 # required
-base_frame: base
+base_frame: base_footprint
 map_frame: map
-
-
 
 # optional
 odom_frame: odom # optional - recommended

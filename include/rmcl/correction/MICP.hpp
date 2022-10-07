@@ -38,9 +38,46 @@
 #include <rmcl_msgs/ScanStamped.h>
 #include <rmcl_msgs/DepthStamped.h>
 
+#include <tf2_ros/transform_listener.h>
+
+#include <variant>
+
+
+using SensorModelV = std::variant<
+    rmagine::SphericalModel,
+    rmagine::PinholeModel,
+    rmagine::O1DnModel,
+    rmagine::OnDnModel
+    >;
+
 
 namespace rmcl
 {
+
+struct TopicInfo
+{
+    std::string     name;
+    std::string     msg;
+    bool            data;
+    std::string     frame;
+};
+
+struct MICPRangeSensor
+{
+    std::string     name;
+
+    TopicInfo       data_topic;
+    // optional
+    bool            has_info_topic;
+    TopicInfo       info_topic;
+
+    unsigned int         type; // 0: spherical, 1: pinhole, 2: O1Dn, 3: OnDn 
+    SensorModelV         model;
+
+    // data
+    ros::Time   data_last_update;
+    rmagine::Memory<float, rmagine::VRAM_CUDA>  ranges;
+};
 
 class MICP
 {
@@ -67,8 +104,21 @@ protected:
     // );
 
 private:
+
+    bool checkTF(bool prints = false);
+
     ros::NodeHandle m_nh;
     ros::NodeHandle m_nh_p;
+
+    std::shared_ptr<tf2_ros::Buffer> m_tf_buffer;
+    std::shared_ptr<tf2_ros::TransformListener> m_tf_listener;
+
+
+    std::string m_base_frame;
+    std::string m_map_frame;
+
+    std::string m_odom_frame;
+    bool        m_use_odom_frame;
 
     // MAP
     std::string m_map_filename;
@@ -96,5 +146,42 @@ private:
 using MICPPtr = std::shared_ptr<MICP>;
 
 } // namespace rmcl
+
+// TODO: move this to proper header
+
+// TEXT COLORS
+#define TC_BLACK    "\033[1;30m"
+#define TC_RED      "\033[1;31m"
+#define TC_GREEN    "\033[1;32m"
+#define TC_YELLOW   "\033[1;33m"
+#define TC_BLUE     "\033[1;34m"
+#define TC_MAGENTA  "\033[1;35m"
+#define TC_CYAN     "\033[1;36m"
+#define TC_WHITE    "\033[1;37m"
+
+#define TC_END      "\033[0m"
+
+
+
+#define TC_SENSOR   TC_YELLOW
+#define TC_TOPIC    TC_CYAN
+#define TC_FRAME    TC_MAGENTA
+#define TC_MSG      TC_WHITE
+#define TC_BACKENDS TC_BLUE
+
+
+// inline std::ostream& operator<<(
+//     std::ostream& os,
+//     const rmcl::MICPRangeSensor& sensor)
+// {
+//     // if(sensor.data_topic.name != "")
+//     // {
+//     //     os << "  - topic:\t\t" << TC_TOPIC << sensor.data_topic.name << TC_END << std::endl;
+//     // }
+    
+
+
+//     return os;
+// }
 
 #endif // RMCL_CORRECTION_MICP_HPP
