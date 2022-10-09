@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     micp->loadParams();
 
 
-    // ros::spin();
+    ros::spin();
 
     return 0;
 }

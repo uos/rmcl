@@ -42,17 +42,34 @@
 
 #include <variant>
 
+#include <image_transport/image_transport.h>
+
+
+
+
+
+
+
+namespace rmcl
+{
+
+// ROS related renamings
+using NodeHandlePtr = std::shared_ptr<ros::NodeHandle>;
+using SubscriberPtr = std::shared_ptr<ros::Subscriber>;
+using ImageTransportPtr = std::shared_ptr<image_transport::ImageTransport>;
+using ITSubscriberPtr = std::shared_ptr<image_transport::Subscriber>;
+using TFBufferPtr = std::shared_ptr<tf2_ros::Buffer>;
+using TFListenerPtr = std::shared_ptr<tf2_ros::TransformListener>;
+
+
 
 using SensorModelV = std::variant<
     rmagine::SphericalModel,
     rmagine::PinholeModel,
     rmagine::O1DnModel,
     rmagine::OnDnModel
-    >;
+>;
 
-
-namespace rmcl
-{
 
 struct TopicInfo
 {
@@ -62,7 +79,8 @@ struct TopicInfo
     std::string     frame;
 };
 
-struct MICPRangeSensor
+struct MICPRangeSensor 
+: std::enable_shared_from_this<MICPRangeSensor>
 {
     std::string     name;
 
@@ -71,13 +89,61 @@ struct MICPRangeSensor
     bool            has_info_topic;
     TopicInfo       info_topic;
 
-    unsigned int         type; // 0: spherical, 1: pinhole, 2: O1Dn, 3: OnDn 
+    // 0: spherical, 1: pinhole, 2: O1Dn, 3: OnDn 
+    unsigned int         type; 
     SensorModelV         model;
 
     // data
     ros::Time   data_last_update;
+    // estimated frequency
+    float data_frequency_est;
     rmagine::Memory<float, rmagine::VRAM_CUDA>  ranges;
+
+    
+    // subscriber to data
+    NodeHandlePtr nh;
+    SubscriberPtr data_sub;
+
+    ImageTransportPtr it;
+    ITSubscriberPtr img_sub;
+    bool optical_coordinates = false;
+
+
+
+    void connect();
+
+
+    // callbacks
+    // internal rmcl msgs
+    void sphericalCB(
+        const rmcl_msgs::ScanStamped::ConstPtr& msg);
+
+    void pinholeCB(
+        const rmcl_msgs::DepthStamped::ConstPtr& msg);
+
+    // external commonly used messages
+    void pclSphericalCB(
+        const sensor_msgs::PointCloud2::ConstPtr& msg);
+
+    void pclPinholeCB(
+        const sensor_msgs::PointCloud2::ConstPtr& msg);
+
+    void laserCB(
+        const sensor_msgs::LaserScan::ConstPtr& msg);
+
+    void imageCB(
+        const sensor_msgs::Image::ConstPtr& msg);
+    
+
+    // info callbacks
+    void cameraInfoCB(
+        const sensor_msgs::CameraInfo::ConstPtr& msg);
+
+
+    
 };
+
+using MICPRangeSensorPtr = std::shared_ptr<MICPRangeSensor>;
 
 class MICP
 {
@@ -93,17 +159,6 @@ public:
     void loadMap(std::string filename);
 
 protected:
-    // callbacks: TODO
-    // void pclSphericalCB(
-    //     const sensor_msgs::PointCloud2::ConstPtr& msg, 
-    //     std::string sensor_name);
-
-    // void pclDepthCB(
-    //     const sensor_msgs::PointCloud2::ConstPtr& msg, 
-    //     std::string sensor_name
-    // );
-
-private:
 
     bool checkTF(bool prints = false);
 
@@ -111,12 +166,30 @@ private:
         TopicInfo& info, 
         ros::Duration timeout = ros::Duration(5.0));
 
-    ros::NodeHandle m_nh;
-    ros::NodeHandle m_nh_p;
 
-    std::shared_ptr<tf2_ros::Buffer> m_tf_buffer;
-    std::shared_ptr<tf2_ros::TransformListener> m_tf_listener;
+    // void test_func(int a, int b, int c)
+    // {
+    //     std::cout << a << " " << b << " " << c << std::endl;
+    // }
 
+    // callbacks: TODO
+    
+
+    // void scanCB(
+    //     const sensor_msgs::LaserScan::ConstPtr& msg,
+    //     std::string sensor_name);
+
+    // void pclDepthCB(
+    //     const sensor_msgs::PointCloud2::ConstPtr& msg, 
+    //     std::string sensor_name);
+
+private:
+
+    // ROS
+    NodeHandlePtr   m_nh;
+    NodeHandlePtr   m_nh_p;
+    TFBufferPtr     m_tf_buffer;
+    TFListenerPtr   m_tf_listener;
 
     std::string m_base_frame;
     std::string m_map_frame;
@@ -126,6 +199,9 @@ private:
 
     // MAP
     std::string m_map_filename;
+
+
+    std::unordered_map<std::string, MICPRangeSensorPtr> m_sensors;
     
     // 
     #ifdef RMCL_EMBREE
