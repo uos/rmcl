@@ -89,28 +89,78 @@ struct MICPRangeSensor
     bool            has_info_topic;
     TopicInfo       info_topic;
 
-    // 0: spherical, 1: pinhole, 2: O1Dn, 3: OnDn 
-    unsigned int         type; 
-    SensorModelV         model;
+    // robots base frame
+    std::string          base_frame;
+    rmagine::Transform   Tsb;
 
-    // data
+    // computing backend
+    unsigned int         backend = 0;
+
+    // model
+    // 0: spherical, 1: pinhole, 2: O1Dn, 3: OnDn 
+    unsigned int         type;
+    SensorModelV         model;
+    // model meta
+    bool                 model_received_once = false;
+    ros::Time            model_last_update;
+    float                model_frequency_est; // currently unused
+    
+
+
+    // data    
+    rmagine::Memory<float, rmagine::RAM>        ranges;
+    rmagine::Memory<float, rmagine::VRAM_CUDA>  ranges_gpu;
+
+    // data meta
+    bool        data_received_once = false;
     ros::Time   data_last_update;
-    // estimated frequency
-    float data_frequency_est;
-    rmagine::Memory<float, rmagine::VRAM_CUDA>  ranges;
+    float       data_frequency_est; // currently unused
 
     
     // subscriber to data
     NodeHandlePtr nh;
     SubscriberPtr data_sub;
+    SubscriberPtr info_sub;
 
     ImageTransportPtr it;
     ITSubscriberPtr img_sub;
     bool optical_coordinates = false;
 
+    TFBufferPtr  tf_buffer;
 
+
+    CorrectionParams            corr_params;
+    float                       corr_weight = 1.0;
+
+    // correction: TODO better
+    #ifdef RMCL_EMBREE
+    SphereCorrectorEmbreePtr     corr_sphere_embree;
+    PinholeCorrectorEmbreePtr    corr_pinhole_embree;
+    O1DnCorrectorEmbreePtr       corr_o1dn_embree;
+    OnDnCorrectorEmbreePtr       corr_ondn_embree;
+    #endif // RMCL_EMBREE
+
+    #ifdef RMCL_OPTIX
+    SphereCorrectorOptixPtr     corr_sphere_optix;
+    PinholeCorrectorOptixPtr    corr_pinhole_optix;
+    O1DnCorrectorOptixPtr       corr_o1dn_optix;
+    OnDnCorrectorOptixPtr       corr_ondn_optix;
+    #endif // RMCL_OPTIX
 
     void connect();
+
+    // called once every new data message
+    void fetchTF();
+    void updateCorrectors();
+
+    // do corrections depending on the current sensor state
+    void computeCovs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        CorrectionPreResults<rmagine::RAM>& res);
+
+    void computeCovs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        CorrectionPreResults<rmagine::VRAM_CUDA>& res);
 
 
     // callbacks
@@ -138,9 +188,6 @@ struct MICPRangeSensor
     // info callbacks
     void cameraInfoCB(
         const sensor_msgs::CameraInfo::ConstPtr& msg);
-
-
-    
 };
 
 using MICPRangeSensorPtr = std::shared_ptr<MICPRangeSensor>;
@@ -158,31 +205,27 @@ public:
 
     void loadMap(std::string filename);
 
-protected:
+    void correct(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
+        rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& dT);
 
+    rmagine::Memory<rmagine::Transform, rmagine::RAM> correct(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm);
+
+
+    inline std::unordered_map<std::string, MICPRangeSensorPtr> sensors()
+    {
+        return m_sensors;
+    }
+
+protected:
     bool checkTF(bool prints = false);
 
     void checkTopic(
         TopicInfo& info, 
         ros::Duration timeout = ros::Duration(5.0));
 
-
-    // void test_func(int a, int b, int c)
-    // {
-    //     std::cout << a << " " << b << " " << c << std::endl;
-    // }
-
-    // callbacks: TODO
-    
-
-    // void scanCB(
-    //     const sensor_msgs::LaserScan::ConstPtr& msg,
-    //     std::string sensor_name);
-
-    // void pclDepthCB(
-    //     const sensor_msgs::PointCloud2::ConstPtr& msg, 
-    //     std::string sensor_name);
-
+    void initCorrectors();
 private:
 
     // ROS
@@ -200,27 +243,15 @@ private:
     // MAP
     std::string m_map_filename;
 
-
     std::unordered_map<std::string, MICPRangeSensorPtr> m_sensors;
     
-    // 
     #ifdef RMCL_EMBREE
-    std::unordered_map<std::string, SphereCorrectorEmbreePtr> m_spheres_embree;
-    std::unordered_map<std::string, PinholeCorrectorEmbreePtr> m_pinholes_embree;
-    std::unordered_map<std::string, O1DnCorrectorEmbreePtr> m_o1dn_embree;
-    std::unordered_map<std::string, OnDnCorrectorEmbreePtr> m_ondn_embree;
-
     rmagine::EmbreeMapPtr m_map_embree;
     #endif // RMCL_EMBREE
 
     #ifdef RMCL_OPTIX
-    std::unordered_map<std::string, SphereCorrectorOptixPtr> m_spheres_optix;
-    std::unordered_map<std::string, PinholeCorrectorOptixPtr> m_pinholes_optix;
-    std::unordered_map<std::string, O1DnCorrectorOptixPtr> m_o1dn_optix;
-    std::unordered_map<std::string, OnDnCorrectorOptixPtr> m_ondn_optix;
-
     rmagine::OptixMapPtr m_map_optix;
-    #endif
+    #endif // RMCL_OPTIX
 };
 
 using MICPPtr = std::shared_ptr<MICP>;

@@ -3,6 +3,8 @@
 
 #include <rmagine/math/omp.h>
 
+#include <rmagine/util/prints.h>
+
 // DEBUG
 // #include <rmagine/util/prints.h>
 
@@ -225,11 +227,17 @@ void PinholeCorrectorEmbree::compute_covs(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
 {
+    // std::cout << "compute covs" << std::endl;
+    // std::cout << Tbms[0] << std::endl;
+
+    // std::cout << "- max dist: " << m_params.max_distance << std::endl;
     const float max_distance = m_params.max_distance;
 
     auto scene = m_map->scene->handle();
 
-    #pragma omp parallel for
+    // std::cout << "- rays: " << m_model->getWidth() * m_model->getHeight() << std::endl;
+
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -242,10 +250,14 @@ void PinholeCorrectorEmbree::compute_covs(
         Vector Dmean = {0.0, 0.0, 0.0};
         Vector Mmean = {0.0, 0.0, 0.0};
         unsigned int Ncorr_ = 0;
+        // unsigned int Ndist_ = 0;
+        // unsigned int Nnohit_ = 0;
+        // unsigned int Nnomeas_ = 0;
+
         Matrix3x3 C;
         C.setZeros();
 
-        #pragma omp parallel for default(shared) reduction(+:Dmean,Mmean,Ncorr_,C)
+        // #pragma omp parallel for default(shared) reduction(+:Dmean,Mmean,Ncorr_,C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             Vector Dmean_inner = {0.0, 0.0, 0.0};

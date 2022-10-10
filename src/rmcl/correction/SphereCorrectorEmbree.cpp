@@ -218,11 +218,13 @@ void SphereCorrectorEmbree::compute_covs(
                 const unsigned int glob_id = glob_shift + loc_id;
 
                 const float range_real = m_ranges[loc_id];
+                
                 if(range_real < m_model->range.min 
                     || range_real > m_model->range.max)
                 {
                     continue;
                 }
+                
                 
                 const Vector ray_dir_s = m_model->getDirection(vid, hid);
                 const Vector ray_dir_b = Tsb.R * ray_dir_s;

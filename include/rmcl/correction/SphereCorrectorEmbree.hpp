@@ -87,6 +87,7 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
+    // TODO: camel case
     void compute_covs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,

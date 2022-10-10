@@ -25,7 +25,7 @@ void Correction::correction_from_covs(
     rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tdelta
 ) const
 {
-    #pragma omp parallel for
+    #pragma omp parallel for if(ms.size() > 100)
     for(size_t pid=0; pid<ms.size(); pid++)
     {
         if(Ncorr[pid] > 0)
@@ -60,7 +60,7 @@ void Correction::correction_from_covs(
     rmagine::MemoryView<rmagine::Quaternion, rmagine::RAM>& Rdelta,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& tdelta) const
 {
-    #pragma omp parallel for
+    #pragma omp parallel for if(ms.size() > 100)
     for(size_t pid=0; pid<ms.size(); pid++)
     {
         if(Ncorr[pid] > 0)
@@ -117,7 +117,7 @@ void weighted_average(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for if(ms1.size() > 100)
     for(size_t pid=0; pid<ms1.size(); pid++)
     {
         const unsigned int Ncorr_ = Ncorr1[pid] + Ncorr2[pid];
@@ -148,7 +148,8 @@ void weighted_average(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
 {
-    #pragma omp parallel for
+    // TODO: make define for 100
+    #pragma omp parallel for if(ms1.size() > 100)
     for(size_t pid=0; pid<ms1.size(); pid++)
     {
         const unsigned int Ncorr_ = Ncorr1[pid] + Ncorr2[pid];
@@ -218,7 +219,7 @@ void weighted_average(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
 {
-    #pragma omp parallel for
+    #pragma omp parallel for if(ms.size() > 100)
     for(size_t pid=0; pid<ms.size(); pid++)
     {
         unsigned int Ncorr_ = 0;
@@ -278,8 +279,7 @@ void weighted_average(
 }
 
 CorrectionPreResults<rmagine::RAM> weighted_average(
-    const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results
-)
+    const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results)
 {
     CorrectionPreResults<rmagine::RAM> res;
     size_t Nposes = pre_results[0].Cs.size();
