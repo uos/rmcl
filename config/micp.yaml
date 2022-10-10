@@ -17,20 +17,20 @@ tf_rate: 50
 corr_rate_max: 300
 
 sensors: # list of range sensors - at least one is required
-  # velodyne:
-  #   type: spherical
-  #   model:
-  #     range_min: 0.5
-  #     range_max: 130.0
-  #     phi_min: -0.261799067259
-  #     phi_inc: 0.03490658503988659
-  #     phi_N: 16
-  #     theta_min: -3.14159011841
-  #     theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
-  #     theta_N: 440
-  #   topic: velodyne_points
-  #   weight: 10
-  #   backend: embree
+  velodyne:
+    type: spherical
+    model:
+      range_min: 0.5
+      range_max: 130.0
+      phi_min: -0.261799067259
+      phi_inc: 0.03490658503988659
+      phi_N: 16
+      theta_min: -3.14159011841
+      theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
+      theta_N: 440
+    topic: velodyne_points
+    weight: 10
+    backend: optix
   sick:
     topic: scan
     weight: 2
