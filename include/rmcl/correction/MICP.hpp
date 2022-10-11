@@ -29,23 +29,23 @@
 
 
 // supported sensor data
+#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/DepthStamped.h>
+#include <rmcl_msgs/O1DnStamped.h>
+#include <rmcl_msgs/OnDnStamped.h>
+
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
 
-#include <rmcl_msgs/ScanStamped.h>
-#include <rmcl_msgs/DepthStamped.h>
 
 #include <tf2_ros/transform_listener.h>
 
 #include <variant>
 
 #include <image_transport/image_transport.h>
-
-
-
 
 
 
@@ -90,6 +90,7 @@ struct MICPRangeSensor
     TopicInfo       info_topic;
 
     // robots base frame
+    std::string          frame;
     std::string          base_frame;
     rmagine::Transform   Tsb;
 
@@ -217,7 +218,6 @@ public:
     {
         return m_sensors;
     }
-
 protected:
     bool checkTF(bool prints = false);
 
@@ -227,7 +227,6 @@ protected:
 
     void initCorrectors();
 private:
-
     // ROS
     NodeHandlePtr   m_nh;
     NodeHandlePtr   m_nh_p;
