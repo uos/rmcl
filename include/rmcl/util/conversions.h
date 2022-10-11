@@ -2,8 +2,13 @@
 #define RMCL_CONVERSIONS_HPP
 
 #include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/ScanInfo.h>
 #include <rmcl_msgs/PolarCoord.h>
 #include <rmcl_msgs/DepthStamped.h>
+#include <rmcl_msgs/O1DnStamped.h>
+#include <rmcl_msgs/OnDnStamped.h>
+
+
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/LaserScan.h>
@@ -19,7 +24,6 @@
 
 #include <rmagine/math/types.h>
 
-#include <rmcl_msgs/ScanInfo.h>
 #include <rmagine/types/sensor_models.h>
 
 namespace rmcl {
@@ -43,6 +47,15 @@ void convert(
 void convert(
     const sensor_msgs::CameraInfo& from,
     rmcl_msgs::DepthInfo& to);
+
+void convert(
+    const rmcl_msgs::O1DnInfo& from,
+    rmagine::O1DnModel& to);
+
+void convert(
+    const rmcl_msgs::OnDnInfo& from,
+    rmagine::OnDnModel& to);
+
 
 void convert(
     const geometry_msgs::Transform& Tros,

@@ -88,7 +88,8 @@ void MICP::loadParams()
         std::cout << "ERROR: NO SENSORS" << std::endl;
     }
 
-    std::cout << "MICP load params - done." << std::endl;
+    std::cout << "MICP load params - done. Valid Sensors: " << m_sensors.size() << std::endl;
+    
 }
 
 template<typename T>
@@ -138,13 +139,14 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         sensor_type_found = true;
     }
 
+    if(sensor_params.hasMember("frame"))
+    {
+        sensor->frame = (std::string)sensor_params["frame"];
+    }
+
     std::cout << "- " << TC_SENSOR << sensor_name << TC_END << std::endl;
-    // XmlRpc::XmlRpcValue sensor_params = sensor_xml.second;
 
     // load data or connect to a data topic
-    
-    // std::cout << "LOADING DATA" << std::endl;
-
     if(sensor_params.hasMember("topic"))
     {
         std::cout << "  - data:\t\tTopic" << std::endl;
@@ -194,7 +196,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             {
                 sensor->frame = sensor->data_topic.frame;
                 std::cout << "    - data:\t\t" << TC_GREEN << "yes" << TC_END << std::endl;
-                std::cout << "    - frame:\t\t" << TC_FRAME << sensor->data_topic.frame << TC_END << std::endl;
+                std::cout << "    - frame:\t\t" << TC_FRAME << sensor->frame << TC_END << std::endl;
             } else {
                 std::cout << "    - data:\t\t" << TC_RED << "no" << TC_END << std::endl;
             }
@@ -218,79 +220,34 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
                 sensor->ranges[i] = (double)ranges_xml[i];
             }
             sensor->ranges_gpu = sensor->ranges;
+            sensor->data_received_once = true;
         } else {
             std::cout << "error: 'data/ranges' param is not an array" << std::endl;
         }
     } else {
-        std::cout << "Where is data?" << std::endl;
+        std::cout << "Where is the data?" << std::endl;
         loading_error = true;
     }
 
+
     // std::cout << "LOADING MODEL" << std::endl;
 
-    if(sensor_params.hasMember("model"))
-    {
-        auto model_xml = sensor_params["model"];
-        if(model_xml.hasMember("topic"))
-        {
-            std::cout << "  - model:\t\tTopic" << std::endl; 
-            sensor->has_info_topic = true;
-            std::string info_topic_name = model_xml["topic"];
-            if(info_topic_name[0] != '/')
-            {
-                info_topic_name = m_nh->getNamespace() + info_topic_name;
-            }
-            sensor->info_topic.name = info_topic_name;
+    // Loading model params
+    // 1. Params: model parameters are listed as ROS parameters (static)
+    // 2. Topic: model parameters are received of a special info topic (dynamic)
+    // 3. Data: model parameters are included in the data
 
-            std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->info_topic.name  << TC_END << std::endl;
-
-            std::vector<ros::master::TopicInfo> topic_infos;
-            ros::master::getTopics(topic_infos);
-            for(auto topic_info : topic_infos)
-            {
-                if(topic_info.name == info_topic_name)
-                {
-                    sensor->info_topic.msg = topic_info.datatype;
-                    break;
-                }
-            }
-
-            if(sensor->info_topic.msg != "")
-            {
-                std::cout << "    - msg:\t\t" << TC_MSG << sensor->info_topic.msg << TC_END << std::endl;
-            } else {
-                std::cout << "    - msg:\t\t" << TC_RED << "not found" << TC_END << std::endl;
-                loading_error = true;
-            }
-
-            if(!sensor_type_found)
-            {
-                if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
-                {
-                    sensor_type = "pinhole";
-                    sensor_type_found = true;
-                    sensor->type = 1;
-                }
-            }
-        } else {
-            std::cout << "  - model:\t\tParams" << std::endl;
-        }
-    } else {
-        std::cout << "  - model:\t\tData" << std::endl;
-    }
-
-
-    // convert
     bool model_loaded = false;
+    if(sensor_params.hasMember("model")) /// PARAMS
+    {
+        std::cout << "  - model:\t\tParams" << std::endl;
 
-    if(sensor_type == "spherical") {
-        rm::SphericalModel model;
+        auto model_xml = sensor_params["model"];
 
-        // fill
-        if(sensor_params.hasMember("model"))
-        {
-            auto model_xml = sensor_params["model"];
+        if(sensor_type == "spherical") {
+            rm::SphericalModel model;
 
+            // fill
             model.theta.min = (double)model_xml["theta_min"];
             model.theta.inc = (double)model_xml["theta_inc"];
             model.theta.size = (int)model_xml["theta_N"];
@@ -302,43 +259,10 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             model.range.min = (double)model_xml["range_min"];
             model.range.max = (double)model_xml["range_max"];
 
+            sensor->model = model;
             model_loaded = true;
-        }
-
-        if(!model_loaded && sensor->data_topic.msg == "sensor_msgs/LaserScan")
-        {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-
-            if(msg)
-            {
-                convert(*msg, model);
-                model_loaded = true;
-            } else {
-                std::cout << "error: get sensor_msgs/LaserScan to init model" << std::endl;
-            }
-        }
-        
-        if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/ScanStamped")
-        {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-
-            if(msg)
-            {
-                convert(msg->scan.info, model);
-                model_loaded = true;
-            } else {
-                std::cout << "error: get rmcl_msgs/ScanStamped to init model" << std::endl;
-            }
-        }
-
-        sensor->model = model;
-    } else if(sensor_type == "pinhole") {
-        rm::PinholeModel model;
-
-        // try to get model from parameters
-        if(sensor_params.hasMember("model"))
-        {
-            auto model_xml = sensor_params["model"];
+        } else if(sensor_type == "pinhole") {
+            rm::PinholeModel model;
 
             model.width = (int)model_xml["width"];
             model.height = (int)model_xml["height"];
@@ -351,72 +275,66 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             model.range.min = (double)model_xml["range_min"];
             model.range.max = (double)model_xml["range_max"];
 
+            sensor->model = model;
             model_loaded = true;
-        } 
-        
-        // try to get model from info topic
-        if(!model_loaded && sensor->has_info_topic) 
-        {
-            if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
+        } else if(sensor_type == "o1dn") {
+            rm::O1DnModel model;
+            bool model_loading_error = false;
+
+            model.width = (int)model_xml["width"];
+            model.height = (int)model_xml["height"];
+
+            model.range.min = (double)model_xml["range_min"];
+            model.range.max = (double)model_xml["range_max"];
+
+
+            auto orig_xml = model_xml["orig"];
+            if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
             {
-                // std::cout << "Waiting for message on topic: " << sensor->info_topic.name << std::endl;
-                auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
-            
-                if(msg)
+                model.orig.x = (double)orig_xml[0];
+                model.orig.y = (double)orig_xml[1];
+                model.orig.z = (double)orig_xml[2];
+            } else {
+                std::cout << "reading o1dn model error: orig muste be a list of three numbers (x,y,z)" << std::endl;
+                model_loading_error = true;
+            }
+
+            auto dirs_xml = model_xml["dirs"];
+            if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
+            {   
+                model.dirs.resize(dirs_xml.size());
+                for(size_t i=0; i<dirs_xml.size(); i++)
                 {
-                    if(msg->header.frame_id != sensor->data_topic.frame)
+                    auto dir_xml = dirs_xml[i];
+                    if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
+                        && dir_xml.size() == 3) 
                     {
-                        std::cout << "WARNING: Image and CameraInfo are not in the same frame" << std::endl;
-                        
+                        rm::Vector dir;
+                        dir.x = (double)dir_xml[0];
+                        dir.y = (double)dir_xml[1];
+                        dir.z = (double)dir_xml[2];
+                        model.dirs[i] = dir;
+                    } else {
+                        // better error message
+                        std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
                     }
-
-                    convert(*msg, model);
-
-                    // manually setting range limits
-                    // TODO: change this
-                    model.range.min = 0.3;
-                    model.range.max = 8.0;
-
-                    model_loaded = true;
-                } else {
-                    std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
                 }
-            } else {
-                // TODO: test and make better message
-                std::cout << "Unknown pinhole info topic: " << sensor->info_topic.msg << std::endl;
-            }
-        }
-        
-        // try to get model from data topic
-        if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/DepthStamped") 
-        {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-            
-            if(msg)
+            } 
+            else 
             {
-                convert(msg->depth.info, model);
-                model_loaded = true;
-            } else {
-                std::cout << "error: get rmcl_msgs/DepthStamped to init model" << std::endl;
+                model_loading_error = true;
+                std::cout << "o1dn model - dirs: is no array" << std::endl;
             }
-        }
 
-        sensor->model = model;
-    } else if(sensor_type == "o1dn") {
-        rm::O1DnModel model;
+            sensor->model = model;
+            model_loaded = !model_loading_error;
+        } else if(sensor_type == "ondn") {
+            rm::OnDnModel model;
 
-        // TODO
-        
+            bool model_loading_error = false;
 
-        sensor->model = model;
-    } else if(sensor_type == "ondn") {
-        rm::OnDnModel model;
-
-        if(sensor_params.hasMember("model"))
-        {
-            auto model_xml = sensor_params["model"];
-            bool loading_error = false;
-
+            model.width = (int)model_xml["width"];
+            model.height = (int)model_xml["height"];
             model.range.min = (double)model_xml["range_min"];
             model.range.max = (double)model_xml["range_max"];
             
@@ -428,7 +346,9 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
                 for(size_t i=0; i<origs_xml.size(); i++)
                 {
                     auto orig_xml = origs_xml[i];
-                    if(orig_xml.size() == 3) {
+                    if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray
+                        && orig_xml.size() == 3) 
+                    {
                         rm::Vector orig;
                         orig.x = (double)orig_xml[0];
                         orig.y = (double)orig_xml[1];
@@ -440,23 +360,25 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
                     }
                 }
             } else {
-                loading_error = true;
+                model_loading_error = true;
                 std::cout << "ondn model - origs: is no array" << std::endl;
             }
 
             auto dirs_xml = model_xml["dirs"];
             if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
             {   
-                model.origs.resize(origs_xml.size());
-                for(size_t i=0; i<origs_xml.size(); i++)
+                model.dirs.resize(dirs_xml.size());
+                for(size_t i=0; i<dirs_xml.size(); i++)
                 {
-                    auto orig_xml = origs_xml[i];
-                    if(orig_xml.size() == 3) {
-                        rm::Vector orig;
-                        orig.x = (double)orig_xml[0];
-                        orig.y = (double)orig_xml[1];
-                        orig.z = (double)orig_xml[2];
-                        model.origs[i] = orig;
+                    auto dir_xml = dirs_xml[i];
+                    if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
+                        && dir_xml.size() == 3)
+                    {
+                        rm::Vector dir;
+                        dir.x = (double)dir_xml[0];
+                        dir.y = (double)dir_xml[1];
+                        dir.z = (double)dir_xml[2];
+                        model.dirs[i] = dir;
                     } else {
                         // better error message
                         std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
@@ -465,14 +387,249 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             } 
             else 
             {
-                loading_error = true;
+                model_loading_error = true;
                 std::cout << "ondn model - dirs: is no array" << std::endl;
             }
 
-            model_loaded = !loading_error;
+            sensor->model = model;
+            model_loaded = !model_loading_error;
+        } else {
+            // ERROR
+            std::cout << "Model type '" << sensor->type << "' not supported." << std::endl;
+            loading_error = true;
         }
 
-        sensor->model = model;
+    } else if(sensor_params.hasMember("model_topic")) { /// TOPIC
+
+        std::cout << "  - model:\t\tTopic" << std::endl;
+
+        sensor->has_info_topic = true;
+
+        std::string info_topic_name = sensor_params["model_topic"];
+        if(info_topic_name[0] != '/')
+        {
+            info_topic_name = m_nh->getNamespace() + info_topic_name;
+        }
+        sensor->info_topic.name = info_topic_name;
+
+        std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->info_topic.name  << TC_END << std::endl;
+
+        std::vector<ros::master::TopicInfo> topic_infos;
+        ros::master::getTopics(topic_infos);
+        for(auto topic_info : topic_infos)
+        {
+            if(topic_info.name == info_topic_name)
+            {
+                sensor->info_topic.msg = topic_info.datatype;
+                break;
+            }
+        }
+
+        if(sensor->info_topic.msg != "")
+        {
+            std::cout << "    - msg:\t\t" << TC_MSG << sensor->info_topic.msg << TC_END << std::endl;
+        } else {
+            std::cout << "    - msg:\t\t" << TC_RED << "not found" << TC_END << std::endl;
+            loading_error = true;
+        }
+
+        if(!sensor_type_found)
+        {
+            if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
+            {
+                sensor_type = "pinhole";
+                sensor_type_found = true;
+                sensor->type = 1;
+            }
+        }
+
+        // at this point the sensor type must be known
+        if(!sensor_type_found)
+        {
+            loading_error = true;
+        }
+
+        if(sensor_type == "spherical")
+        {
+            if(sensor->info_topic.msg == "rmcl_msgs/ScanInfo")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {   
+                    rm::SphericalModel model;
+                    convert(*msg, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
+                }
+            }
+        } else if(sensor_type == "pinhole") {
+            
+            if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
+            {
+                // std::cout << "Waiting for message on topic: " << sensor->info_topic.name << std::endl;
+                auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+            
+                if(msg)
+                {
+                    if(msg->header.frame_id != sensor->frame)
+                    {
+                        std::cout << "WARNING: Image and CameraInfo are not in the same frame" << std::endl;
+                    }
+                    
+                    rm::PinholeModel model;
+                    convert(*msg, model);
+                    
+
+                    // manually setting range limits
+                    // TODO: change this
+                    model.range.min = 0.3;
+                    model.range.max = 8.0;
+
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
+                }
+            }
+
+            if(sensor->info_topic.msg == "rmcl_msgs/DepthInfo")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {   
+                    rm::PinholeModel model;
+                    convert(*msg, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
+                }
+            }
+
+
+        } else if(sensor_type == "o1dn") {
+            
+            if(sensor->info_topic.msg == "rmcl_msgs/O1DnInfo")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {   
+                    rm::O1DnModel model;
+                    convert(*msg, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "ERROR: Could not receive initial o1dn model!" << std::endl;
+                }
+            }
+
+        } else if(sensor_type == "ondn") {
+            if(sensor->info_topic.msg == "rmcl_msgs/OnDnInfo")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {   
+                    rm::OnDnModel model;
+                    convert(*msg, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "ERROR: Could not receive initial ondn model!" << std::endl;
+                }
+            }
+        }
+
+    } else { /// DATA
+        std::cout << "  - model:\t\tData" << std::endl;
+
+        if(sensor_type == "spherical")
+        {
+            if(!model_loaded && sensor->data_topic.msg == "sensor_msgs/LaserScan")
+            {
+                auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {
+                    rm::SphericalModel model;
+                    convert(*msg, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "error: get sensor_msgs/LaserScan to init model" << std::endl;
+                }
+            }
+            
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/ScanStamped")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {
+                    rm::SphericalModel model;
+                    convert(msg->scan.info, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "error: get rmcl_msgs/ScanStamped to init model" << std::endl;
+                }
+            }
+        } else if(sensor_type == "pinhole") {
+
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/DepthStamped")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {
+                    rm::PinholeModel model;
+                    convert(msg->depth.info, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "error: get rmcl_msgs/DepthStamped to init model" << std::endl;
+                }
+            }
+
+        } else if(sensor_type == "o1dn") {
+
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/O1DnStamped")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {
+                    rm::O1DnModel model;
+                    convert(msg->o1dn.info, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "error: get rmcl_msgs/DepthStamped to init model" << std::endl;
+                }
+            }
+
+        } else if(sensor_type == "ondn") {
+
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/OnDnStamped")
+            {
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+
+                if(msg)
+                {
+                    rm::OnDnModel model;
+                    convert(msg->ondn.info, model);
+                    sensor->model = model;
+                    model_loaded = true;
+                } else {
+                    std::cout << "error: get rmcl_msgs/DepthStamped to init model" << std::endl;
+                }
+            }
+        }
     }
 
     // print results
@@ -560,6 +717,17 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         #endif // RMCL_OPTIX
     }
 
+    sensor->optical_coordinates = (sensor->frame.find("_optical") != std::string::npos);
+    
+    if(sensor->optical_coordinates)
+    {
+        std::cout << "  - optical frame" << std::endl;
+    }
+
+    if(loading_error)
+    {
+        return false;
+    }
     
     // std::cout << "POSTPROCESS" << std::endl;
 
@@ -574,16 +742,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     // postcheck
     // check if optical: _optical suffix
     // std::cout << "Searching for '_optical' in " << sensor->data_topic.frame << std::endl;
-    sensor->optical_coordinates = (sensor->data_topic.frame.find("_optical") != std::string::npos);
     
-    if(sensor->optical_coordinates)
-    {
-        std::cout << "  - optical frame" << std::endl;
-    }
-
-    
-
-
     // connect sensor to ROS
     sensor->nh = m_nh;
     sensor->tf_buffer = m_tf_buffer; 
@@ -643,6 +802,9 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         sensor->corr_ondn_optix = corr;
     }
     #endif // RMCL_OPTIX
+
+    sensor->fetchTF();
+    sensor->updateCorrectors();
     
     return true;
 }
@@ -764,7 +926,7 @@ void MICP::correct(
 
         // std::cout << "- C -> dT: " << el * 1000.0 << " ms" << std::endl;
     } else {
-        std::cout << "0 sensors" << std::endl;
+        // std::cout << "0 sensors" << std::endl;
         // set identity
         for(size_t i=0; i<dT.size(); i++)
         {
@@ -984,9 +1146,23 @@ void MICPRangeSensor::connect()
         }
 
     } else if(type == 2) { // O1Dn
-        
+        if(data_topic.msg == "rmcl_msgs/O1DnStamped") {
+            data_sub = std::make_shared<ros::Subscriber>(
+                    nh->subscribe<rmcl_msgs::O1DnStamped>(
+                        data_topic.name, 1, 
+                        &MICPRangeSensor::o1dnCB, this
+                    )
+                );
+        }
     } else if(type == 3) { // OnDn
-        
+        if(data_topic.msg == "rmcl_msgs/OnDnStamped") {
+            data_sub = std::make_shared<ros::Subscriber>(
+                    nh->subscribe<rmcl_msgs::OnDnStamped>(
+                        data_topic.name, 1, 
+                        &MICPRangeSensor::ondnCB, this
+                    )
+                );
+        }
     }
 
     if(has_info_topic)
@@ -998,6 +1174,34 @@ void MICPRangeSensor::connect()
                     nh->subscribe<sensor_msgs::CameraInfo>(
                         info_topic.name, 1, 
                         &MICPRangeSensor::cameraInfoCB, this
+                    )
+                );
+        } else if(info_topic.msg == "rmcl_msgs/ScanInfo") {
+            info_sub = std::make_shared<ros::Subscriber>(
+                    nh->subscribe<rmcl_msgs::ScanInfo>(
+                        info_topic.name, 1, 
+                        &MICPRangeSensor::sphericalModelCB, this
+                    )
+                );
+        } else if(info_topic.msg == "rmcl_msgs/DepthInfo") {
+            info_sub = std::make_shared<ros::Subscriber>(
+                    nh->subscribe<rmcl_msgs::DepthInfo>(
+                        info_topic.name, 1, 
+                        &MICPRangeSensor::pinholeModelCB, this
+                    )
+                );
+        } else if(info_topic.msg == "rmcl_msgs/O1DnInfo") {
+            info_sub = std::make_shared<ros::Subscriber>(
+                    nh->subscribe<rmcl_msgs::O1DnInfo>(
+                        info_topic.name, 1, 
+                        &MICPRangeSensor::o1dnModelCB, this
+                    )
+                );
+        } else if(info_topic.msg == "rmcl_msgs/OnDnInfo") {
+            info_sub = std::make_shared<ros::Subscriber>(
+                    nh->subscribe<rmcl_msgs::OnDnInfo>(
+                        info_topic.name, 1, 
+                        &MICPRangeSensor::ondnModelCB, this
                     )
                 );
         } else {
@@ -1012,20 +1216,20 @@ void MICPRangeSensor::fetchTF()
 {
     geometry_msgs::TransformStamped T_sensor_base;
     
-    if(data_topic.frame != base_frame)
+    if(frame != base_frame)
     {
         try 
         {
-            T_sensor_base = tf_buffer->lookupTransform(base_frame, data_topic.frame, ros::Time(0));
+            T_sensor_base = tf_buffer->lookupTransform(base_frame, frame, ros::Time(0));
         } catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
-            ROS_WARN_STREAM("Source: " << data_topic.frame << ", Target: " << base_frame);
+            ROS_WARN_STREAM("Source: " << frame << ", Target: " << base_frame);
 
             return;
         }
     } else {
         T_sensor_base.header.frame_id = base_frame;
-        T_sensor_base.child_frame_id = data_topic.frame;
+        T_sensor_base.child_frame_id = frame;
         T_sensor_base.transform.translation.x = 0.0;
         T_sensor_base.transform.translation.y = 0.0;
         T_sensor_base.transform.translation.z = 0.0;
@@ -1248,6 +1452,58 @@ void MICPRangeSensor::pinholeCB(
         ranges.resize(msg->depth.ranges.size());
     }
     std::copy(msg->depth.ranges.begin(), msg->depth.ranges.end(), ranges.raw());
+    // upload
+    ranges_gpu = ranges;
+
+    // data meta
+    data_last_update = msg->header.stamp;
+    data_received_once = true;
+
+    updateCorrectors();
+}
+
+void MICPRangeSensor::o1dnCB(
+    const rmcl_msgs::O1DnStamped::ConstPtr& msg)
+{
+    fetchTF();
+
+    // model
+    rm::O1DnModel model_;
+    convert(msg->o1dn.info, model_);
+    model = model_;
+
+    // data
+    if(ranges.size() < msg->o1dn.ranges.size())
+    {
+        ranges.resize(msg->o1dn.ranges.size());
+    }
+    std::copy(msg->o1dn.ranges.begin(), msg->o1dn.ranges.end(), ranges.raw());
+    // upload
+    ranges_gpu = ranges;
+
+    // data meta
+    data_last_update = msg->header.stamp;
+    data_received_once = true;
+
+    updateCorrectors();
+}
+
+void MICPRangeSensor::ondnCB(
+    const rmcl_msgs::OnDnStamped::ConstPtr& msg)
+{
+    fetchTF();
+
+    // model
+    rm::OnDnModel model_;
+    convert(msg->ondn.info, model_);
+    model = model_;
+
+    // data
+    if(ranges.size() < msg->ondn.ranges.size())
+    {
+        ranges.resize(msg->ondn.ranges.size());
+    }
+    std::copy(msg->ondn.ranges.begin(), msg->ondn.ranges.end(), ranges.raw());
     // upload
     ranges_gpu = ranges;
 
@@ -1518,25 +1774,51 @@ void MICPRangeSensor::imageCB(
 }
 
 // info callbacks
+
+void MICPRangeSensor::sphericalModelCB(
+    const rmcl_msgs::ScanInfo::ConstPtr& msg)
+{
+    rm::SphericalModel model_ = std::get<0>(model);
+    convert(*msg, model_);
+    model = model_;
+}
+
+void MICPRangeSensor::pinholeModelCB(
+    const rmcl_msgs::DepthInfo::ConstPtr& msg)
+{
+    rm::PinholeModel model_ = std::get<1>(model);
+    convert(*msg, model_);
+    model = model_;
+}
+
+void MICPRangeSensor::o1dnModelCB(
+    const rmcl_msgs::O1DnInfo::ConstPtr& msg)
+{
+    rm::O1DnModel model_ = std::get<2>(model);
+    convert(*msg, model_);
+    model = model_;
+}
+
+void MICPRangeSensor::ondnModelCB(
+    const rmcl_msgs::OnDnInfo::ConstPtr& msg)
+{
+    rm::OnDnModel model_ = std::get<3>(model);
+    convert(*msg, model_);
+    model = model_;
+}
+
 void MICPRangeSensor::cameraInfoCB(
     const sensor_msgs::CameraInfo::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor - info: " << name << " received " << data_topic.msg << " message");
 
-    if(msg->header.frame_id != data_topic.frame)
+    if(msg->header.frame_id != frame)
     {
         std::cout << "WARNING: Image and CameraInfo are not in the same frame" << std::endl;
     }
 
     rm::PinholeModel model_ = std::get<1>(model);
-
     convert(*msg, model_);
-
-    // manually setting range limits
-    // TODO: change this
-    model_.range.min = 0.3;
-    model_.range.max = 8.0;
-
     model = model_;
 }
 

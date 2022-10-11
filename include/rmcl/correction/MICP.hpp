@@ -172,6 +172,12 @@ struct MICPRangeSensor
     void pinholeCB(
         const rmcl_msgs::DepthStamped::ConstPtr& msg);
 
+    void o1dnCB(
+        const rmcl_msgs::O1DnStamped::ConstPtr& msg);
+
+    void ondnCB(
+        const rmcl_msgs::OnDnStamped::ConstPtr& msg);
+
     // external commonly used messages
     void pclSphericalCB(
         const sensor_msgs::PointCloud2::ConstPtr& msg);
@@ -187,8 +193,24 @@ struct MICPRangeSensor
     
 
     // info callbacks
+    // internal
+    void sphericalModelCB(
+        const rmcl_msgs::ScanInfo::ConstPtr& msg);
+
+    void pinholeModelCB(
+        const rmcl_msgs::DepthInfo::ConstPtr& msg);
+
+    void o1dnModelCB(
+        const rmcl_msgs::O1DnInfo::ConstPtr& msg);
+
+    void ondnModelCB(
+        const rmcl_msgs::OnDnInfo::ConstPtr& msg);
+    
+    // external commonly used
     void cameraInfoCB(
         const sensor_msgs::CameraInfo::ConstPtr& msg);
+
+    
 };
 
 using MICPRangeSensorPtr = std::shared_ptr<MICPRangeSensor>;

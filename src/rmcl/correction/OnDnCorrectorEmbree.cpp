@@ -174,9 +174,6 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
     return res;
 }
 
-// TODO: move to rmagine
-#pragma omp declare reduction( + : rmagine::Matrix3x3 : omp_out += omp_in )
-
 void OnDnCorrectorEmbree::compute_covs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
@@ -204,7 +201,7 @@ void OnDnCorrectorEmbree::compute_covs(
         Matrix3x3 C;
         C.setZeros();
 
-        #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr_, C)
+        // #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr_, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             Vector Dmean_inner = {0.0, 0.0, 0.0};

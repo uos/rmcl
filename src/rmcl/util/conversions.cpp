@@ -70,6 +70,54 @@ void convert(
 }
 
 void convert(
+    const rmcl_msgs::O1DnInfo& from,
+    rmagine::O1DnModel& to)
+{
+    to.range.min = from.range_min;
+    to.range.max = from.range_max;
+    to.width = from.width;
+    to.height = from.height;
+
+    to.orig.x = from.orig.x;
+    to.orig.y = from.orig.y;
+    to.orig.z = from.orig.z;
+
+    to.dirs.resize(from.dirs.size());
+    for(size_t i=0; i<to.dirs.size(); i++)
+    {
+        to.dirs[i].x = from.dirs[i].x;
+        to.dirs[i].y = from.dirs[i].y;
+        to.dirs[i].z = from.dirs[i].z;
+    }
+}
+
+void convert(
+    const rmcl_msgs::OnDnInfo& from,
+    rmagine::OnDnModel& to)
+{
+    to.width = from.width;
+    to.height = from.height;
+    to.range.min = from.range_min;
+    to.range.max = from.range_max;
+
+    to.origs.resize(from.origs.size());
+    for(size_t i=0; i<to.origs.size(); i++)
+    {
+        to.origs[i].x = from.origs[i].x;
+        to.origs[i].y = from.origs[i].y;
+        to.origs[i].z = from.origs[i].z;
+    }
+
+    to.dirs.resize(from.dirs.size());
+    for(size_t i=0; i<to.dirs.size(); i++)
+    {
+        to.dirs[i].x = from.dirs[i].x;
+        to.dirs[i].y = from.dirs[i].y;
+        to.dirs[i].z = from.dirs[i].z;
+    }
+}
+
+void convert(
     const geometry_msgs::Transform& Tros,
     rmagine::Transform& Trm)
 {

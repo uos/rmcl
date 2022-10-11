@@ -160,6 +160,18 @@ void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
     geometry_msgs::PoseStamped pose;
     pose.header = msg.header;
     pose.pose = msg.pose.pose;
+
+    pose.pose.position.z += 0.3;
+
+    EulerAngles e = {1.0, 0.0, 0.0};
+    Quaternion q;
+    q.set(e);
+
+    pose.pose.orientation.x = q.x;
+    pose.pose.orientation.y = q.y;
+    pose.pose.orientation.z = q.z;
+    pose.pose.orientation.w = q.w;
+
     poseCB(pose);
 }
 
