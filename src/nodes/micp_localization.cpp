@@ -2,6 +2,7 @@
 
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
+#include <rmagine/math/math.cuh>
 
 #include <rmcl/correction/MICP.hpp>
 #include <rmcl/util/conversions.h>
@@ -115,11 +116,27 @@ void correctOnce()
         convert(T_base_map.transform, poses[i]);
     }
 
-    // std::cout << "CORRECT!" << std::endl;
+    // exact copy of poses
+    Memory<Transform, VRAM_CUDA> poses_ = poses;
 
-    {
-        auto Tdelta = micp->correct(poses);
-        poses = multNxN(poses, Tdelta);
+
+    Memory<Transform, RAM> dT(poses.size());
+    Memory<Transform, VRAM_CUDA> dT_(poses.size());
+
+    // 0: use CPU to combine sensor corrections
+    // 1: use GPU to combine sensor corrections
+    unsigned int combining_unit = 1;
+
+    if(combining_unit == 0)
+    { // CPU version
+        micp->correct(poses, dT);
+        poses = multNxN(poses, dT);
+    } 
+    else if(combining_unit == 1)
+    { // GPU version
+        micp->correct(poses, poses_, dT_);
+        poses_ = multNxN(poses_, dT_);
+        poses = poses_;
     }
 
     // Update T_odom_map
@@ -161,16 +178,19 @@ void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
     pose.header = msg.header;
     pose.pose = msg.pose.pose;
 
-    pose.pose.position.z += 0.3;
+    // {
+        pose.pose.position.z += 0.3;
 
-    EulerAngles e = {1.0, 0.0, 0.0};
-    Quaternion q;
-    q.set(e);
+    //     EulerAngles e = {1.0, 0.0, 0.0};
+    //     Quaternion q;
+    //     q.set(e);
 
-    pose.pose.orientation.x = q.x;
-    pose.pose.orientation.y = q.y;
-    pose.pose.orientation.z = q.z;
-    pose.pose.orientation.w = q.w;
+    //     pose.pose.orientation.x = q.x;
+    //     pose.pose.orientation.y = q.y;
+    //     pose.pose.orientation.z = q.z;
+    //     pose.pose.orientation.w = q.w;
+    // }
+    
 
     poseCB(pose);
 }

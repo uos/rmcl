@@ -47,6 +47,13 @@ private:
 
 using CorrectionCudaPtr = std::shared_ptr<CorrectionCuda>;
 
+void compute_transform(
+    const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Us,
+    const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Vs,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
+    rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
+
 // weighted average by
 // - number of correspondences
 // - fixed weights

@@ -31,14 +31,8 @@ void CorrectionCuda::correction_from_covs(
 {
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
-
     m_svd->calcUV(Cs, Us, Vs);
-    rm::transposeInplace(Vs);
-
-    auto Rs = rm::multNxN(Us, Vs);
-    auto ts = rm::subNxN(ds, rm::multNxN(Rs, ms));
-
-    rm::pack(Rs, ts, Tdelta);
+    compute_transform(Us, Vs, ds, ms, Tdelta);
 }
 
 void CorrectionCuda::correction_from_covs(
@@ -72,6 +66,53 @@ Memory<Transform, VRAM_CUDA> CorrectionCuda::correction_from_covs(
     Memory<Transform, VRAM_CUDA> Tdelta(pre_res.ms.size());
     correction_from_covs(pre_res, Tdelta);
     return Tdelta;
+}
+
+
+
+
+__global__
+void compute_transform_kernel(
+    const rm::Matrix3x3* Us,
+    const rm::Matrix3x3* Vs,
+    const rm::Vector* ds,
+    const rm::Vector* ms,
+    rm::Transform* dT,
+    unsigned int N)
+{
+    const unsigned int pid = blockIdx.x * blockDim.x + threadIdx.x;
+    if(pid < N)
+    {
+        // input - read
+        const rm::Matrix3x3 U = Us[pid];
+        const rm::Matrix3x3 V = Vs[pid];
+        const rm::Vector d = ds[pid];
+        const rm::Vector m = ms[pid];
+
+        // output
+        rm::Transform T;
+
+        // computation
+        T.R.set(U * V.transpose());
+        T.R.normalize();
+        T.t = d - T.R * m; 
+
+        // write
+        dT[pid] = T;
+    }
+}
+
+
+void compute_transform(
+    const rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Us,
+    const rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Vs,
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& ds,
+    const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& ms,
+    rm::MemoryView<rmagine::Transform, rm::VRAM_CUDA>& dT)
+{
+    constexpr unsigned int blockSize = 1024;
+    const unsigned int gridSize = (dT.size() + blockSize - 1) / blockSize;
+    compute_transform_kernel<<<gridSize, blockSize>>>(Us.raw(), Vs.raw(), ds.raw(), ms.raw(), dT.raw(), dT.size());
 }
 
 // weighted average by
@@ -248,6 +289,7 @@ void weighted_average(
     const std::vector<CorrectionPreResults<VRAM_CUDA> >& pre_results,
     CorrectionPreResults<VRAM_CUDA>& pre_results_combined)
 {
+    // std::cout << "wa2" << std::endl;
     // source: to fuse
     std::vector<MemoryView<Vector, VRAM_CUDA> > ms;
     std::vector<MemoryView<Vector, VRAM_CUDA> > ds;
@@ -264,7 +306,6 @@ void weighted_average(
 
     weighted_average(ms, ds, Cs, Ncorrs, 
         pre_results_combined.ms, pre_results_combined.ds, pre_results_combined.Cs, pre_results_combined.Ncorr);
-
 }
 
 CorrectionPreResults<VRAM_CUDA> weighted_average(

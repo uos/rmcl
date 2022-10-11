@@ -14,7 +14,7 @@ adaptive_max_dist_min: 0.15
 
 # rates
 tf_rate: 50
-corr_rate_max: 300
+corr_rate_max: 600
 
 # describe your sensor setup here
 sensors: # list of range sensors - at least one is required
@@ -34,44 +34,62 @@ sensors: # list of range sensors - at least one is required
       max_dist: 0.5
       weight: 10
       backend: optix
-  sick:
-    topic: scan
-    micp:
-      weight: 2.0
-      backend: embree
-  kinect:
-    topic: kinect/depth/image_raw
-    model:
-      topic: kinect/rgb/camera_info
-    micp:
-      max_dist: 0.5
-      weight: 2.0
-      backend: optix
-  wheels: # pull robot to the mesh
-    ranges: [0.15, 0.15, 0.15, 0.15]
-    type: ondn
-    frame: base_link
-    model:
-      range_min: 0.1
-      range_max: 1.0
-      origs: [
-          [ 0.2,  0.15, 0.0], # front left 
-          [ 0.2, -0.15, 0.0], # front right
-          [-0.2,  0.15, 0.0], # rear left
-          [-0.2, -0.15, 0.0]  # rear right
-        ]
-      dirs: [ # pointing downwards
-          [0.0, 0.0, -1.0],
-          [0.0, 0.0, -1.0],
-          [0.0, 0.0, -1.0],
-          [0.0, 0.0, -1.0]
-        ]
-    micp:
-      max_dist: 0.5
-      weight: 1
-      backend: embree
-
-
+  # sick:
+  #   topic: scan
+  #   micp:
+  #     weight: 2.0
+  #     backend: optix
+  # kinect:
+  #   topic: kinect/depth/image_raw
+  #   model_topic: kinect/rgb/camera_info
+  #   micp:
+  #     max_dist: 0.5
+  #     weight: 2.0
+  #     backend: optix
+  # wheels: # pull robot to the mesh
+  #   ranges: [0.2, 0.2, 0.2, 0.2]
+  #   type: ondn
+  #   frame: base_footprint
+  #   model:
+  #     width: 4
+  #     height: 1
+  #     range_min: 0.0
+  #     range_max: 10.0
+  #     origs: [
+  #         [ 0.2,  0.15, 0.2], # front left 
+  #         [ 0.2, -0.15, 0.2], # front right
+  #         [-0.2,  0.15, 0.2], # rear left
+  #         [-0.2, -0.15, 0.2]  # rear right
+  #       ]
+  #     dirs: [ # pointing downwards
+  #         [0.0, 0.0, -1.0]
+  #         [0.0, 0.0, -1.0],
+  #         [0.0, 0.0, -1.0],
+  #         [0.0, 0.0, -1.0]
+  #       ]
+  #   micp:
+  #     max_dist: 1.0
+  #     weight: 1
+  #     backend: embree
+  # base_footprint:
+  #   ranges: [0.2]
+  #   type: ondn
+  #   frame: base_footprint
+  #   model:
+  #     width: 1
+  #     height: 1
+  #     range_min: 0.0
+  #     range_max: 10.0
+  #     origs: [
+  #       [0.0, 0.0, 0.2]
+  #     ]
+  #     dirs: [
+  #       [0.0, 0.0, -1.0]
+  #     ]
+  #   micp:
+  #     max_dist: 1.0
+  #     weight: 1.0
+  #     backend: embree
 
 
 

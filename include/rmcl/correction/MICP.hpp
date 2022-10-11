@@ -228,6 +228,16 @@ public:
 
     void loadMap(std::string filename);
 
+
+    void correct(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
+        rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
+
+    // void correct(
+    //     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
+    //     rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
+
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
         rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& dT);

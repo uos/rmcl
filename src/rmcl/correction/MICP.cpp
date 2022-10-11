@@ -10,6 +10,7 @@
 #include <rmcl/util/conversions.h>
 
 #include <rmcl/math/math.h>
+#include <rmcl/math/math.cuh>
 
 #include <rmagine/util/StopWatch.hpp>
 
@@ -821,16 +822,145 @@ void MICP::loadMap(std::string filename)
 }
 
 void MICP::correct(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
+    rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT)
+{
+    // std::cout << "correct runtimes: " << std::endl;
+    // rm::StopWatch sw;
+    // double el;
+    // double el_total = 0.0;
+
+
+    // sw();
+    std::vector<CorrectionPreResults<rm::VRAM_CUDA> > results(m_sensors.size());
+    float weight_sum = 0.0;
+    std::vector<float> weights(m_sensors.size());
+
+    for(auto& elem : results)
+    {
+        elem.ms.resize(Tbm.size());
+        elem.ds.resize(Tbm.size());
+        elem.Cs.resize(Tbm.size());
+        elem.Ncorr.resize(Tbm.size());
+    }
+
+    // el = sw();
+    // el_total += el;
+
+    // std::cout << "- init additional mem: " << el * 1000.0 << " ms" << std::endl;
+
+    // sw();
+    size_t id = 0;
+    for(auto elem : m_sensors)
+    {
+        CorrectionPreResults<rm::VRAM_CUDA>& res_ = results[id];
+
+        if(elem.second->data_received_once)
+        {
+            
+            if(elem.second->backend == 0)
+            {
+                CorrectionPreResults<rm::RAM> res;
+                res.ms.resize(Tbm.size());
+                res.ds.resize(Tbm.size());
+                res.Cs.resize(Tbm.size());
+                res.Ncorr.resize(Tbm.size());
+
+                // compute
+                elem.second->computeCovs(Tbm, res);
+
+                // upload
+                res_.ms = res.ms;
+                res_.ds = res.ds;
+                res_.Cs = res.Cs;
+                res_.Ncorr = res.Ncorr;
+            } else if(elem.second->backend == 1) {
+                // use preuploaded poses as input
+                elem.second->computeCovs(Tbm_, res_);
+            }
+
+            // dynamic weights
+            float w = elem.second->corr_weight;
+            weight_sum += w;
+            weights[id] = w;
+        } else {
+            std::cout << "WARNING: still waiting for sensor data of " << elem.second->name << std::endl; 
+            weights[id] = 0.0;
+        }
+
+        id++;
+    }
+    // el = sw();
+    // el_total += el;
+
+    // std::cout << "- sensor covs: " << el << " ms" << std::endl;
+    // std::cout << "covs end" << std::endl;
+
+    
+    if(results.size() > 0)
+    {
+        // normalize weights
+        // sw();
+        for(size_t i=0; i<weights.size(); i++)
+        {
+            weights[i] /= weight_sum;
+        }
+
+        CorrectionPreResults<rm::VRAM_CUDA> results_combined;
+        results_combined.ms.resize(Tbm.size());
+        results_combined.ds.resize(Tbm.size());
+        results_combined.Cs.resize(Tbm.size());
+        results_combined.Ncorr.resize(Tbm.size());
+
+        // el = sw();
+        // el_total += el;
+        // std::cout << "- merging preprocessing: " << el * 1000.0 << " ms" << std::endl;
+
+        // sw();
+        weighted_average(
+            results,
+            weights,
+            results_combined);
+
+        // el = sw();
+        // el_total += el;
+
+        // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
+
+        // sw();
+        static CorrectionCuda corr;
+        corr.correction_from_covs(results_combined, dT);
+
+        // std::cout << "don" << std::endl;
+        // el = sw();
+        // el_total += el;
+
+        // std::cout << "- C -> dT: " << el * 1000.0 << " ms" << std::endl;
+
+        // std::cout << "- total: " << el_total * 1000.0 << " ms" << std::endl;
+    } else {
+        std::cout << "0 sensors" << std::endl;
+        // set identity
+        // for(size_t i=0; i<dT.size(); i++)
+        // {
+        //     dT[i] = rm::Transform::Identity();
+        // }
+    }
+
+}
+
+void MICP::correct(
     const rm::MemoryView<rm::Transform, rm::RAM>& Tbm,
     rm::MemoryView<rm::Transform, rm::RAM>& dT)
 {
-    rm::StopWatch sw;
-    double el;
-    double el_total = 0.0;
+    // rm::StopWatch sw;
+    // double el;
+    // double el_total = 0.0;
 
     // std::cout << "-----------------" << std::endl;
     
-    sw();
+    // sw();
     rm::Memory<rm::Transform, rm::VRAM_CUDA> Tbm_ = Tbm;
 
     CorrectionPreResults<rm::VRAM_CUDA> res_;
@@ -843,12 +973,12 @@ void MICP::correct(
     std::vector<CorrectionPreResults<rm::RAM> > results;
     float weight_sum = 0.0;
     std::vector<float> weights;
-    el = sw();
-    el_total += el;
+    // el = sw();
+    // el_total += el;
     
     // std::cout << "- preprocessing: " << el * 1000.0 << " ms" << std::endl;
 
-    sw();
+    // sw();
     for(auto elem : m_sensors)
     {
         if(elem.second->data_received_once)
@@ -885,14 +1015,14 @@ void MICP::correct(
             std::cout << "WARNING: " << elem.second->name << " still not received data" << std::endl;
         }
     }
-    el = sw();
-    el_total += el;
+    // el = sw();
+    // el_total += el;
     // std::cout << "- computing covs (" << results.size() << " sensors): " << el * 1000.0 << " ms" << std::endl;
 
     if(results.size() > 0)
     {
         // normalize weights
-        sw();
+        // sw();
         for(size_t i=0; i<weights.size(); i++)
         {
             weights[i] /= weight_sum;
@@ -904,25 +1034,25 @@ void MICP::correct(
         results_combined.Cs.resize(Tbm.size());
         results_combined.Ncorr.resize(Tbm.size());
         
-        el = sw();
-        el_total += el;
+        // el = sw();
+        // el_total += el;
         // std::cout << "- merging preprocessing: " << el * 1000.0 << " ms" << std::endl;
 
-        sw();
+        // sw();
         weighted_average(
             results,
             weights,
             results_combined);
-        el = sw();
-        el_total += el;
+        // el = sw();
+        // el_total += el;
 
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
-        sw();
+        // sw();
         static Correction corr;
         corr.correction_from_covs(results_combined, dT);
-        el = sw();
-        el_total += el;
+        // el = sw();
+        // el_total += el;
 
         // std::cout << "- C -> dT: " << el * 1000.0 << " ms" << std::endl;
     } else {
