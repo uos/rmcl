@@ -6,34 +6,53 @@ map_frame: map
 odom_frame: odom # optional - recommended
 
 
-max_distance: 1.0
+
 
 # adjust max distance dependend of the state of localization
-adaptive_max_dist: True
-adaptive_max_dist_min: 0.15
+
 
 # rates
+# rate of broadcasting tf transformations
 tf_rate: 50
-corr_rate_max: 600
+# maximum number of correction steps per second
+# lower this to decrease the correction speed but save energy 
+
+
+micp:
+  # merging on gpu or cpu
+  combining_unit: gpu
+  corr_rate_max: 10
+
+  # to sensors?
+  adaptive_max_dist: True
+  adaptive_max_dist_min: 0.15
+
+  # TESTING 
+  # async performance
+  poses: 1
+
+  # initial pose changes
+  trans: [0.0, 0.0, 1.0]
+  rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
 
 # describe your sensor setup here
 sensors: # list of range sensors - at least one is required
-  velodyne:
-    topic: velodyne_points
-    type: spherical
-    model:
-      range_min: 0.5
-      range_max: 130.0
-      phi_min: -0.261799067259
-      phi_inc: 0.03490658503988659
-      phi_N: 16
-      theta_min: -3.14159011841
-      theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
-      theta_N: 440
-    micp:
-      max_dist: 0.5
-      weight: 10
-      backend: optix
+  # velodyne:
+  #   topic: velodyne_points
+  #   type: spherical
+  #   model:
+  #     range_min: 0.5
+  #     range_max: 130.0
+  #     phi_min: -0.261799067259
+  #     phi_inc: 0.03490658503988659
+  #     phi_N: 16
+  #     theta_min: -3.14159011841
+  #     theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
+  #     theta_N: 440
+  #   micp:
+  #     max_dist: 0.5
+  #     weight: 10
+  #     backend: optix
   # sick:
   #   topic: scan
   #   micp:
@@ -46,31 +65,42 @@ sensors: # list of range sensors - at least one is required
   #     max_dist: 0.5
   #     weight: 2.0
   #     backend: optix
-  # wheels: # pull robot to the mesh
-  #   ranges: [0.2, 0.2, 0.2, 0.2]
+  wheels: # pull robot to the mesh
+    ranges: [0.2, 0.2, 0.2, 0.2]
+    type: ondn
+    frame: base_footprint
+    model:
+      width: 4
+      height: 1
+      range_min: 0.0
+      range_max: 10.0
+      origs: [[ 0.2,  0.15,  0.2], # front left 
+              [ 0.2, -0.15,  0.2], # front right
+              [-0.2,  0.15,  0.2], # rear left
+              [-0.2, -0.15,  0.2]] # rear right
+      dirs:  [[ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0]]
+    micp:
+      max_dist: 1.0
+      weight: 1
+      backend: optix
+  # dont_drive_through_walls:
+  #   ranges: [0.0]
   #   type: ondn
   #   frame: base_footprint
   #   model:
   #     width: 4
   #     height: 1
   #     range_min: 0.0
-  #     range_max: 10.0
-  #     origs: [
-  #         [ 0.2,  0.15, 0.2], # front left 
-  #         [ 0.2, -0.15, 0.2], # front right
-  #         [-0.2,  0.15, 0.2], # rear left
-  #         [-0.2, -0.15, 0.2]  # rear right
-  #       ]
-  #     dirs: [ # pointing downwards
-  #         [0.0, 0.0, -1.0]
-  #         [0.0, 0.0, -1.0],
-  #         [0.0, 0.0, -1.0],
-  #         [0.0, 0.0, -1.0]
-  #       ]
+  #     range_max: 0.2
+  #     origs: [[ 0.2,  0.0,  0.2]] 
+  #     dirs:  [[ -1.0,  0.0, 0.0]]
   #   micp:
-  #     max_dist: 1.0
+  #     max_dist: 0.2
   #     weight: 1
-  #     backend: embree
+  #     backend: optix
   # base_footprint:
   #   ranges: [0.2]
   #   type: ondn
@@ -90,8 +120,3 @@ sensors: # list of range sensors - at least one is required
   #     max_dist: 1.0
   #     weight: 1.0
   #     backend: embree
-
-
-
-# TESTING async performance
-poses: 1

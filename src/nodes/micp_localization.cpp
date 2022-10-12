@@ -40,6 +40,10 @@ std::mutex                      T_odom_map_mutex;
 geometry_msgs::TransformStamped T_base_odom;
 
 
+Transform initial_pose_offset;
+unsigned int combining_unit = 1;
+
+
 // testing
 size_t Nposes = 1;
 
@@ -125,7 +129,7 @@ void correctOnce()
 
     // 0: use CPU to combine sensor corrections
     // 1: use GPU to combine sensor corrections
-    unsigned int combining_unit = 1;
+    
 
     if(combining_unit == 0)
     { // CPU version
@@ -162,11 +166,18 @@ void poseCB(geometry_msgs::PoseStamped msg)
     map_frame = msg.header.frame_id;
     pose_received = true;
 
+    
+    Transform Tpm;
+    convert(msg.pose, Tpm);
+
+    // total transform: offsert -> pose -> map
+    Transform Tbm = Tpm * initial_pose_offset;
+
     // set T_base_map
     geometry_msgs::TransformStamped T_base_map;
     T_base_map.header.frame_id = map_frame;
     T_base_map.child_frame_id = base_frame;
-    T_base_map.transform <<= msg.pose;
+    convert(Tbm, T_base_map.transform);
 
     // fetchTF();
     T_odom_map = T_base_map * ~T_base_odom;
@@ -177,20 +188,6 @@ void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
     geometry_msgs::PoseStamped pose;
     pose.header = msg.header;
     pose.pose = msg.pose.pose;
-
-    // {
-        pose.pose.position.z += 0.3;
-
-    //     EulerAngles e = {1.0, 0.0, 0.0};
-    //     Quaternion q;
-    //     q.set(e);
-
-    //     pose.pose.orientation.x = q.x;
-    //     pose.pose.orientation.y = q.y;
-    //     pose.pose.orientation.z = q.z;
-    //     pose.pose.orientation.w = q.w;
-    // }
-    
 
     poseCB(pose);
 }
@@ -217,9 +214,56 @@ int main(int argc, char** argv)
     odom_frame = "odom";
     map_frame = "map";
 
+
+    std::string combining_unit_str;
+    nh_p.param<std::string>("combining_unit", combining_unit_str, "cpu");
+
+    if(combining_unit_str == "cpu")
+    {
+        combining_unit = 0;
+    } else if(combining_unit_str == "gpu") {
+        combining_unit = 1;
+    } else {
+        // ERROR
+    }
+
+
+    initial_pose_offset = Transform::Identity();
+    std::vector<double> trans, rot;
+    
+    if(nh_p.getParam("micp/trans", trans))
+    {
+        if(trans.size() != 3)
+        {
+            // error
+        }
+        initial_pose_offset.t.x = trans[0];
+        initial_pose_offset.t.y = trans[1];
+        initial_pose_offset.t.z = trans[2];
+    }
+
+    if(nh_p.getParam("micp/rot", rot))
+    {
+        if(rot.size() == 3)
+        {
+            EulerAngles e;
+            e.roll = rot[0];
+            e.pitch = rot[1];
+            e.yaw = rot[2];
+            initial_pose_offset.R.set(e);
+        } else if(rot.size() == 4) {
+            initial_pose_offset.R.x = rot[0];
+            initial_pose_offset.R.y = rot[1];
+            initial_pose_offset.R.z = rot[2];
+            initial_pose_offset.R.w = rot[3];
+        }
+    }
+
+
+
+
     tf_buffer.reset(new tf2_ros::Buffer);
     tf_listener.reset(new tf2_ros::TransformListener(*tf_buffer));
-
 
     micp = std::make_shared<MICP>();
     micp->loadParams();

@@ -221,6 +221,7 @@ if(${rmagine_optix_FOUND})
         src/rmcl/correction/OnDnCorrectorOptixROS.cpp
         # MICP
         src/rmcl/correction/MICP.cpp
+        src/rmcl/correction/MICPRangeSensor.cpp
     )
 
     target_link_libraries(rmcl_optix_ros
