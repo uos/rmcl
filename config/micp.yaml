@@ -20,7 +20,7 @@ tf_rate: 50
 
 micp:
   # merging on gpu or cpu
-  combining_unit: gpu
+  combining_unit: cpu
   corr_rate_max: 10
 
   # to sensors?
@@ -32,7 +32,7 @@ micp:
   poses: 1
 
   # initial pose changes
-  trans: [0.0, 0.0, 1.0]
+  trans: [0.0, 0.0, 0.5]
   rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
 
 # describe your sensor setup here

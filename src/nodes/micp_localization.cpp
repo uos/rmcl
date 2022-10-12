@@ -133,7 +133,7 @@ void correctOnce()
 
     if(combining_unit == 0)
     { // CPU version
-        micp->correct(poses, dT);
+        micp->correct(poses, poses_, dT);
         poses = multNxN(poses, dT);
     } 
     else if(combining_unit == 1)
@@ -215,18 +215,21 @@ int main(int argc, char** argv)
     map_frame = "map";
 
 
+    // nh_p.param<double>("micp/tf_")
+
     std::string combining_unit_str;
-    nh_p.param<std::string>("combining_unit", combining_unit_str, "cpu");
+    nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
 
     if(combining_unit_str == "cpu")
     {
+        std::cout << "Combining Unit: CPU" << std::endl; 
         combining_unit = 0;
     } else if(combining_unit_str == "gpu") {
+        std::cout << "Combining Unit: GPU" << std::endl;
         combining_unit = 1;
     } else {
         // ERROR
     }
-
 
     initial_pose_offset = Transform::Identity();
     std::vector<double> trans, rot;
@@ -258,8 +261,6 @@ int main(int argc, char** argv)
             initial_pose_offset.R.w = rot[3];
         }
     }
-
-
 
 
     tf_buffer.reset(new tf2_ros::Buffer);

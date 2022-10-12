@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.2)
 project(rmcl)
 
+option(BUILD_EXAMPLES OFF)
+option(BUILD_EXPERIMENTAL OFF)
+option(BUILD_CONV ON)
+
+
 add_compile_options(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
+
 
 # DEFAULT RELEASE
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
@@ -67,13 +73,8 @@ include_directories(
     include
 )
 
-# TODO check if rmagine_EMBREE is available
+# CORE LIB
 add_library(rmcl
-    # Correction
-    src/rmcl/correction/SphereCorrectorEmbree.cpp
-    src/rmcl/correction/PinholeCorrectorEmbree.cpp
-    src/rmcl/correction/O1DnCorrectorEmbree.cpp
-    src/rmcl/correction/OnDnCorrectorEmbree.cpp
     # Math
     src/rmcl/math/math.cpp
     # Spatial
@@ -86,28 +87,13 @@ add_dependencies(rmcl nanoflann)
 
 target_link_libraries(rmcl
     ${rmagine_LIBRARY}
-    ${rmagine_embree_LIBRARY}
     ${rmagine_ext_LIBRARIES}
     Eigen3::Eigen
 )
 
-add_definitions(-DRMCL_EMBREE)
-
-add_executable(rmcl_correction_embree_benchmark
-    src/nodes/lidar_corrector_embree_benchmark.cpp
-)
-
-target_link_libraries(rmcl_correction_embree_benchmark
-    rmcl
-)
-
-
+# CORE LIB ROS
 add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
-    src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
-    src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
-    src/rmcl/correction/O1DnCorrectorEmbreeROS.cpp
-    src/rmcl/correction/OnDnCorrectorEmbreeROS.cpp
 )
 
 target_link_libraries(rmcl_ros
@@ -115,6 +101,41 @@ target_link_libraries(rmcl_ros
     rmcl
 )
 
+# EMBREE
+if(${rmagine_embree_FOUND})
+
+    add_library(rmcl_embree
+        # Correction
+        src/rmcl/correction/SphereCorrectorEmbree.cpp
+        src/rmcl/correction/PinholeCorrectorEmbree.cpp
+        src/rmcl/correction/O1DnCorrectorEmbree.cpp
+        src/rmcl/correction/OnDnCorrectorEmbree.cpp
+    )
+
+    target_link_libraries(rmcl_embree
+        ${rmagine_LIBRARY}
+        ${rmagine_embree_LIBRARY}
+        ${rmagine_ext_LIBRARIES}
+        Eigen3::Eigen
+        rmcl
+    )
+
+    add_definitions(-DRMCL_EMBREE)
+
+    add_library(rmcl_embree_ros
+        src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
+        src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
+        src/rmcl/correction/O1DnCorrectorEmbreeROS.cpp
+        src/rmcl/correction/OnDnCorrectorEmbreeROS.cpp
+    )
+
+    target_link_libraries(rmcl_ros
+        ${catkin_LIBRARIES}
+        rmcl_embree
+    )
+endif()
+
+# CUDA
 if(${rmagine_cuda_FOUND})
     # Build cuda related stuff
     find_package(CUDA)
@@ -133,6 +154,7 @@ if(${rmagine_cuda_FOUND})
         ${CUDA_LIBRARIES}
     )
 
+    add_definitions(-DRMCL_CUDA)
 endif()
 
 if(${rmagine_optix_FOUND})
@@ -143,9 +165,6 @@ if(${rmagine_optix_FOUND})
 
     set(CUDA_GENERATED_OUTPUT_DIR ${RMCL_OPTIX_PTX_DIR})
 
-    add_definitions(-DRMCL_OPTIX)
-
-    add_definitions( -DWITH_OPTIX )
     add_definitions( -DRMCL_OPTIX_PTX_DIR="${RMCL_OPTIX_PTX_DIR}" )
     add_definitions( -DRMCL_OPTIX_PTX_GLOB_DIR="${RMCL_OPTIX_PTX_GLOB_DIR}")
 
@@ -219,9 +238,6 @@ if(${rmagine_optix_FOUND})
         src/rmcl/correction/O1DnCorrectorOptixROS.cpp
         # OnDn
         src/rmcl/correction/OnDnCorrectorOptixROS.cpp
-        # MICP
-        src/rmcl/correction/MICP.cpp
-        src/rmcl/correction/MICPRangeSensor.cpp
     )
 
     target_link_libraries(rmcl_optix_ros
@@ -229,66 +245,25 @@ if(${rmagine_optix_FOUND})
         rmcl_ros
     )
 
-    add_executable(rmcl_correction_optix_benchmark
-        src/nodes/lidar_corrector_optix_benchmark.cpp
-    )
-
-    target_link_libraries(rmcl_correction_optix_benchmark
-        rmcl_optix
-    )
-
+    add_definitions(-DRMCL_OPTIX)
 endif()
 
-####### PCL2 to SCAN CONVERTER
-add_executable(pcl2_to_scan src/nodes/pcl2_to_scan.cpp)
 
-add_dependencies(pcl2_to_scan 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
+## Nodes 
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(pcl2_to_scan
-    ${catkin_LIBRARIES}
-    rmcl
-    rmcl_ros
-)
 
-####### PCL2 to DEPTH CONVERTER
-add_executable(pcl2_to_depth src/nodes/pcl2_to_depth.cpp)
 
-add_dependencies(pcl2_to_depth 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(pcl2_to_depth
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-)
-
-####### IMAGE to DEPTH CONVERTER
-add_executable(image_to_depth src/nodes/image_to_depth.cpp)
-
-add_dependencies(image_to_depth 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(image_to_depth
-    ${catkin_LIBRARIES}
-    rmcl
-    rmcl_ros
-)
 
 ##############
 #### MICP ####
 ##############
-add_executable(micp_localization src/nodes/micp_localization.cpp)
+add_executable(micp_localization 
+    src/nodes/micp_localization.cpp
+    # MICP
+    src/rmcl/correction/MICP.cpp
+    src/rmcl/correction/MICPRangeSensor.cpp
+)
 
 add_dependencies(micp_localization 
     ${${PROJECT_NAME}_EXPORTED_TARGETS}
@@ -298,198 +273,264 @@ add_dependencies(micp_localization
 ## Specify libraries to link a library or executable target against
 target_link_libraries(micp_localization
     ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
+    rmcl_embree_ros
     rmcl_optix_ros
 )
+
+########################
+### CONVERSION NODES ###
+########################
+if(BUILD_CONV)
+
+    ####### PCL2 to SCAN CONVERTER
+    add_executable(conv_pcl2_to_scan src/nodes/conv/pcl2_to_scan.cpp)
+
+    add_dependencies(conv_pcl2_to_scan 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(conv_pcl2_to_scan
+        ${catkin_LIBRARIES}
+        rmcl_ros
+    )
+
+    ####### PCL2 to DEPTH CONVERTER
+    add_executable(conv_pcl2_to_depth src/nodes/conv/pcl2_to_depth.cpp)
+
+    add_dependencies(conv_pcl2_to_depth 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(conv_pcl2_to_depth
+        ${catkin_LIBRARIES}
+        ${rmagine_ext_LIBRARIES}
+        rmcl_ros
+    )
+
+    ####### IMAGE to DEPTH CONVERTER
+    add_executable(conv_image_to_depth src/nodes/conv/image_to_depth.cpp)
+
+    add_dependencies(conv_image_to_depth 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(conv_image_to_depth
+        ${catkin_LIBRARIES}
+        rmcl_ros
+    )
+
+endif(BUILD_CONV)
+
+################
+### EXAMPLES ###
+################
+if(BUILD_EXAMPLES)
+# TODO
+endif()
 
 
 ### TESTS ###
 
 
-###### CORRECTION CPU #######
-add_executable(lidar_corrector_embree src/nodes/lidar_corrector_embree.cpp)
-
-add_dependencies(lidar_corrector_embree 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(lidar_corrector_embree
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-)
-
-add_executable(depth_corrector_embree src/nodes/depth_corrector_embree.cpp)
-
-add_dependencies(depth_corrector_embree 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(depth_corrector_embree
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-)
-
-add_executable(ondn_corrector_embree src/nodes/ondn_corrector_embree.cpp)
-
-add_dependencies(ondn_corrector_embree 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(ondn_corrector_embree
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-)
-
-add_executable(combined_corrector_embree src/nodes/combined_corrector_embree.cpp)
-
-add_dependencies(combined_corrector_embree 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(combined_corrector_embree
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-)
-
-###### CORRECTION GPU #######
-if(${rmagine_optix_FOUND})
-
-add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
-
-add_dependencies(lidar_corrector_optix 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(lidar_corrector_optix
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-    rmcl_optix_ros
-)
-
-add_executable(depth_corrector_optix src/nodes/depth_corrector_optix.cpp)
-
-add_dependencies(depth_corrector_optix 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(depth_corrector_optix
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-    rmcl_optix_ros
-)
-
-add_executable(ondn_corrector_optix src/nodes/ondn_corrector_optix.cpp)
-
-add_dependencies(ondn_corrector_optix 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(ondn_corrector_optix
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-    rmcl_optix_ros
-)
-
-add_executable(combined_corrector_optix src/nodes/combined_corrector_optix.cpp)
-
-add_dependencies(combined_corrector_optix 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(combined_corrector_optix
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-    rmcl_optix_ros
-)
 
 
-add_executable(multi_lidar_corrector_optix src/nodes/multi_lidar_corrector_optix.cpp)
+# ###### CORRECTION CPU #######
+# add_executable(lidar_corrector_embree src/nodes/lidar_corrector_embree.cpp)
 
-add_dependencies(multi_lidar_corrector_optix 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
+# add_dependencies(lidar_corrector_embree 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(multi_lidar_corrector_optix
-    ${catkin_LIBRARIES}
-    ${rmagine_ext_LIBRARIES}
-    rmcl
-    rmcl_ros
-    rmcl_optix_ros
-)
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(lidar_corrector_embree
+#     ${catkin_LIBRARIES}
+#     rmcl_embree_ros
+# )
 
-endif()
+# add_executable(depth_corrector_embree src/nodes/depth_corrector_embree.cpp)
 
-#######
-# TESTS
+# add_dependencies(depth_corrector_embree 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
 
-if(${rmagine_optix_FOUND})
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(depth_corrector_embree
+#     ${catkin_LIBRARIES}
+#     rmcl_embree_ros
+# )
 
-add_executable(clustering_node src/nodes/tests/clustering_node.cpp)
+# add_executable(ondn_corrector_embree src/nodes/ondn_corrector_embree.cpp)
 
-add_dependencies(clustering_node 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
+# add_dependencies(ondn_corrector_embree 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(clustering_node
-    ${catkin_LIBRARIES}
-    rmcl
-    rmcl_ros
-    rmcl_optix_ros
-)
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(ondn_corrector_embree
+#     ${catkin_LIBRARIES}
+#     rmcl_embree_ros
+# )
+
+# add_executable(combined_corrector_embree src/nodes/combined_corrector_embree.cpp)
+
+# add_dependencies(combined_corrector_embree 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(combined_corrector_embree
+#     ${catkin_LIBRARIES}
+#     rmcl_embree_ros
+# )
+
+# ###### CORRECTION GPU #######
+# if(${rmagine_optix_FOUND})
+
+# add_executable(lidar_corrector_optix src/nodes/lidar_corrector_optix.cpp)
+
+# add_dependencies(lidar_corrector_optix 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(lidar_corrector_optix
+#     ${catkin_LIBRARIES}
+#     rmcl_optix_ros
+# )
+
+# add_executable(depth_corrector_optix src/nodes/depth_corrector_optix.cpp)
+
+# add_dependencies(depth_corrector_optix 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(depth_corrector_optix
+#     ${catkin_LIBRARIES}
+#     ${rmagine_ext_LIBRARIES}
+#     rmcl
+#     rmcl_ros
+#     rmcl_optix_ros
+# )
+
+# add_executable(ondn_corrector_optix src/nodes/ondn_corrector_optix.cpp)
+
+# add_dependencies(ondn_corrector_optix 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(ondn_corrector_optix
+#     ${catkin_LIBRARIES}
+#     ${rmagine_ext_LIBRARIES}
+#     rmcl
+#     rmcl_ros
+#     rmcl_optix_ros
+# )
+
+# add_executable(combined_corrector_optix src/nodes/combined_corrector_optix.cpp)
+
+# add_dependencies(combined_corrector_optix 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(combined_corrector_optix
+#     ${catkin_LIBRARIES}
+#     ${rmagine_ext_LIBRARIES}
+#     rmcl
+#     rmcl_ros
+#     rmcl_optix_ros
+# )
 
 
-add_executable(segment_node_optix src/nodes/tests/segment_node_optix.cpp)
+# add_executable(multi_lidar_corrector_optix src/nodes/multi_lidar_corrector_optix.cpp)
 
-add_dependencies(segment_node_optix 
-    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    ${catkin_EXPORTED_TARGETS}
-)
+# add_dependencies(multi_lidar_corrector_optix 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(segment_node_optix
-    ${catkin_LIBRARIES}
-    rmcl
-    rmcl_ros
-    rmcl_optix_ros
-)
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(multi_lidar_corrector_optix
+#     ${catkin_LIBRARIES}
+#     ${rmagine_ext_LIBRARIES}
+#     rmcl
+#     rmcl_ros
+#     rmcl_optix_ros
+# )
+
+# endif()
+
+# #######
+# # TESTS
+
+# if(${rmagine_optix_FOUND})
+
+# add_executable(clustering_node src/nodes/tests/clustering_node.cpp)
+
+# add_dependencies(clustering_node 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(clustering_node
+#     ${catkin_LIBRARIES}
+#     rmcl
+#     rmcl_ros
+#     rmcl_optix_ros
+# )
 
 
-endif()
+# add_executable(segment_node_optix src/nodes/tests/segment_node_optix.cpp)
+
+# add_dependencies(segment_node_optix 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
+
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(segment_node_optix
+#     ${catkin_LIBRARIES}
+#     rmcl
+#     rmcl_ros
+#     rmcl_optix_ros
+# )
+
+
+# endif()
+
+
+
+
+# BENCHMARKS
+# add_executable(rmcl_correction_embree_benchmark
+#     src/nodes/lidar_corrector_embree_benchmark.cpp
+# )
+
+# target_link_libraries(rmcl_correction_embree_benchmark
+#     rmcl_embree
+# )
+
+# add_executable(rmcl_correction_optix_benchmark
+#     src/nodes/lidar_corrector_optix_benchmark.cpp
+# )
+
+# target_link_libraries(rmcl_correction_optix_benchmark
+#     rmcl_optix
+# )
