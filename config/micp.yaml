@@ -20,7 +20,7 @@ tf_rate: 50
 
 micp:
   # merging on gpu or cpu
-  combining_unit: cpu
+  combining_unit: gpu
   corr_rate_max: 10
 
   # to sensors?
@@ -85,7 +85,7 @@ sensors: # list of range sensors - at least one is required
     micp:
       max_dist: 1.0
       weight: 1
-      backend: optix
+      backend: embree
   # dont_drive_through_walls:
   #   ranges: [0.0]
   #   type: ondn

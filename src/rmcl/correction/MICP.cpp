@@ -817,9 +817,19 @@ void MICP::loadMap(std::string filename)
     m_map_embree = rm::importEmbreeMap(filename);
     #endif // RMCL_EMBREE
 
+    m_corr_cpu = std::make_shared<Correction>();
+
     #ifdef RMCL_OPTIX
     m_map_optix = rm::importOptixMap(filename);
+    m_corr_gpu = std::make_shared<CorrectionCuda>(m_map_optix->scene()->stream());
+    #else
+    #ifdef RMCL_CUDA
+    // initialize cuda correction without optix
+    m_corr_gpu = std::make_shared<CorrectionCuda>(); 
+    #endif // RMCL_CUDA
     #endif // RMCL_OPTIX
+
+    
 }
 
 void MICP::correct(
@@ -860,7 +870,6 @@ void MICP::correct(
 
         if(elem.second->data_received_once)
         {
-            
             if(elem.second->backend == 0)
             {
                 CorrectionPreResults<rm::RAM> res;
@@ -925,14 +934,14 @@ void MICP::correct(
             weights,
             results_combined);
 
+
+
         // el = sw();
         // el_total += el;
 
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
-
         // sw();
-        static CorrectionCuda corr;
-        corr.correction_from_covs(results_combined, dT);
+        m_corr_gpu->correction_from_covs(results_combined, dT);
 
         // std::cout << "don" << std::endl;
         // el = sw();
@@ -1036,8 +1045,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        static Correction corr;
-        corr.correction_from_covs(results_combined, dT);
+        m_corr_cpu->correction_from_covs(results_combined, dT);
 
         // std::cout << "don" << std::endl;
         // el = sw();
@@ -1156,8 +1164,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        static Correction corr;
-        corr.correction_from_covs(results_combined, dT);
+        m_corr_cpu->correction_from_covs(results_combined, dT);
         // el = sw();
         // el_total += el;
 

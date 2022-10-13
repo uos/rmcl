@@ -1,5 +1,6 @@
 #include "rmcl/math/math.h"
 #include <Eigen/Dense>
+#include <rmagine/util/prints.h>
 
 using namespace rmagine;
 
@@ -31,8 +32,9 @@ void Correction::correction_from_covs(
         if(Ncorr[pid] > 0)
         {
             Matrix3x3 U, V, S;
-            
-            m_svd->calcUV(Cs[pid], U, V);
+            Vector s;
+
+            m_svd->calcUSV(Cs[pid], U, s, V);
 
             S.setIdentity();
             if(U.det() * V.det() < 0)
@@ -40,11 +42,12 @@ void Correction::correction_from_covs(
                 S(2, 2) = -1;
             }
 
-            Quaternion R;
-            R.set(U * S * V.transpose());
-            R.normalize();
-            Tdelta[pid].R = R;
-            Tdelta[pid].t = ds[pid] - R * ms[pid];
+            Transform T;
+            T.R.set(U * S * V.transpose());
+            T.R.normalize();
+            T.t = ds[pid] - T.R * ms[pid];
+
+            Tdelta[pid] = T;
         } else {
             Tdelta[pid].setIdentity();
         }

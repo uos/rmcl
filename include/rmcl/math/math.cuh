@@ -12,8 +12,10 @@ namespace rmcl {
 
 class CorrectionCuda {
 public:
-    CorrectionCuda();
     CorrectionCuda(rmagine::SVDCudaPtr svd);
+    CorrectionCuda();
+    CorrectionCuda(rmagine::CudaStreamPtr stream);
+    CorrectionCuda(rmagine::CudaContextPtr ctx);
 
     void correction_from_covs(
         const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,

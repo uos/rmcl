@@ -6,7 +6,13 @@
 #include <memory>
 #include <unordered_map>
 
+// rmcl core
+#include <rmcl/math/math.h>
 
+// rmcl cuda
+#ifdef RMCL_CUDA
+#include <rmcl/math/math.cuh>
+#endif // RMCL_CUDA
 
 #ifdef RMCL_EMBREE
 #include <rmagine/map/EmbreeMap.hpp>
@@ -127,6 +133,8 @@ private:
 
     std::unordered_map<std::string, MICPRangeSensorPtr> m_sensors;
     
+    
+
     #ifdef RMCL_EMBREE
     rmagine::EmbreeMapPtr m_map_embree;
     #endif // RMCL_EMBREE
@@ -134,6 +142,13 @@ private:
     #ifdef RMCL_OPTIX
     rmagine::OptixMapPtr m_map_optix;
     #endif // RMCL_OPTIX
+
+
+    // correctors: initialized once the map is available
+    CorrectionPtr m_corr_cpu;
+    #ifdef RMCL_CUDA
+    CorrectionCudaPtr m_corr_gpu;
+    #endif // RMCL_CUDA
 };
 
 using MICPPtr = std::shared_ptr<MICP>;

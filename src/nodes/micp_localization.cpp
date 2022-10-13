@@ -123,25 +123,26 @@ void correctOnce()
     // exact copy of poses
     Memory<Transform, VRAM_CUDA> poses_ = poses;
 
-
-    Memory<Transform, RAM> dT(poses.size());
-    Memory<Transform, VRAM_CUDA> dT_(poses.size());
-
     // 0: use CPU to combine sensor corrections
     // 1: use GPU to combine sensor corrections
-    
-
     if(combining_unit == 0)
     { // CPU version
+
+        Memory<Transform, RAM> dT(poses.size());
+
         micp->correct(poses, poses_, dT);
         poses = multNxN(poses, dT);
-    } 
+    }
     else if(combining_unit == 1)
     { // GPU version
+
+        Memory<Transform, VRAM_CUDA> dT_(poses.size());
         micp->correct(poses, poses_, dT_);
         poses_ = multNxN(poses_, dT_);
+        // download
         poses = poses_;
     }
+
 
     // Update T_odom_map
     convert(poses[0], T_base_map.transform);

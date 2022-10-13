@@ -2,6 +2,9 @@
 
 #include <rmagine/math/math.cuh>
 
+#include <rmagine/math/SVD.hpp>
+#include <rmagine/util/prints.h>
+
 using namespace rmagine;
 namespace rm = rmagine;
 
@@ -9,18 +12,31 @@ namespace rm = rmagine;
 namespace rmcl 
 {
 
-CorrectionCuda::CorrectionCuda()
-:m_svd(new SVDCuda)
-{
-
-}
-
 CorrectionCuda::CorrectionCuda(SVDCudaPtr svd)
 :m_svd(svd) 
 {
 
 }
 
+CorrectionCuda::CorrectionCuda()
+:CorrectionCuda(std::make_shared<SVDCuda>())
+{
+
+}
+
+CorrectionCuda::CorrectionCuda(
+    CudaContextPtr ctx)
+:CorrectionCuda(std::make_shared<SVDCuda>(ctx))
+{
+
+}
+
+CorrectionCuda::CorrectionCuda(
+    CudaStreamPtr stream)
+:CorrectionCuda(std::make_shared<SVDCuda>(stream))
+{
+
+}
 
 void CorrectionCuda::correction_from_covs(
     const MemoryView<Vector, VRAM_CUDA>& ms,
@@ -31,7 +47,43 @@ void CorrectionCuda::correction_from_covs(
 {
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
-    m_svd->calcUV(Cs, Us, Vs);
+    // dont need this
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> Ss(Cs.size());
+
+    m_svd->calcUSV(Cs, Us, Ss, Vs);
+    
+    // debug
+    // {
+    //     // Memory<Matrix3x3, RAM> Cs_ = Cs;
+    //     // Memory<Matrix3x3, RAM> Us_(Cs.size());
+    //     // Memory<Matrix3x3, RAM> Vs_(Cs.size());
+
+    //     // static SVD svd;
+    //     // svd.calcUV(Cs_, Us_, Vs_);
+
+    //     // Us = Us_;
+    //     // Vs = Vs_;
+    //     Memory<Matrix3x3, RAM> Cs_       = Cs;
+    //     Memory<Matrix3x3, RAM> Us_       = Us;
+    //     Memory<Vector, RAM> ss_          = ss;
+    //     Memory<Matrix3x3, RAM> Vs_       = Vs;
+    //     Memory<unsigned int, RAM> Ncorr_ = Ncorr;
+
+    //     std::cout << "C:" << std::endl;
+    //     std::cout << Cs_[0] << std::endl;
+
+    //     std::cout << "U:" << std::endl;
+    //     std::cout << Us_[0] << std::endl;
+    //     std::cout << "s:" << std::endl;
+    //     std::cout << ss_[0] << std::endl;
+    //     std::cout << "V:" << std::endl;
+    //     std::cout << Vs_[0] << std::endl;
+    //     std::cout << "Ncorr: " << std::endl;
+    //     std::cout << Ncorr_[0] << std::endl;
+        
+
+    // }
+
     compute_transform(Us, Vs, ds, ms, Tdelta);
 }
 
@@ -70,7 +122,6 @@ Memory<Transform, VRAM_CUDA> CorrectionCuda::correction_from_covs(
 
 
 
-
 __global__
 void compute_transform_kernel(
     const rm::Matrix3x3* Us,
@@ -91,11 +142,16 @@ void compute_transform_kernel(
 
         // output
         rm::Transform T;
+        rm::Matrix3x3 S = rm::Matrix3x3::Identity();
+        if(U.det() * V.det() < 0)
+        {
+            S(2, 2) = -1;
+        }
 
         // computation
-        T.R.set(U * V.transpose());
+        T.R.set(U * S * V.transpose());
         T.R.normalize();
-        T.t = d - T.R * m; 
+        T.t = d - T.R * m;
 
         // write
         dT[pid] = T;
