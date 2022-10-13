@@ -22,7 +22,6 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-
 void MICPRangeSensor::connect()
 {
     if(type == 0) { // Spherical
@@ -233,6 +232,50 @@ void MICPRangeSensor::updateCorrectors()
     #endif // RMCL_OPTIX
 }
 
+void MICPRangeSensor::countValidRanges()
+{
+    n_ranges_valid = 0;
+
+    if(type == 0)
+    {
+        rm::SphericalModel model_ = std::get<0>(model);
+        for(size_t i=0; i<ranges.size(); i++)
+        {
+            if(model_.range.inside(ranges[i]))
+            {
+                n_ranges_valid++;
+            }
+        }
+    } else if(type == 1) {
+        rm::PinholeModel model_ = std::get<1>(model);
+        for(size_t i=0; i<ranges.size(); i++)
+        {
+            if(model_.range.inside(ranges[i]))
+            {
+                n_ranges_valid++;
+            }
+        }
+    } else if(type == 2) {
+        rm::O1DnModel model_ = std::get<2>(model);
+        for(size_t i=0; i<ranges.size(); i++)
+        {
+            if(model_.range.inside(ranges[i]))
+            {
+                n_ranges_valid++;
+            }
+        }
+    } else if(type == 3) {
+        rm::OnDnModel model_ = std::get<3>(model);
+        for(size_t i=0; i<ranges.size(); i++)
+        {
+            if(model_.range.inside(ranges[i]))
+            {
+                n_ranges_valid++;
+            }
+        }
+    }
+}
+
 void MICPRangeSensor::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     CorrectionPreResults<rmagine::RAM>& res)
@@ -285,11 +328,9 @@ void MICPRangeSensor::computeCovs(
         res.Ncorr = res_.Ncorr;
     }
     #endif // RMCL_OPTIX
-
-    // std::cout << "Compute Covs - end" << std::endl;
-
 }
 
+#ifdef RMCL_CUDA
 void MICPRangeSensor::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
     CorrectionPreResults<rmagine::VRAM_CUDA>& res)
@@ -344,7 +385,12 @@ void MICPRangeSensor::computeCovs(
 
     // std::cout << "Compute Covs. done" << std::endl;
 }
+#endif // RMCL_CUDA
 
+void MICPRangeSensor::enableValidRangesCounting(bool enable)
+{
+    count_valid_ranges = enable;
+}
 
 void MICPRangeSensor::sphericalCB(
     const rmcl_msgs::ScanStamped::ConstPtr& msg)
@@ -364,7 +410,9 @@ void MICPRangeSensor::sphericalCB(
     }
     std::copy(msg->scan.ranges.begin(), msg->scan.ranges.end(), ranges.raw());
     // upload
+    #ifdef RMCL_CUDA
     ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // data meta
     data_last_update = msg->header.stamp;
@@ -391,13 +439,19 @@ void MICPRangeSensor::pinholeCB(
     }
     std::copy(msg->depth.ranges.begin(), msg->depth.ranges.end(), ranges.raw());
     // upload
+    #ifdef RMCL_CUDA
     ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // data meta
     data_last_update = msg->header.stamp;
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::o1dnCB(
@@ -417,13 +471,19 @@ void MICPRangeSensor::o1dnCB(
     }
     std::copy(msg->o1dn.ranges.begin(), msg->o1dn.ranges.end(), ranges.raw());
     // upload
+    #ifdef RMCL_CUDA
     ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // data meta
     data_last_update = msg->header.stamp;
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::ondnCB(
@@ -443,13 +503,19 @@ void MICPRangeSensor::ondnCB(
     }
     std::copy(msg->ondn.ranges.begin(), msg->ondn.ranges.end(), ranges.raw());
     // upload
+    #ifdef RMCL_CUDA
     ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // data meta
     data_last_update = msg->header.stamp;
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::pclSphericalCB(
@@ -532,14 +598,21 @@ void MICPRangeSensor::pclSphericalCB(
         }
     }
 
+    
     // upload
+    #ifdef RMCL_CUDA
     ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // data meta
     data_last_update = msg->header.stamp;
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::pclPinholeCB(
@@ -608,13 +681,19 @@ void MICPRangeSensor::pclPinholeCB(
     }
 
     // upload
+    #ifdef RMCL_CUDA
     ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // meta
     data_last_update = msg->header.stamp;
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::laserCB(
@@ -634,14 +713,20 @@ void MICPRangeSensor::laserCB(
         ranges.resize(msg->ranges.size());
     }
     std::copy(msg->ranges.begin(), msg->ranges.end(), ranges.raw());
-    ranges_gpu = ranges;
 
+    #ifdef RMCL_CUDA
+    ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // data meta
     data_last_update = msg->header.stamp;
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::imageCB(
@@ -701,7 +786,9 @@ void MICPRangeSensor::imageCB(
         ROS_WARN_STREAM("Could not convert image of encoding " << msg->encoding);
     }
 
+    #ifdef RMCL_CUDA
     ranges_gpu = ranges;
+    #endif // RMCL_CUDA
 
     // meta
     data_last_update = msg->header.stamp;
@@ -709,6 +796,10 @@ void MICPRangeSensor::imageCB(
 
     // update corrector
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 // info callbacks

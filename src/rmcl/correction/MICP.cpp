@@ -221,7 +221,9 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             {
                 sensor->ranges[i] = (double)ranges_xml[i];
             }
+            #ifdef RMCL_CUDA
             sensor->ranges_gpu = sensor->ranges;
+            #endif // RMCL_CUDA
             sensor->data_received_once = true;
         } else {
             std::cout << "error: 'data/ranges' param is not an array" << std::endl;
@@ -828,10 +830,9 @@ void MICP::loadMap(std::string filename)
     m_corr_gpu = std::make_shared<CorrectionCuda>(); 
     #endif // RMCL_CUDA
     #endif // RMCL_OPTIX
-
-    
 }
 
+#ifdef RMCL_CUDA
 void MICP::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
@@ -857,11 +858,6 @@ void MICP::correct(
         elem.Ncorr.resize(Tbm.size());
     }
 
-    // el = sw();
-    // el_total += el;
-
-    // std::cout << "- init additional mem: " << el * 1000.0 << " ms" << std::endl;
-
     // sw();
     size_t id = 0;
     for(auto elem : m_sensors)
@@ -870,6 +866,7 @@ void MICP::correct(
 
         if(elem.second->data_received_once)
         {
+            #ifdef RMCL_EMBREE
             if(elem.second->backend == 0)
             {
                 CorrectionPreResults<rm::RAM> res;
@@ -886,9 +883,16 @@ void MICP::correct(
                 res_.ds = res.ds;
                 res_.Cs = res.Cs;
                 res_.Ncorr = res.Ncorr;
-            } else if(elem.second->backend == 1) {
+            } else 
+            #endif // RMCL_EMBREE
+            #ifdef RMCL_OPTIX
+            if(elem.second->backend == 1) {
                 // use preuploaded poses as input
                 elem.second->computeCovs(Tbm_, res_);
+            } else
+            #endif // RMCL_OPTIX
+            {
+                std::cout << "backend " << elem.second->backend << " unknown" << std::endl;
             }
 
             // dynamic weights
@@ -902,12 +906,6 @@ void MICP::correct(
 
         id++;
     }
-    // el = sw();
-    // el_total += el;
-
-    // std::cout << "- sensor covs: " << el << " ms" << std::endl;
-    // std::cout << "covs end" << std::endl;
-
     
     if(results.size() > 0)
     {
@@ -924,39 +922,21 @@ void MICP::correct(
         results_combined.Cs.resize(Tbm.size());
         results_combined.Ncorr.resize(Tbm.size());
 
-        // el = sw();
-        // el_total += el;
-        // std::cout << "- merging preprocessing: " << el * 1000.0 << " ms" << std::endl;
-
-        // sw();
         weighted_average(
             results,
             weights,
             results_combined);
 
-
-
-        // el = sw();
-        // el_total += el;
-
-        // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
-        // sw();
         m_corr_gpu->correction_from_covs(results_combined, dT);
-
-        // std::cout << "don" << std::endl;
-        // el = sw();
-        // el_total += el;
-
-        // std::cout << "- C -> dT: " << el * 1000.0 << " ms" << std::endl;
-
-        // std::cout << "- total: " << el_total * 1000.0 << " ms" << std::endl;
     } else {
         std::cout << "0 sensors" << std::endl;
         // set identity
         rm::setIdentity(dT);
     }
 }
+#endif // RMCL_CUDA
 
+#ifdef RMCL_CUDA
 void MICP::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
@@ -981,11 +961,15 @@ void MICP::correct(
         CorrectionPreResults<rm::RAM>& res = results[id];
         if(elem.second->data_received_once)
         {
+            #ifdef RMCL_EMBREE
             if(elem.second->backend == 0)
             {
                 // compute
                 elem.second->computeCovs(Tbm, res);
-            } else if(elem.second->backend == 1) {
+            } else 
+            #endif // RMCL_EMBREE
+            #ifdef RMCL_OPTIX
+            if(elem.second->backend == 1) {
                 CorrectionPreResults<rm::VRAM_CUDA> res_;
                 res_.ms.resize(Tbm.size());
                 res_.ds.resize(Tbm.size());
@@ -1000,7 +984,12 @@ void MICP::correct(
                 res.ds = res_.ds;
                 res.Cs = res_.Cs;
                 res.Ncorr = res_.Ncorr;
+            } else
+            #endif // RMCL_OPTIX
+            {
+                std::cout << "backend " << elem.second->backend << " unknown" << std::endl;
             }
+
 
             // dynamic weights
             float w = elem.second->corr_weight;
@@ -1029,6 +1018,8 @@ void MICP::correct(
         results_combined.Cs.resize(Tbm.size());
         results_combined.Ncorr.resize(Tbm.size());
 
+        // TODO: 
+
         // el = sw();
         // el_total += el;
         // std::cout << "- merging preprocessing: " << el * 1000.0 << " ms" << std::endl;
@@ -1052,7 +1043,6 @@ void MICP::correct(
         // el_total += el;
 
         // std::cout << "- C -> dT: " << el * 1000.0 << " ms" << std::endl;
-
         // std::cout << "- total: " << el_total * 1000.0 << " ms" << std::endl;
     } else {
         std::cout << "0 sensors" << std::endl;
@@ -1062,6 +1052,127 @@ void MICP::correct(
             dT[i] = rm::Transform::Identity();
         }
     }
+}
+#endif // RMCL_CUDA
+
+void MICP::correct(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
+    rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT)
+{
+    #ifdef RMCL_EMBREE
+    rm::Memory<rm::Transform, rm::RAM> Tbm_ = Tbm;
+    #endif // RMCL_EMBREE
+
+    std::vector<CorrectionPreResults<rm::VRAM_CUDA> > results(m_sensors.size());
+    float weight_sum = 0.0;
+    std::vector<float> weights(m_sensors.size());
+
+    for(auto& elem : results)
+    {
+        elem.ms.resize(Tbm.size());
+        elem.ds.resize(Tbm.size());
+        elem.Cs.resize(Tbm.size());
+        elem.Ncorr.resize(Tbm.size());
+    }
+
+
+    size_t id = 0;
+    for(auto elem : m_sensors)
+    {
+        if(elem.second->data_received_once)
+        {
+            CorrectionPreResults<rm::VRAM_CUDA>& res = results[id];
+
+            #ifdef RMCL_EMBREE
+            if(elem.second->backend == 0)
+            {
+                CorrectionPreResults<rm::RAM> res_;
+
+                res_.ms.resize(Tbm.size());
+                res_.ds.resize(Tbm.size());
+                res_.Cs.resize(Tbm.size());
+                res_.Ncorr.resize(Tbm.size());
+
+                elem.second->computeCovs(Tbm_, res_);
+
+                // download
+                res.ms = res_.ms;
+                res.ds = res_.ds;
+                res.Cs = res_.Cs;
+                res.Ncorr = res_.Ncorr;
+            } else
+            #endif // RMCL_EMBREE
+            #ifdef RMCL_OPTIX
+            if(elem.second->backend == 1) {
+                // use preuploaded poses as input
+                elem.second->computeCovs(Tbm, res);
+            } else
+            #endif // RMCL_OPTIX
+            {
+                std::cout << "backend " << elem.second->backend << " unknown" << std::endl;
+            }
+
+            // dynamic weights
+            float w = elem.second->corr_weight;
+            weight_sum += w;
+            weights[id] = w;
+        } else {
+            weights[id] = 0.0;
+            std::cout << "WARNING: " << elem.second->name << " still not received data" << std::endl;
+        }
+
+        id++;
+    }
+
+
+
+    if(results.size() > 0)
+    {
+        // normalize weights
+        // sw();
+        for(size_t i=0; i<weights.size(); i++)
+        {
+            weights[i] /= weight_sum;
+        }
+
+        CorrectionPreResults<rm::VRAM_CUDA> results_combined;
+        results_combined.ms.resize(Tbm.size());
+        results_combined.ds.resize(Tbm.size());
+        results_combined.Cs.resize(Tbm.size());
+        results_combined.Ncorr.resize(Tbm.size());
+        
+        // el = sw();
+        // el_total += el;
+        // std::cout << "- merging preprocessing: " << el * 1000.0 << " ms" << std::endl;
+
+        // sw();
+        weighted_average(
+            results,
+            weights,
+            results_combined);
+
+        // TODO: adjust parameters if enabled
+
+        // el = sw();
+        // el_total += el;
+
+        // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
+
+        // sw();
+        m_corr_gpu->correction_from_covs(results_combined, dT);
+        // el = sw();
+        // el_total += el;
+
+        // std::cout << "- C -> dT: " << el * 1000.0 << " ms" << std::endl;
+    } else {
+        // std::cout << "0 sensors" << std::endl;
+        // set identity
+        for(size_t i=0; i<dT.size(); i++)
+        {
+            dT[i] = rm::Transform::Identity();
+        }
+    }
+
 
 }
 
@@ -1076,39 +1187,50 @@ void MICP::correct(
     // std::cout << "-----------------" << std::endl;
     
     // sw();
+    #ifdef RMCL_OPTIX
     rm::Memory<rm::Transform, rm::VRAM_CUDA> Tbm_ = Tbm;
+    #endif // RMCL_OPTIX
 
-    CorrectionPreResults<rm::VRAM_CUDA> res_;
-    res_.ms.resize(Tbm.size());
-    res_.ds.resize(Tbm.size());
-    res_.Cs.resize(Tbm.size());
-    res_.Ncorr.resize(Tbm.size());
-    
-
-    std::vector<CorrectionPreResults<rm::RAM> > results;
+    std::vector<CorrectionPreResults<rm::RAM> > results(m_sensors.size());
     float weight_sum = 0.0;
-    std::vector<float> weights;
+    std::vector<float> weights(m_sensors.size());
+
+    for(auto& elem : results)
+    {
+        elem.ms.resize(Tbm.size());
+        elem.ds.resize(Tbm.size());
+        elem.Cs.resize(Tbm.size());
+        elem.Ncorr.resize(Tbm.size());
+    }
+
     // el = sw();
     // el_total += el;
     
     // std::cout << "- preprocessing: " << el * 1000.0 << " ms" << std::endl;
 
     // sw();
+    size_t id = 0;
     for(auto elem : m_sensors)
     {
         if(elem.second->data_received_once)
         {
-            CorrectionPreResults<rm::RAM> res;
+            CorrectionPreResults<rm::RAM>& res = results[id];
 
+            #ifdef RMCL_EMBREE
             if(elem.second->backend == 0)
             {
-                res.ms.resize(Tbm.size());
-                res.ds.resize(Tbm.size());
-                res.Cs.resize(Tbm.size());
-                res.Ncorr.resize(Tbm.size());
-
                 elem.second->computeCovs(Tbm, res);
-            } else if(elem.second->backend == 1) {
+            } else
+            #endif // RMCL_EMBREE
+            #ifdef RMCL_OPTIX
+            if(elem.second->backend == 1) {
+
+                CorrectionPreResults<rm::VRAM_CUDA> res_;
+                res_.ms.resize(Tbm.size());
+                res_.ds.resize(Tbm.size());
+                res_.Cs.resize(Tbm.size());
+                res_.Ncorr.resize(Tbm.size());
+                
                 // use preuploaded poses as input
                 elem.second->computeCovs(Tbm_, res_);
 
@@ -1117,18 +1239,22 @@ void MICP::correct(
                 res.ds = res_.ds;
                 res.Cs = res_.Cs;
                 res.Ncorr = res_.Ncorr;
+            } else
+            #endif // RMCL_OPTIX
+            {
+                std::cout << "backend " << elem.second->backend << " unknown" << std::endl;
             }
-
-            results.push_back(res);
 
             // dynamic weights
             float w = elem.second->corr_weight;
-
             weight_sum += w;
-            weights.push_back(w);
+            weights[id] = w;
         } else {
+            weights[id] = 0.0;
             std::cout << "WARNING: " << elem.second->name << " still not received data" << std::endl;
         }
+
+        id++;
     }
     // el = sw();
     // el_total += el;
@@ -1158,6 +1284,9 @@ void MICP::correct(
             results,
             weights,
             results_combined);
+
+        // TODO: adjust parameters if enabled
+
         // el = sw();
         // el_total += el;
 
@@ -1178,14 +1307,6 @@ void MICP::correct(
         }
     }
     // std::cout << "- total: " << el_total * 1000.0 << " ms" << std::endl;
-}
-
-rmagine::Memory<rmagine::Transform, rmagine::RAM> MICP::correct(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm)
-{
-    rm::Memory<rm::Transform, rm::RAM> dT(Tbm.size());
-    correct(Tbm, dT);
-    return dT;
 }
 
 bool MICP::checkTF(bool prints)

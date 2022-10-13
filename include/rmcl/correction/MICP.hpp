@@ -80,33 +80,35 @@ public:
 
     void loadMap(std::string filename);
 
-
+    #ifdef RMCL_CUDA
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
         rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
+    #endif // RMCL_CUDA
 
+    #ifdef RMCL_CUDA
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
         rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& dT);
+    #endif // RMCL_CUDA
 
-    // void correct(
-    //     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
-    //     rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
+    #ifdef RMCL_CUDA
+    void correct(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
+        rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
+    #endif // RMCL_CUDA
 
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
         rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& dT);
-
-    rmagine::Memory<rmagine::Transform, rmagine::RAM> correct(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm);
-
 
     inline std::unordered_map<std::string, MICPRangeSensorPtr> sensors()
     {
         return m_sensors;
     }
+
 protected:
     bool checkTF(bool prints = false);
 

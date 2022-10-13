@@ -94,12 +94,16 @@ public: // TODO: dont have everything public
 
     // data    
     rmagine::Memory<float, rmagine::RAM>        ranges;
+    #ifdef RMCL_CUDA
     rmagine::Memory<float, rmagine::VRAM_CUDA>  ranges_gpu;
+    #endif // RMCL_CUDA
 
     // data meta
     bool        data_received_once = false;
     ros::Time   data_last_update;
     float       data_frequency_est; // currently unused
+    bool        count_valid_ranges = false;
+    size_t      n_ranges_valid = 0;
 
     
     // subscriber to data
@@ -132,7 +136,7 @@ public: // TODO: dont have everything public
     OnDnCorrectorOptixPtr       corr_ondn_optix;
     #endif // RMCL_OPTIX
 
-
+    // connect to topics
     void connect();
 
     // called once every new data message
@@ -144,10 +148,16 @@ public: // TODO: dont have everything public
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         CorrectionPreResults<rmagine::RAM>& res);
 
+    #ifdef RMCL_CUDA
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
         CorrectionPreResults<rmagine::VRAM_CUDA>& res);
+    #endif // RMCL_CUDA
 
+    void enableValidRangesCounting(bool enable = true);
+
+protected:
+    void countValidRanges();
 
     // callbacks
     // internal rmcl msgs

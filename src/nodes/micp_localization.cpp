@@ -216,7 +216,13 @@ int main(int argc, char** argv)
     map_frame = "map";
 
 
-    // nh_p.param<double>("micp/tf_")
+    nh_p.param<std::string>("base_frame", base_frame, "base_link");
+    nh_p.param<std::string>("odom_frame", odom_frame, "odom");
+    nh_p.param<std::string>("map_frame",  map_frame,  "map");
+
+    nh_p.param<double>("tf_rate", tf_rate, 50.0);
+
+    nh_p.param<double>("micp/corr_rate_max", corr_rate_max, 10000.0);
 
     std::string combining_unit_str;
     nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
