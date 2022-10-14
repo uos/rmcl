@@ -117,8 +117,9 @@ public: // TODO: dont have everything public
 
     TFBufferPtr  tf_buffer;
 
-
+    CorrectionParams            corr_params_init;
     CorrectionParams            corr_params;
+    float                       adaptive_max_dist_min = 0.15;
     float                       corr_weight = 1.0;
 
     // correction: TODO better
@@ -164,9 +165,11 @@ public: // TODO: dont have everything public
 
     void enableValidRangesCounting(bool enable = true);
 
-protected:
     void countValidRanges();
 
+    void adaptCorrectionParams(float match_ratio, float adaption_rate);
+
+protected:
     // callbacks
     // internal rmcl msgs
     void sphericalCB(

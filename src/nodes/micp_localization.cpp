@@ -26,6 +26,11 @@ std::string odom_frame;
 bool has_odom_frame = true;
 std::string base_frame;
 
+// this should be attached to each sensor instead
+bool adaptive_max_dist = false;
+float adaptive_max_dist_min = 0.15;
+
+
 // Estimate this
 geometry_msgs::TransformStamped T_odom_map;
 Transform Tom;
@@ -126,25 +131,71 @@ void correctOnce()
     // exact copy of poses
     Memory<Transform, VRAM_CUDA> poses_ = poses;
 
+    Transform dT0;
+    unsigned int ncorr0;
+
     // 0: use CPU to combine sensor corrections
     // 1: use GPU to combine sensor corrections
     if(combining_unit == 0)
     { // CPU version
 
         Memory<Transform, RAM> dT(poses.size());
+        CorrectionPreResults<RAM> covs;
 
-        micp->correct(poses, poses_, dT);
+        micp->correct(poses, poses_, covs, dT);
         poses = multNxN(poses, dT);
+        dT0 = dT[0];
     }
     else if(combining_unit == 1)
     { // GPU version
 
         Memory<Transform, VRAM_CUDA> dT_(poses.size());
-        micp->correct(poses, poses_, dT_);
+        CorrectionPreResults<VRAM_CUDA> covs_;
+
+        micp->correct(poses, poses_, covs_, dT_);
         poses_ = multNxN(poses_, dT_);
         // download
         poses = poses_;
+        Memory<Transform, RAM> dT = dT_(0,1);
+        Memory<unsigned int, RAM> Ncorr = covs_.Ncorr(0,1);
+        dT0 = dT[0];
+        ncorr0 = Ncorr[0];
     }
+
+    if(adaptive_max_dist)
+    {
+        float trans_force = dT0.t.l2norm();
+        float trans_progress = 1.0 / exp(10.0 * trans_force);
+
+        Quaternion qunit;
+        qunit.setIdentity();
+        float qscalar = dT0.R.dot(qunit);
+        float rot_progress = qscalar * qscalar;
+
+        
+        unsigned int n_valid_ranges = 0;
+        unsigned int n_total_ranges = 0;
+        for(auto elem : micp->sensors())
+        {
+            n_valid_ranges += elem.second->n_ranges_valid;
+            n_total_ranges += elem.second->ranges.size();
+        }
+
+        float match_ratio = static_cast<float>(ncorr0) / static_cast<float>(n_valid_ranges);
+        float adaption_rate = trans_progress * rot_progress * match_ratio;
+        
+        
+        // std::cout << "match ratio = " << match_ratio << ", adaption rate = " << adaption_rate << std::endl;
+        for(auto elem : micp->sensors())
+        {
+            elem.second->adaptCorrectionParams(match_ratio, adaption_rate);
+            // std::cout << "- " << elem.first << " - adapt correction params to max_distance = " << elem.second->corr_params.max_distance << std::endl;
+        }
+    }
+    
+
+
+
 
 
     // Update T_odom_map
@@ -248,6 +299,9 @@ int main(int argc, char** argv)
     odom_frame = "odom";
     map_frame = "map";
 
+    adaptive_max_dist = true;
+
+
 
     nh_p.param<std::string>("base_frame", base_frame, "base_link");
     nh_p.param<std::string>("odom_frame", odom_frame, "odom");
@@ -256,6 +310,8 @@ int main(int argc, char** argv)
     nh_p.param<double>("tf_rate", tf_rate, 50.0);
 
     nh_p.param<double>("micp/corr_rate_max", corr_rate_max, 10000.0);
+
+    nh_p.param<bool>("micp/adaptive_max_dist", adaptive_max_dist, true);
 
     std::string combining_unit_str;
     nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
@@ -269,6 +325,8 @@ int main(int argc, char** argv)
         combining_unit = 1;
     } else {
         // ERROR
+        std::cout << "Combining Unit: " << combining_unit_str << " unknown!" << std::endl;
+        return 0;
     }
 
     initial_pose_offset = Transform::Identity();
@@ -304,11 +362,21 @@ int main(int argc, char** argv)
 
     init();
 
+    
+
     tf_buffer.reset(new tf2_ros::Buffer);
     tf_listener.reset(new tf2_ros::TransformListener(*tf_buffer));
 
     micp = std::make_shared<MICP>();
     micp->loadParams();
+
+    if(adaptive_max_dist)
+    {
+        for(auto elem : micp->sensors())
+        {
+            elem.second->enableValidRangesCounting();
+        }
+    }
 
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
     ros::Subscriber pose_wc_sub = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);

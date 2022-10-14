@@ -19,9 +19,7 @@ micp:
   combining_unit: gpu
   corr_rate_max: 1000
 
-  # to sensors?
-  adaptive_max_dist: True
-  adaptive_max_dist_min: 0.15
+  adaptive_max_dist: True # enable adaptive max dist
 
   # TESTING 
   # async performance
@@ -47,7 +45,8 @@ sensors: # list of range sensors - at least one is required
       theta_N: 440
     micp:
       max_dist: 0.5
-      weight: 10
+      adaptive_max_dist_min: 0.15
+      weight: 1
       backend: optix
   # sick:
   #   topic: scan
@@ -80,7 +79,8 @@ sensors: # list of range sensors - at least one is required
               [ 0.0,  0.0, -1.0]]
     micp:
       max_dist: 1.0
-      weight: 1
+      adaptive_max_dist_min: 0.2
+      weight: 10
       backend: optix
   # dont_drive_through_walls:
   #   ranges: [0.0]

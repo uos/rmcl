@@ -688,14 +688,34 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         {
             auto max_dist_xml = micp_xml["max_dist"];
             if(max_dist_xml.getType() == XmlRpc::XmlRpcValue::TypeDouble) {
-                sensor->corr_params.max_distance = (double)max_dist_xml;
+                sensor->corr_params_init.max_distance = (double)max_dist_xml;
             } else if(max_dist_xml.getType() == XmlRpc::XmlRpcValue::TypeInt) {
-                sensor->corr_params.max_distance = (int)max_dist_xml;
+                sensor->corr_params_init.max_distance = (int)max_dist_xml;
             } else {
                 // ERROR
                 std::cout << "Could not load 'micp/max_dist'" << std::endl;
             }
         }
+        sensor->corr_params = sensor->corr_params_init;
+
+
+        if(micp_xml.hasMember("adaptive_max_dist_min"))
+        {
+            auto ada_max_dist_min_xml = micp_xml["adaptive_max_dist_min"];
+            if(ada_max_dist_min_xml.getType() == XmlRpc::XmlRpcValue::TypeDouble) {
+                sensor->adaptive_max_dist_min = (double)ada_max_dist_min_xml;
+            } else 
+            if(ada_max_dist_min_xml.getType() == XmlRpc::XmlRpcValue::TypeInt) {
+                sensor->adaptive_max_dist_min = (int)ada_max_dist_min_xml;
+            } else {
+                // ERROR
+                std::cout << "Could not load 'micp/adaptive_max_dist_min'" << std::endl;
+            }
+        }
+
+        // if(micp_xml.hasMember(""))
+
+        
 
         if(micp_xml.hasMember("weight"))
         {
@@ -759,57 +779,32 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     #ifdef RMCL_EMBREE
     if(sensor->type == 0) // spherical
     {
-        SphereCorrectorEmbreePtr corr = std::make_shared<SphereCorrectorEmbree>(m_map_embree);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<0>(sensor->model));
-        sensor->corr_sphere_embree = corr;
+        sensor->corr_sphere_embree = std::make_shared<SphereCorrectorEmbree>(m_map_embree);
     } else if(sensor->type == 1) {
-        PinholeCorrectorEmbreePtr corr = std::make_shared<PinholeCorrectorEmbree>(m_map_embree);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<1>(sensor->model));
-        corr->setOptical(sensor->optical_coordinates);
-        sensor->corr_pinhole_embree = corr;
+        sensor->corr_pinhole_embree = std::make_shared<PinholeCorrectorEmbree>(m_map_embree);;
     } else if(sensor->type == 2) {
-        O1DnCorrectorEmbreePtr corr = std::make_shared<O1DnCorrectorEmbree>(m_map_embree);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<2>(sensor->model));
-        sensor->corr_o1dn_embree = corr;
+        sensor->corr_o1dn_embree = std::make_shared<O1DnCorrectorEmbree>(m_map_embree);
     } else if(sensor->type == 3) {
-        OnDnCorrectorEmbreePtr corr = std::make_shared<OnDnCorrectorEmbree>(m_map_embree);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<3>(sensor->model));
-        sensor->corr_ondn_embree = corr;
+        sensor->corr_ondn_embree = std::make_shared<OnDnCorrectorEmbree>(m_map_embree);
     }
     #endif // RMCL_EMBREE
 
     #ifdef RMCL_OPTIX
     if(sensor->type == 0) // spherical
     {
-        SphereCorrectorOptixPtr corr = std::make_shared<SphereCorrectorOptix>(m_map_optix);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<0>(sensor->model));
-        sensor->corr_sphere_optix = corr;
+        sensor->corr_sphere_optix = std::make_shared<SphereCorrectorOptix>(m_map_optix);
     } else if(sensor->type == 1) {
-        PinholeCorrectorOptixPtr corr = std::make_shared<PinholeCorrectorOptix>(m_map_optix);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<1>(sensor->model));
-        corr->setOptical(sensor->optical_coordinates);
-        sensor->corr_pinhole_optix = corr;
+        sensor->corr_pinhole_optix = std::make_shared<PinholeCorrectorOptix>(m_map_optix);
     } else if(sensor->type == 2) {
-        O1DnCorrectorOptixPtr corr = std::make_shared<O1DnCorrectorOptix>(m_map_optix);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<2>(sensor->model));
-        sensor->corr_o1dn_optix = corr;
+        sensor->corr_o1dn_optix = std::make_shared<O1DnCorrectorOptix>(m_map_optix);
     } else if(sensor->type == 3) {
-        OnDnCorrectorOptixPtr corr = std::make_shared<OnDnCorrectorOptix>(m_map_optix);
-        corr->setParams(sensor->corr_params);
-        corr->setModel(std::get<3>(sensor->model));
-        sensor->corr_ondn_optix = corr;
+        sensor->corr_ondn_optix = std::make_shared<OnDnCorrectorOptix>(m_map_optix);
     }
     #endif // RMCL_OPTIX
 
     sensor->fetchTF();
     sensor->updateCorrectors();
+    sensor->countValidRanges();
     
     return true;
 }
@@ -867,6 +862,7 @@ void MICP::setMap(rmagine::OptixMapPtr map)
 void MICP::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
+    CorrectionPreResults<rm::VRAM_CUDA>& pre_res,
     rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT)
 {
     // std::cout << "correct runtimes: " << std::endl;
@@ -947,18 +943,22 @@ void MICP::correct(
             weights[i] /= weight_sum;
         }
 
-        CorrectionPreResults<rm::VRAM_CUDA> results_combined;
-        results_combined.ms.resize(Tbm.size());
-        results_combined.ds.resize(Tbm.size());
-        results_combined.Cs.resize(Tbm.size());
-        results_combined.Ncorr.resize(Tbm.size());
+        // CorrectionPreResults<rm::VRAM_CUDA> results_combined;
+        // pre_res;
+        if(pre_res.ms.size() < Tbm.size())
+        {
+            pre_res.ms.resize(Tbm.size());
+            pre_res.ds.resize(Tbm.size());
+            pre_res.Cs.resize(Tbm.size());
+            pre_res.Ncorr.resize(Tbm.size());
+        }
 
         weighted_average(
             results,
             weights,
-            results_combined);
+            pre_res);
 
-        m_corr_gpu->correction_from_covs(results_combined, dT);
+        m_corr_gpu->correction_from_covs(pre_res, dT);
     } else {
         std::cout << "0 sensors" << std::endl;
         // set identity
@@ -971,6 +971,7 @@ void MICP::correct(
 void MICP::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
+    CorrectionPreResults<rmagine::RAM>& pre_res,
     rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& dT)
 {
     // extra memory
@@ -1043,11 +1044,14 @@ void MICP::correct(
             weights[i] /= weight_sum;
         }
 
-        CorrectionPreResults<rm::RAM> results_combined;
-        results_combined.ms.resize(Tbm.size());
-        results_combined.ds.resize(Tbm.size());
-        results_combined.Cs.resize(Tbm.size());
-        results_combined.Ncorr.resize(Tbm.size());
+
+        if(pre_res.ms.size() < Tbm.size())
+        {
+            pre_res.ms.resize(Tbm.size());
+            pre_res.ds.resize(Tbm.size());
+            pre_res.Cs.resize(Tbm.size());
+            pre_res.Ncorr.resize(Tbm.size());
+        }
 
         // TODO: 
 
@@ -1059,7 +1063,7 @@ void MICP::correct(
         weighted_average(
             results,
             weights,
-            results_combined);
+            pre_res);
 
         // el = sw();
         // el_total += el;
@@ -1067,7 +1071,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        m_corr_cpu->correction_from_covs(results_combined, dT);
+        m_corr_cpu->correction_from_covs(pre_res, dT);
 
         // std::cout << "don" << std::endl;
         // el = sw();

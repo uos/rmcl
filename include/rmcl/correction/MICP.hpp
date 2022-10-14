@@ -84,6 +84,7 @@ public:
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
+        CorrectionPreResults<rmagine::VRAM_CUDA>& pre_res,
         rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
     #endif // RMCL_CUDA
 
@@ -91,6 +92,7 @@ public:
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm_,
+        CorrectionPreResults<rmagine::RAM>& pre_res,
         rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& dT);
     #endif // RMCL_CUDA
 

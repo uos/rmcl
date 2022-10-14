@@ -192,6 +192,7 @@ void MICPRangeSensor::updateCorrectors()
         corr_pinhole_embree->setParams(corr_params);
         corr_pinhole_embree->setModel(std::get<1>(model));
         corr_pinhole_embree->setInputData(ranges);
+        corr_pinhole_embree->setOptical(optical_coordinates);
         corr_pinhole_embree->setTsb(Tsb);
     } else if(corr_o1dn_embree) {
         corr_o1dn_embree->setParams(corr_params);
@@ -217,6 +218,7 @@ void MICPRangeSensor::updateCorrectors()
         corr_pinhole_optix->setParams(corr_params);
         corr_pinhole_optix->setModel(std::get<1>(model));
         corr_pinhole_optix->setInputData(ranges_gpu);
+        corr_pinhole_optix->setOptical(optical_coordinates);
         corr_pinhole_optix->setTsb(Tsb);
     } else if(corr_o1dn_optix) {
         corr_o1dn_optix->setParams(corr_params);
@@ -306,6 +308,13 @@ void MICPRangeSensor::countValidRanges()
             }
         }
     }
+}
+
+void MICPRangeSensor::adaptCorrectionParams(
+    float match_ratio, 
+    float adaption_rate)
+{
+    corr_params.max_distance = corr_params_init.max_distance + (adaptive_max_dist_min - corr_params_init.max_distance) * adaption_rate;
 }
 
 void MICPRangeSensor::computeCovs(
