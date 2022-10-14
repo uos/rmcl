@@ -2,7 +2,10 @@
 
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
+#include <rmagine/math/math.h>
+#ifdef RMCL_CUDA
 #include <rmagine/math/math.cuh>
+#endif // RMCL_CUDA
 
 #include <rmcl/correction/MICP.hpp>
 #include <rmcl/util/conversions.h>
@@ -128,39 +131,43 @@ void correctOnce()
         poses[i] = Tbm;
     }
 
-    // exact copy of poses
-    Memory<Transform, VRAM_CUDA> poses_ = poses;
-
     Transform dT0;
-    unsigned int ncorr0;
+    unsigned int ncorr0 = 0;
 
-    // 0: use CPU to combine sensor corrections
-    // 1: use GPU to combine sensor corrections
-    if(combining_unit == 0)
-    { // CPU version
+    #ifdef RMCL_CUDA
+        // exact copy of poses
+        Memory<Transform, VRAM_CUDA> poses_ = poses;
 
-        Memory<Transform, RAM> dT(poses.size());
-        CorrectionPreResults<RAM> covs;
+        // 0: use CPU to combine sensor corrections
+        // 1: use GPU to combine sensor corrections
+        if(combining_unit == 0)
+        { // CPU version
 
-        micp->correct(poses, poses_, covs, dT);
-        poses = multNxN(poses, dT);
-        dT0 = dT[0];
-    }
-    else if(combining_unit == 1)
-    { // GPU version
+            Memory<Transform, RAM> dT(poses.size());
+            CorrectionPreResults<RAM> covs;
 
-        Memory<Transform, VRAM_CUDA> dT_(poses.size());
-        CorrectionPreResults<VRAM_CUDA> covs_;
+            micp->correct(poses, poses_, covs, dT);
+            poses = multNxN(poses, dT);
+            dT0 = dT[0];
+        }
+        else if(combining_unit == 1)
+        { // GPU version
 
-        micp->correct(poses, poses_, covs_, dT_);
-        poses_ = multNxN(poses_, dT_);
-        // download
-        poses = poses_;
-        Memory<Transform, RAM> dT = dT_(0,1);
-        Memory<unsigned int, RAM> Ncorr = covs_.Ncorr(0,1);
-        dT0 = dT[0];
-        ncorr0 = Ncorr[0];
-    }
+            Memory<Transform, VRAM_CUDA> dT_(poses.size());
+            CorrectionPreResults<VRAM_CUDA> covs_;
+
+            micp->correct(poses, poses_, covs_, dT_);
+            poses_ = multNxN(poses_, dT_);
+            // download
+            poses = poses_;
+            Memory<Transform, RAM> dT = dT_(0,1);
+            Memory<unsigned int, RAM> Ncorr = covs_.Ncorr(0,1);
+            dT0 = dT[0];
+            ncorr0 = Ncorr[0];
+        }
+    #else // RMCL_CUDA
+    // TODO
+    #endif // RMCL_CUDA
 
     if(adaptive_max_dist)
     {
@@ -192,19 +199,12 @@ void correctOnce()
             // std::cout << "- " << elem.first << " - adapt correction params to max_distance = " << elem.second->corr_params.max_distance << std::endl;
         }
     }
-    
-
-
-
-
 
     // Update T_odom_map
 
     Tom = poses[0] * ~Tbo;
     convert(Tom, T_odom_map.transform);
 }
-
-
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame

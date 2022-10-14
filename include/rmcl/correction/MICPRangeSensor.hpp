@@ -10,6 +10,8 @@
 #include <tf2_ros/transform_listener.h>
 #include <image_transport/image_transport.h>
 
+#include <rmcl/correction/CorrectionParams.hpp>
+#include <rmcl/correction/CorrectionResults.hpp>
 
 #ifdef RMCL_EMBREE
 #include <rmagine/map/EmbreeMap.hpp>
@@ -20,6 +22,9 @@
 #include <rmcl/correction/OnDnCorrectorEmbree.hpp>
 #endif // RMCL_EMBREE
 
+#ifdef RMCL_CUDA
+#include <rmagine/types/MemoryCuda.hpp>
+#endif // RMCL_CUDA
 
 #ifdef RMCL_OPTIX
 #include <rmagine/map/OptixMap.hpp>

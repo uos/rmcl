@@ -5,7 +5,6 @@ option(BUILD_EXAMPLES OFF)
 option(BUILD_EXPERIMENTAL OFF)
 option(BUILD_CONV ON)
 
-
 add_compile_options(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -39,6 +38,15 @@ include_directories(
 
 find_package(rmagine REQUIRED)
 include_directories(${rmagine_INCLUDE_DIRS})
+
+if(rmagine_embree_FOUND)
+    option(DISABLE_EMBREE "Disable Rmagine Embree backend Compilation" False)
+endif()
+
+if(rmagine_optix_FOUND)
+    option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" True)
+endif()
+
 
 find_package(Eigen3 REQUIRED)
 
@@ -99,7 +107,7 @@ target_link_libraries(rmcl_ros
 )
 
 # EMBREE
-if(${rmagine_embree_FOUND})
+if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
 
     add_library(rmcl_embree
         # Correction
@@ -116,8 +124,6 @@ if(${rmagine_embree_FOUND})
         rmcl
     )
 
-    add_definitions(-DRMCL_EMBREE)
-
     add_library(rmcl_embree_ros
         src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
         src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
@@ -129,6 +135,9 @@ if(${rmagine_embree_FOUND})
         ${catkin_LIBRARIES}
         rmcl_embree
     )
+
+    add_definitions(-DRMCL_EMBREE)
+    set(RMCL_EMBREE True)
 endif()
 
 # CUDA
@@ -151,9 +160,10 @@ if(${rmagine_cuda_FOUND})
     )
 
     add_definitions(-DRMCL_CUDA)
+    set(RMCL_CUDA True)
 endif()
 
-if(${rmagine_optix_FOUND})
+if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
     # Build optix related stuff
 
     set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")
@@ -242,14 +252,10 @@ if(${rmagine_optix_FOUND})
     )
 
     add_definitions(-DRMCL_OPTIX)
+    set(RMCL_OPTIX True)
 endif()
 
-
 ## Nodes 
-
-
-
-
 
 ##############
 #### MICP ####
@@ -269,9 +275,26 @@ add_dependencies(micp_localization
 ## Specify libraries to link a library or executable target against
 target_link_libraries(micp_localization
     ${catkin_LIBRARIES}
-    rmcl_embree_ros
-    rmcl_optix_ros
+    rmcl_ros
 )
+
+if(RMCL_EMBREE)
+    target_link_libraries(micp_localization
+        rmcl_embree_ros
+    )
+endif(RMCL_EMBREE)
+    
+if(RMCL_CUDA)
+    target_link_libraries(micp_localization
+        rmcl_cuda
+    )
+endif(RMCL_CUDA)
+
+if(RMCL_OPTIX)
+    target_link_libraries(micp_localization
+        rmcl_optix_ros
+    )
+endif(RMCL_OPTIX)
 
 ########################
 ### CONVERSION NODES ###
@@ -332,9 +355,6 @@ endif()
 
 
 ### TESTS ###
-
-
-
 
 # ###### CORRECTION CPU #######
 # add_executable(lidar_corrector_embree src/nodes/lidar_corrector_embree.cpp)

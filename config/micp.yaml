@@ -5,20 +5,17 @@ map_frame: map
 # optional
 odom_frame: odom # required, TODO: optional - recommended
 
-# adjust max distance dependend of the state of localization
-
-# rates
 # rate of broadcasting tf transformations
 tf_rate: 50
-# maximum number of correction steps per second
-# lower this to decrease the correction speed but save energy 
-
 
 micp:
   # merging on gpu or cpu
   combining_unit: gpu
+  # maximum number of correction steps per second
+  # lower this to decrease the correction speed but save energy 
   corr_rate_max: 1000
 
+  # adjust max distance dependend of the state of localization
   adaptive_max_dist: True # enable adaptive max dist
 
   # TESTING 

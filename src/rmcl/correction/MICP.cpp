@@ -713,10 +713,6 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             }
         }
 
-        // if(micp_xml.hasMember(""))
-
-        
-
         if(micp_xml.hasMember("weight"))
         {
             auto weight_xml = micp_xml["weight"];
