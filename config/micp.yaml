@@ -11,7 +11,7 @@ invert_tf: True
 
 micp:
   # merging on gpu or cpu
-  combining_unit: gpu
+  combining_unit: cpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
   corr_rate_max: 1000
@@ -46,7 +46,7 @@ sensors: # list of range sensors - at least one is required
       max_dist: 1.0
       adaptive_max_dist_min: 0.15
       weight: 10
-      backend: optix
+      backend: embree
   # sick:
   #   topic: scan
   #   micp:
@@ -59,28 +59,28 @@ sensors: # list of range sensors - at least one is required
   #     max_dist: 0.5
   #     weight: 2.0
   #     backend: optix
-  wheels: # pull robot to the mesh
-    ranges: [0.2, 0.2, 0.2, 0.2]
-    type: ondn
-    frame: base_footprint
-    model:
-      width: 4
-      height: 1
-      range_min: 0.0
-      range_max: 10.0
-      origs: [[ 0.2,  0.15,  0.2], # front left 
-              [ 0.2, -0.15,  0.2], # front right
-              [-0.2,  0.15,  0.2], # rear left
-              [-0.2, -0.15,  0.2]] # rear right
-      dirs:  [[ 0.0,  0.0, -1.0],
-              [ 0.0,  0.0, -1.0],
-              [ 0.0,  0.0, -1.0],
-              [ 0.0,  0.0, -1.0]]
-    micp:
-      max_dist: 1.0
-      adaptive_max_dist_min: 0.2
-      weight: 1
-      backend: optix
+  # wheels: # pull robot to the mesh
+  #   ranges: [0.2, 0.2, 0.2, 0.2]
+  #   type: ondn
+  #   frame: base_footprint
+  #   model:
+  #     width: 4
+  #     height: 1
+  #     range_min: 0.0
+  #     range_max: 10.0
+  #     origs: [[ 0.2,  0.15,  0.2], # front left 
+  #             [ 0.2, -0.15,  0.2], # front right
+  #             [-0.2,  0.15,  0.2], # rear left
+  #             [-0.2, -0.15,  0.2]] # rear right
+  #     dirs:  [[ 0.0,  0.0, -1.0],
+  #             [ 0.0,  0.0, -1.0],
+  #             [ 0.0,  0.0, -1.0],
+  #             [ 0.0,  0.0, -1.0]]
+  #   micp:
+  #     max_dist: 1.0
+  #     adaptive_max_dist_min: 0.2
+  #     weight: 1
+  #     backend: optix
   # dont_drive_through_walls:
   #   ranges: [0.0]
   #   type: ondn

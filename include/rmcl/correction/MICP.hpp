@@ -99,11 +99,13 @@ public:
     #ifdef RMCL_CUDA
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
+        CorrectionPreResults<rmagine::VRAM_CUDA>& pre_res,
         rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT);
     #endif // RMCL_CUDA
 
     void correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbm,
+        CorrectionPreResults<rmagine::RAM>& pre_res,
         rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& dT);
 
     inline std::unordered_map<std::string, MICPRangeSensorPtr> sensors()

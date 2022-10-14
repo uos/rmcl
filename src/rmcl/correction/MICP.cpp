@@ -1089,6 +1089,7 @@ void MICP::correct(
 #ifdef RMCL_CUDA
 void MICP::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
+    CorrectionPreResults<rmagine::VRAM_CUDA>& pre_res,
     rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT)
 {
     #ifdef RMCL_EMBREE
@@ -1166,11 +1167,14 @@ void MICP::correct(
             weights[i] /= weight_sum;
         }
 
-        CorrectionPreResults<rm::VRAM_CUDA> results_combined;
-        results_combined.ms.resize(Tbm.size());
-        results_combined.ds.resize(Tbm.size());
-        results_combined.Cs.resize(Tbm.size());
-        results_combined.Ncorr.resize(Tbm.size());
+        
+        if(pre_res.ms.size() < Tbm.size())
+        {
+            pre_res.ms.resize(Tbm.size());
+            pre_res.ds.resize(Tbm.size());
+            pre_res.Cs.resize(Tbm.size());
+            pre_res.Ncorr.resize(Tbm.size());
+        }
         
         // el = sw();
         // el_total += el;
@@ -1180,7 +1184,7 @@ void MICP::correct(
         weighted_average(
             results,
             weights,
-            results_combined);
+            pre_res);
 
         // TODO: adjust parameters if enabled
 
@@ -1190,7 +1194,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        m_corr_gpu->correction_from_covs(results_combined, dT);
+        m_corr_gpu->correction_from_covs(pre_res, dT);
         // el = sw();
         // el_total += el;
 
@@ -1208,6 +1212,7 @@ void MICP::correct(
 
 void MICP::correct(
     const rm::MemoryView<rm::Transform, rm::RAM>& Tbm,
+    CorrectionPreResults<rm::RAM>& pre_res,
     rm::MemoryView<rm::Transform, rm::RAM>& dT)
 {
     // rm::StopWatch sw;
@@ -1272,7 +1277,7 @@ void MICP::correct(
             } else
             #endif // RMCL_OPTIX
             {
-                std::cout << "backend " << elem.second->backend << " unknown" << std::endl;
+                std::cout << elem.second->name << " - backend " << elem.second->backend << " unknown" << std::endl;
             }
 
             // dynamic weights
@@ -1299,11 +1304,13 @@ void MICP::correct(
             weights[i] /= weight_sum;
         }
 
-        CorrectionPreResults<rm::RAM> results_combined;
-        results_combined.ms.resize(Tbm.size());
-        results_combined.ds.resize(Tbm.size());
-        results_combined.Cs.resize(Tbm.size());
-        results_combined.Ncorr.resize(Tbm.size());
+        if(pre_res.ms.size() < Tbm.size())
+        {
+            pre_res.ms.resize(Tbm.size());
+            pre_res.ds.resize(Tbm.size());
+            pre_res.Cs.resize(Tbm.size());
+            pre_res.Ncorr.resize(Tbm.size());
+        }
         
         // el = sw();
         // el_total += el;
@@ -1313,7 +1320,7 @@ void MICP::correct(
         weighted_average(
             results,
             weights,
-            results_combined);
+            pre_res);
 
         // TODO: adjust parameters if enabled
 
@@ -1323,7 +1330,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        m_corr_cpu->correction_from_covs(results_combined, dT);
+        m_corr_cpu->correction_from_covs(pre_res, dT);
         // el = sw();
         // el_total += el;
 

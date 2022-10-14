@@ -60,9 +60,7 @@ bool stop_correction_thread = false;
 TFBufferPtr tf_buffer;
 TFListenerPtr tf_listener;
 
-
 bool pose_received = false;
-
 
 
 void fetchTF()
@@ -182,7 +180,24 @@ void correctOnce()
             ncorr0 = Ncorr[0];
         }
     #else // RMCL_CUDA
-    // TODO
+        
+        // 0: use CPU to combine sensor corrections
+        // 1: use GPU to combine sensor corrections
+        if(combining_unit == 0)
+        { // CPU version
+
+            Memory<Transform, RAM> dT(poses.size());
+            CorrectionPreResults<RAM> covs;
+
+            micp->correct(poses, covs, dT);
+            poses = multNxN(poses, dT);
+            dT0 = dT[0];
+        }
+        else if(combining_unit == 1)
+        { // GPU version
+
+            std::cout << "ERROR: combining unit " << combining_unit << " not available" << std::endl;
+        }
     #endif // RMCL_CUDA
 
     if(adaptive_max_dist)

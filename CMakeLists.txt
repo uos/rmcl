@@ -43,6 +43,10 @@ if(rmagine_embree_FOUND)
     option(DISABLE_EMBREE "Disable Rmagine Embree backend Compilation" FALSE)
 endif()
 
+if(rmagine_cuda_FOUND)
+    option(DISABLE_CUDA "Disable CUDA related compilations" FALSE)
+endif()
+
 if(rmagine_optix_FOUND)
     option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
@@ -141,7 +145,7 @@ if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
 endif()
 
 # CUDA
-if(${rmagine_cuda_FOUND})
+if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
     # Build cuda related stuff
     find_package(CUDA)
 
