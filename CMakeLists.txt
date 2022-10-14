@@ -40,11 +40,11 @@ find_package(rmagine REQUIRED)
 include_directories(${rmagine_INCLUDE_DIRS})
 
 if(rmagine_embree_FOUND)
-    option(DISABLE_EMBREE "Disable Rmagine Embree backend Compilation" False)
+    option(DISABLE_EMBREE "Disable Rmagine Embree backend Compilation" FALSE)
 endif()
 
 if(rmagine_optix_FOUND)
-    option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" True)
+    option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
 

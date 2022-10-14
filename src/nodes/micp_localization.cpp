@@ -43,6 +43,8 @@ std::mutex                      T_odom_map_mutex;
 geometry_msgs::TransformStamped T_base_odom;
 Transform Tbo;
 
+bool invert_tf = false;
+
 
 Transform initial_pose_offset;
 unsigned int combining_unit = 1;
@@ -69,12 +71,11 @@ void fetchTF()
     {
         try{
             T_base_odom = tf_buffer->lookupTransform(odom_frame, base_frame, ros::Time(0));
-        
             // std::cout << T_base_odom.child_frame_id << " -> " << T_base_odom.header.frame_id << std::endl;
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
-            ROS_WARN_STREAM("Source: " << base_frame << ", Target: " << odom_frame);
+            ROS_WARN_STREAM("Source (Base): " << base_frame << ", Target (Odom): " << odom_frame);
             return;
         }
     } else {
@@ -103,17 +104,32 @@ void updateTF()
     if(has_odom_frame)
     {
         // With EKF and base_frame: Send odom to map
-        T = T_odom_map;
-        T.header.frame_id = map_frame;
-        T.child_frame_id = odom_frame;
+        if(!invert_tf)
+        {
+            convert(Tom, T.transform);
+            T.header.frame_id = map_frame;
+            T.child_frame_id = odom_frame;
+        } else {
+            convert(~Tom, T.transform);
+            T.header.frame_id = odom_frame;
+            T.child_frame_id = map_frame;
+        }
     } else {
         // With base but no EKF: send base to map
         auto Tbm = Tom * Tbo;
-        convert(Tbm, T.transform);
+        if(!invert_tf)
+        {
+            convert(Tbm, T.transform);
+            T.header.frame_id = map_frame;
+            T.child_frame_id = base_frame;
+        } else {
+            convert(~Tbm, T.transform);
+            T.header.frame_id = base_frame;
+            T.child_frame_id = map_frame;
+        }
     }
 
     T.header.stamp = ros::Time::now();
-
     br.sendTransform(T);
 }
 
@@ -295,6 +311,7 @@ int main(int argc, char** argv)
 
     double tf_rate = 50.0;
     double corr_rate_max = 200.0;
+    bool print_corr_rate = false;
     base_frame = "base_footprint";
     odom_frame = "odom";
     map_frame = "map";
@@ -308,8 +325,10 @@ int main(int argc, char** argv)
     nh_p.param<std::string>("map_frame",  map_frame,  "map");
 
     nh_p.param<double>("tf_rate", tf_rate, 50.0);
+    nh_p.param<bool>("invert_tf", invert_tf, false);
 
     nh_p.param<double>("micp/corr_rate_max", corr_rate_max, 10000.0);
+    nh_p.param<bool>("micp/print_corr_rate", print_corr_rate, false);
 
     nh_p.param<bool>("micp/adaptive_max_dist", adaptive_max_dist, true);
 
@@ -383,7 +402,7 @@ int main(int argc, char** argv)
 
     // CORRECTION THREAD
     stop_correction_thread = false;
-    correction_thread = std::thread([corr_rate_max]()
+    correction_thread = std::thread([corr_rate_max, print_corr_rate]()
     {
         StopWatch sw;
         double el;
@@ -401,7 +420,10 @@ int main(int argc, char** argv)
             {
                 std::this_thread::sleep_for(std::chrono::duration<double>(el_left));
             }
-            // std::cout << "Current Correction Rate: " << el << " s" << ", " << 1.0/el << " hz" << std::endl;
+            if(print_corr_rate)
+            {
+                std::cout << "Current Correction Rate: " << el << " s" << ", " << 1.0/el << " hz" << std::endl;
+            }
         }
 
         stop_correction_thread = false;
