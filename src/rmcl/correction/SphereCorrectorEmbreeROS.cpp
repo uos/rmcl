@@ -31,7 +31,7 @@ void SphereCorrectorEmbreeROS::setModelAndInputData(
     const rmcl_msgs::Scan& scan)
 {
     setModel(scan.info);
-    setInputData(scan.ranges);
+    setInputData(scan.data.ranges);
 }
 
 void SphereCorrectorEmbreeROS::setTsb(const geometry_msgs::Transform& Tsb)

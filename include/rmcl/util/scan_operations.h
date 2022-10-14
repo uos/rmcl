@@ -48,13 +48,13 @@ static void fill(
     rmagine::SphericalModel model;
     convert(scan.info, model);
     
-    scan.ranges.resize(ranges.size());
+    scan.data.ranges.resize(ranges.size());
     for(unsigned int vid = 0; vid < model.getHeight(); vid++)
     {
         for(unsigned int hid = 0; hid < model.getWidth(); hid++)
         {
             const unsigned int loc_id = model.getBufferId(vid, hid);
-            scan.ranges[loc_id] = ranges[loc_id];
+            scan.data.ranges[loc_id] = ranges[loc_id];
         }
     }
 }
@@ -64,13 +64,13 @@ static void fillEmpty(rmcl_msgs::Scan& scan)
     rmagine::SphericalModel model;
     convert(scan.info, model);
     
-    scan.ranges.resize(model.size());
+    scan.data.ranges.resize(model.size());
     for(unsigned int vid = 0; vid < model.getHeight(); vid++)
     {
         for(unsigned int hid = 0; hid < model.getWidth(); hid++)
         {
             const unsigned int loc_id = model.getBufferId(vid, hid);
-            scan.ranges[loc_id] = scan.info.range_max + 1.0;
+            scan.data.ranges[loc_id] = scan.info.range_max + 1.0;
         }
     }
 }

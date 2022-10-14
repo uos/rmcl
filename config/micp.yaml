@@ -3,13 +3,9 @@ base_frame: base_footprint
 map_frame: map
 
 # optional
-odom_frame: odom # optional - recommended
-
-
-
+odom_frame: odom # required, TODO: optional - recommended
 
 # adjust max distance dependend of the state of localization
-
 
 # rates
 # rate of broadcasting tf transformations
@@ -21,7 +17,7 @@ tf_rate: 50
 micp:
   # merging on gpu or cpu
   combining_unit: gpu
-  corr_rate_max: 1
+  corr_rate_max: 1000
 
   # to sensors?
   adaptive_max_dist: True
@@ -37,22 +33,22 @@ micp:
 
 # describe your sensor setup here
 sensors: # list of range sensors - at least one is required
-  # velodyne:
-  #   topic: velodyne_points
-  #   type: spherical
-  #   model:
-  #     range_min: 0.5
-  #     range_max: 130.0
-  #     phi_min: -0.261799067259
-  #     phi_inc: 0.03490658503988659
-  #     phi_N: 16
-  #     theta_min: -3.14159011841
-  #     theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
-  #     theta_N: 440
-  #   micp:
-  #     max_dist: 0.5
-  #     weight: 10
-  #     backend: optix
+  velodyne:
+    topic: velodyne_points
+    type: spherical
+    model:
+      range_min: 0.5
+      range_max: 130.0
+      phi_min: -0.261799067259
+      phi_inc: 0.03490658503988659
+      phi_N: 16
+      theta_min: -3.14159011841
+      theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
+      theta_N: 440
+    micp:
+      max_dist: 0.5
+      weight: 10
+      backend: optix
   # sick:
   #   topic: scan
   #   micp:

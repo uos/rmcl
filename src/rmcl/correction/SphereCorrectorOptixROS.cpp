@@ -32,7 +32,7 @@ void SphereCorrectorOptixROS::setInputData(const std::vector<float>& ranges)
 void SphereCorrectorOptixROS::setModelAndInputData(const rmcl_msgs::Scan& scan)
 {
     setModel(scan.info);
-    setInputData(scan.ranges);
+    setInputData(scan.data.ranges);
 }
 
 void SphereCorrectorOptixROS::setTsb(const geometry_msgs::Transform& Tsb)

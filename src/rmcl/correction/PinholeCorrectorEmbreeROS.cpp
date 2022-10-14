@@ -31,7 +31,7 @@ void PinholeCorrectorEmbreeROS::setModelAndInputData(
     const rmcl_msgs::Depth& depth)
 {
     setModel(depth.info);
-    setInputData(depth.ranges);
+    setInputData(depth.data.ranges);
 }
 
 void PinholeCorrectorEmbreeROS::setTsb(const geometry_msgs::Transform& Tsb)

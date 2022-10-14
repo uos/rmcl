@@ -198,7 +198,7 @@ void convert(
         for(size_t hid = 0; hid < model.getWidth(); hid++)
         {
             const unsigned int pid = model.getBufferId(vid, hid);
-            const float range = scan.ranges[pid];
+            const float range = scan.data.ranges[pid];
 
             if(model.range.inside(range))
             {
@@ -252,10 +252,10 @@ void convert(
     scan_out.scan.info.phi_min = 0.0;
     scan_out.scan.info.phi_inc = 0.1;
 
-    scan_out.scan.ranges.resize(scan_in.ranges.size());
+    scan_out.scan.data.ranges.resize(scan_in.ranges.size());
     for(size_t i=0; i<scan_in.ranges.size(); i++)
     {
-        scan_out.scan.ranges[i] = scan_in.ranges[i];
+        scan_out.scan.data.ranges[i] = scan_in.ranges[i];
     }
 }
 

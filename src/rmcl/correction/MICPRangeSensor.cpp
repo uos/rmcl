@@ -404,11 +404,11 @@ void MICPRangeSensor::sphericalCB(
     model = model_;
 
     // data
-    if(ranges.size() < msg->scan.ranges.size())
+    if(ranges.size() < msg->scan.data.ranges.size())
     {
-        ranges.resize(msg->scan.ranges.size());
+        ranges.resize(msg->scan.data.ranges.size());
     }
-    std::copy(msg->scan.ranges.begin(), msg->scan.ranges.end(), ranges.raw());
+    std::copy(msg->scan.data.ranges.begin(), msg->scan.data.ranges.end(), ranges.raw());
     // upload
     #ifdef RMCL_CUDA
     ranges_gpu = ranges;
@@ -433,11 +433,11 @@ void MICPRangeSensor::pinholeCB(
     model = model_;
 
     // data
-    if(ranges.size() < msg->depth.ranges.size())
+    if(ranges.size() < msg->depth.data.ranges.size())
     {
-        ranges.resize(msg->depth.ranges.size());
+        ranges.resize(msg->depth.data.ranges.size());
     }
-    std::copy(msg->depth.ranges.begin(), msg->depth.ranges.end(), ranges.raw());
+    std::copy(msg->depth.data.ranges.begin(), msg->depth.data.ranges.end(), ranges.raw());
     // upload
     #ifdef RMCL_CUDA
     ranges_gpu = ranges;
@@ -465,11 +465,11 @@ void MICPRangeSensor::o1dnCB(
     model = model_;
 
     // data
-    if(ranges.size() < msg->o1dn.ranges.size())
+    if(ranges.size() < msg->o1dn.data.ranges.size())
     {
-        ranges.resize(msg->o1dn.ranges.size());
+        ranges.resize(msg->o1dn.data.ranges.size());
     }
-    std::copy(msg->o1dn.ranges.begin(), msg->o1dn.ranges.end(), ranges.raw());
+    std::copy(msg->o1dn.data.ranges.begin(), msg->o1dn.data.ranges.end(), ranges.raw());
     // upload
     #ifdef RMCL_CUDA
     ranges_gpu = ranges;
@@ -497,11 +497,11 @@ void MICPRangeSensor::ondnCB(
     model = model_;
 
     // data
-    if(ranges.size() < msg->ondn.ranges.size())
+    if(ranges.size() < msg->ondn.data.ranges.size())
     {
-        ranges.resize(msg->ondn.ranges.size());
+        ranges.resize(msg->ondn.data.ranges.size());
     }
-    std::copy(msg->ondn.ranges.begin(), msg->ondn.ranges.end(), ranges.raw());
+    std::copy(msg->ondn.data.ranges.begin(), msg->ondn.data.ranges.end(), ranges.raw());
     // upload
     #ifdef RMCL_CUDA
     ranges_gpu = ranges;
@@ -597,8 +597,8 @@ void MICPRangeSensor::pclSphericalCB(
             }
         }
     }
-
     
+
     // upload
     #ifdef RMCL_CUDA
     ranges_gpu = ranges;

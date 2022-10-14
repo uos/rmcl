@@ -33,7 +33,7 @@ void PinholeCorrectorOptixROS::setInputData(const std::vector<float>& ranges)
 void PinholeCorrectorOptixROS::setModelAndInputData(const rmcl_msgs::Depth& depth)
 {
     setModel(depth.info);
-    setInputData(depth.ranges);
+    setInputData(depth.data.ranges);
 }
 
 void PinholeCorrectorOptixROS::setTsb(const geometry_msgs::Transform& Tsb)

@@ -36,15 +36,20 @@ MICP::MICP()
     std::cout << "    --- BACKENDS ---    " << std::endl;
     std::cout << "-------------------------" << std::endl;
 
-    std::cout << "Available backends:" << std::endl;
+    std::cout << "Available computing units:" << std::endl;
+    std::cout << "- " << TC_BACKENDS << "CPU" << TC_END << std::endl;
+    #ifdef RMCL_CUDA
+    std::cout << "- " << TC_BACKENDS << "GPU" << TC_END << std::endl; 
+    #endif // RMCL_CUDA
 
+    std::cout << "Available raytracing backends:" << std::endl;
     #ifdef RMCL_EMBREE
-    std::cout << "- " << TC_BACKENDS << "CPU (Embree)" << TC_END << std::endl;
-    #endif
+    std::cout << "- " << TC_BACKENDS << "Embree (CPU)" << TC_END << std::endl;
+    #endif // RMCL_EMBREE
 
     #ifdef RMCL_OPTIX
-    std::cout << "- " << TC_BACKENDS << "GPU (Optix)" << TC_END << std::endl;
-    #endif
+    std::cout << "- " << TC_BACKENDS << "Optix (GPU)" << TC_END << std::endl;
+    #endif // RMCL_OPTIX
 }
 
 MICP::~MICP()
@@ -94,18 +99,18 @@ void MICP::loadParams()
     
 }
 
-template<typename T>
-inline T get_as(const XmlRpc::XmlRpcValue& v)
-{
-    if(v.getType() == XmlRpc::XmlRpcValue::TypeDouble)
-    {
-        double tmp = v;
-        return static_cast<T>(tmp);
-    } else if(v.getType() == XmlRpc::XmlRpcValue::TypeInt) {
-        int tmp = v;
-        return static_cast<T>(tmp);
-    }
-}
+// template<typename T>
+// inline T get_as(const XmlRpc::XmlRpcValue& v)
+// {
+//     if(v.getType() == XmlRpc::XmlRpcValue::TypeDouble)
+//     {
+//         double tmp = v;
+//         return static_cast<T>(tmp);
+//     } else if(v.getType() == XmlRpc::XmlRpcValue::TypeInt) {
+//         int tmp = v;
+//         return static_cast<T>(tmp);
+//     }
+// }
 
 bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params)
 {
@@ -711,7 +716,6 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     } else {
         // taking fastest
         // order speed descending here
-        
         #ifdef RMCL_EMBREE
         sensor->backend = 0;
         #endif // RMCL_EMBREE
@@ -739,9 +743,6 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     ////////////////////////
     //// 2. POSTPROCESS ////
     ////////////////////////
-
-
-    
 
     // postcheck
     // check if optical: _optical suffix
@@ -1055,6 +1056,7 @@ void MICP::correct(
 }
 #endif // RMCL_CUDA
 
+#ifdef RMCL_CUDA
 void MICP::correct(
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbm,
     rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& dT)
@@ -1125,7 +1127,6 @@ void MICP::correct(
     }
 
 
-
     if(results.size() > 0)
     {
         // normalize weights
@@ -1172,9 +1173,8 @@ void MICP::correct(
             dT[i] = rm::Transform::Identity();
         }
     }
-
-
 }
+#endif // RMCL_CUDA
 
 void MICP::correct(
     const rm::MemoryView<rm::Transform, rm::RAM>& Tbm,
@@ -1434,6 +1434,20 @@ void MICP::checkTopic(
             }
         } else if(info.msg == "rmcl_msgs/DepthStamped") {
             auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(info.name, *m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "rmcl_msgs/O1DnStamped") {
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnStamped>(info.name, *m_nh, timeout_inner);
+            if(msg)
+            {
+                info.data = true;
+                info.frame = msg->header.frame_id;
+            }
+        } else if(info.msg == "rmcl_msgs/OnDnStamped") {
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnStamped>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
