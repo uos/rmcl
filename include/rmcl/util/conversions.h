@@ -19,7 +19,6 @@
 #include <geometry_msgs/Transform.h>
 #include <geometry_msgs/Pose.h>
 
-#include <Eigen/Dense>
 #include <rmagine/types/Memory.hpp>
 
 #include <rmagine/math/types.h>
@@ -83,10 +82,6 @@ void convert(
 void convert(
     const rmcl_msgs::ScanStamped& scan, 
     sensor_msgs::PointCloud& cloud);
-
-void convert(
-    const rmagine::Memory<Eigen::Vector3f, rmagine::RAM>& from,
-    std::vector<geometry_msgs::Point32>& to);
 
 void convert(
     const sensor_msgs::LaserScan& scan_in, 

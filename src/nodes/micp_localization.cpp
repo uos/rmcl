@@ -16,15 +16,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2_ros/transform_broadcaster.h>
 
-// rosmath
-#include <rosmath/sensor_msgs/conversions.h>
-#include <rosmath/sensor_msgs/math.h>
-#include <rosmath/eigen/conversions.h>
-
-
 using namespace rmcl;
 using namespace rmagine;
-using namespace rosmath;
 
 MICPPtr micp;
 
@@ -35,9 +28,12 @@ std::string base_frame;
 
 // Estimate this
 geometry_msgs::TransformStamped T_odom_map;
+Transform Tom;
 std::mutex                      T_odom_map_mutex;
+
 // dynamic: ekf
 geometry_msgs::TransformStamped T_base_odom;
+Transform Tbo;
 
 
 Transform initial_pose_offset;
@@ -65,10 +61,12 @@ void fetchTF()
     {
         try{
             T_base_odom = tf_buffer->lookupTransform(odom_frame, base_frame, ros::Time(0));
+        
+            // std::cout << T_base_odom.child_frame_id << " -> " << T_base_odom.header.frame_id << std::endl;
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
-            ROS_WARN_STREAM("Source: " << odom_frame << ", Target: " << base_frame);
+            ROS_WARN_STREAM("Source: " << base_frame << ", Target: " << odom_frame);
             return;
         }
     } else {
@@ -82,6 +80,8 @@ void fetchTF()
         T_base_odom.transform.rotation.z = 0.0;
         T_base_odom.transform.rotation.w = 1.0;
     }
+
+    convert(T_base_odom.transform, Tbo);
 }
 
 
@@ -96,9 +96,12 @@ void updateTF()
     {
         // With EKF and base_frame: Send odom to map
         T = T_odom_map;
+        T.header.frame_id = map_frame;
+        T.child_frame_id = odom_frame;
     } else {
         // With base but no EKF: send base to map
-        T = T_odom_map * T_base_odom;
+        auto Tbm = Tom * Tbo;
+        convert(Tbm, T.transform);
     }
 
     T.header.stamp = ros::Time::now();
@@ -112,12 +115,12 @@ void correctOnce()
     std::lock_guard<std::mutex> guard(T_odom_map_mutex);
 
     // 1. Get Base in Map
-    geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
+    Transform Tbm = Tom * Tbo;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
     {
-        convert(T_base_map.transform, poses[i]);
+        poses[i] = Tbm;
     }
 
     // exact copy of poses
@@ -145,8 +148,9 @@ void correctOnce()
 
 
     // Update T_odom_map
-    convert(poses[0], T_base_map.transform);
-    T_odom_map = T_base_map * ~T_base_odom;
+
+    Tom = poses[0] * ~Tbo;
+    convert(Tom, T_odom_map.transform);
 }
 
 
@@ -175,13 +179,16 @@ void poseCB(geometry_msgs::PoseStamped msg)
     Transform Tbm = Tpm * initial_pose_offset;
 
     // set T_base_map
-    geometry_msgs::TransformStamped T_base_map;
-    T_base_map.header.frame_id = map_frame;
-    T_base_map.child_frame_id = base_frame;
-    convert(Tbm, T_base_map.transform);
+    // geometry_msgs::TransformStamped T_base_map;
+    // T_base_map.header.frame_id = map_frame;
+    // T_base_map.child_frame_id = base_frame;
+    // convert(Tbm, T_base_map.transform);
+
+    Tom = Tbm * ~Tbo;
+
 
     // fetchTF();
-    T_odom_map = T_base_map * ~T_base_odom;
+    // T_odom_map = T_base_map * ~T_base_odom;
 }
 
 void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
@@ -201,6 +208,32 @@ void correct()
         fetchTF();
         correctOnce();
     }
+}
+
+void init()
+{
+    T_odom_map.header.frame_id = map_frame;
+    T_odom_map.child_frame_id = odom_frame;
+    T_odom_map.transform.translation.x = 0.0;
+    T_odom_map.transform.translation.y = 0.0;
+    T_odom_map.transform.translation.z = 0.0;
+    T_odom_map.transform.rotation.x = 0.0;
+    T_odom_map.transform.rotation.y = 0.0;
+    T_odom_map.transform.rotation.z = 0.0;
+    T_odom_map.transform.rotation.w = 1.0;
+    Tom = Transform::Identity();
+
+    
+    T_base_odom.header.frame_id = odom_frame;
+    T_base_odom.child_frame_id = base_frame;
+    T_base_odom.transform.translation.x = 0.0;
+    T_base_odom.transform.translation.y = 0.0;
+    T_base_odom.transform.translation.z = 0.0;
+    T_base_odom.transform.rotation.x = 0.0;
+    T_base_odom.transform.rotation.y = 0.0;
+    T_base_odom.transform.rotation.z = 0.0;
+    T_base_odom.transform.rotation.w = 1.0;
+    Tbo = Transform::Identity();
 }
 
 int main(int argc, char** argv)
@@ -269,6 +302,7 @@ int main(int argc, char** argv)
         }
     }
 
+    init();
 
     tf_buffer.reset(new tf2_ros::Buffer);
     tf_listener.reset(new tf2_ros::TransformListener(*tf_buffer));

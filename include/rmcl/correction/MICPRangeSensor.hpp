@@ -82,7 +82,7 @@ public: // TODO: dont have everything public
     unsigned int         backend = 0;
 
     // model
-    // 0: spherical, 1: pinhole, 2: O1Dn, 3: OnDn 
+    // 0: Spherical, 1: Pinhole, 2: O1Dn, 3: OnDn 
     unsigned int         type;
     SensorModelV         model;
     // model meta
@@ -142,6 +142,14 @@ public: // TODO: dont have everything public
     // called once every new data message
     void fetchTF();
     void updateCorrectors();
+
+    #ifdef RMCL_EMBREE
+    void setMap(rmagine::EmbreeMapPtr map);
+    #endif // RMCL_EMBREE
+
+    #ifdef RMCL_OPTIX
+    void setMap(rmagine::OptixMapPtr map);
+    #endif // RMCL_OPTIX
 
     // do corrections depending on the current sensor state
     void computeCovs(

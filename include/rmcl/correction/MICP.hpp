@@ -55,14 +55,6 @@
 namespace rmcl
 {
 
-// ROS related renamings
-// using NodeHandlePtr = std::shared_ptr<ros::NodeHandle>;
-// using SubscriberPtr = std::shared_ptr<ros::Subscriber>;
-// using ImageTransportPtr = std::shared_ptr<image_transport::ImageTransport>;
-// using ITSubscriberPtr = std::shared_ptr<image_transport::Subscriber>;
-// using TFBufferPtr = std::shared_ptr<tf2_ros::Buffer>;
-// using TFListenerPtr = std::shared_ptr<tf2_ros::TransformListener>;
-
 /**
  * @brief 
  * 
@@ -79,6 +71,14 @@ public:
         XmlRpc::XmlRpcValue sensor_params);
 
     void loadMap(std::string filename);
+    
+    #ifdef RMCL_EMBREE
+    void setMap(rmagine::EmbreeMapPtr map);
+    #endif // RMCL_EMBREE
+
+    #ifdef RMCL_OPTIX
+    void setMap(rmagine::OptixMapPtr map);
+    #endif // RMCL_OPTIX
 
     #ifdef RMCL_CUDA
     void correct(
@@ -178,20 +178,5 @@ using MICPPtr = std::shared_ptr<MICP>;
 #define TC_FRAME    TC_MAGENTA
 #define TC_MSG      TC_WHITE
 #define TC_BACKENDS TC_BLUE
-
-
-// inline std::ostream& operator<<(
-//     std::ostream& os,
-//     const rmcl::MICPRangeSensor& sensor)
-// {
-//     // if(sensor.data_topic.name != "")
-//     // {
-//     //     os << "  - topic:\t\t" << TC_TOPIC << sensor.data_topic.name << TC_END << std::endl;
-//     // }
-    
-
-
-//     return os;
-// }
 
 #endif // RMCL_CORRECTION_MICP_HPP

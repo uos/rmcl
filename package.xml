@@ -16,27 +16,21 @@
     <build_depend>sensor_msgs</build_depend>
     <build_depend>tf2_ros</build_depend>
     <build_depend>dynamic_reconfigure</build_depend>
-    <build_depend>mesh_msgs</build_depend>
     <build_depend>rmcl_msgs</build_depend>
-    <build_depend>rosmath</build_depend>
     <build_depend>image_transport</build_depend>
     <build_export_depend>roscpp</build_export_depend>
     <build_export_depend>geometry_msgs</build_export_depend>
     <build_export_depend>sensor_msgs</build_export_depend>
     <build_export_depend>tf2_ros</build_export_depend>
     <build_export_depend>dynamic_reconfigure</build_export_depend>
-    <build_export_depend>mesh_msgs</build_export_depend>
     <build_export_depend>rmcl_msgs</build_export_depend>
-    <build_export_depend>rosmath</build_export_depend>
     <build_export_depend>image_transport</build_export_depend>
     <exec_depend>roscpp</exec_depend>
     <exec_depend>geometry_msgs</exec_depend>
     <exec_depend>sensor_msgs</exec_depend>
     <exec_depend>tf2_ros</exec_depend>
     <exec_depend>dynamic_reconfigure</exec_depend>
-    <exec_depend>mesh_msgs</exec_depend>
     <exec_depend>rmcl_msgs</exec_depend>
-    <exec_depend>rosmath</exec_depend>
     <exec_depend>image_transport</exec_depend>
 
     <!-- The export tag contains other, unspecified, tags -->

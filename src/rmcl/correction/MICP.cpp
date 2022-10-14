@@ -818,13 +818,14 @@ void MICP::loadMap(std::string filename)
 {
     #ifdef RMCL_EMBREE
     m_map_embree = rm::importEmbreeMap(filename);
-    #endif // RMCL_EMBREE
-
+    setMap(m_map_embree);
+    #else 
     m_corr_cpu = std::make_shared<Correction>();
+    #endif // RMCL_EMBREE
 
     #ifdef RMCL_OPTIX
     m_map_optix = rm::importOptixMap(filename);
-    m_corr_gpu = std::make_shared<CorrectionCuda>(m_map_optix->scene()->stream());
+    setMap(m_map_optix);
     #else
     #ifdef RMCL_CUDA
     // initialize cuda correction without optix
@@ -832,6 +833,35 @@ void MICP::loadMap(std::string filename)
     #endif // RMCL_CUDA
     #endif // RMCL_OPTIX
 }
+
+#ifdef RMCL_EMBREE
+void MICP::setMap(rmagine::EmbreeMapPtr map)
+{
+    m_map_embree = map;
+    m_corr_cpu = std::make_shared<Correction>();
+
+    // update sensors
+    for(auto elem : m_sensors)
+    {
+        elem.second->setMap(map);
+    }
+}
+#endif // RMCL_EMBREE
+
+#ifdef RMCL_OPTIX
+void MICP::setMap(rmagine::OptixMapPtr map)
+{
+    m_map_optix = map;
+    m_corr_gpu = std::make_shared<CorrectionCuda>(m_map_optix->scene()->stream());
+    
+    // update sensors
+    for(auto elem : m_sensors)
+    {
+        elem.second->setMap(map);
+    }
+}
+#endif // RMCL_OPTIX
+
 
 #ifdef RMCL_CUDA
 void MICP::correct(

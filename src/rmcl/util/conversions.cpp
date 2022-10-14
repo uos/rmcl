@@ -222,19 +222,6 @@ void convert(
 }
 
 void convert(
-    const rmagine::Memory<Eigen::Vector3f, rmagine::RAM>& from,
-    std::vector<geometry_msgs::Point32>& to)
-{
-    to.resize(from.size());
-    for(size_t i=0; i<from.size(); i++)
-    {
-        to[i].x = from[i].x();
-        to[i].y = from[i].y();
-        to[i].z = from[i].z();
-    }
-}
-
-void convert(
     const sensor_msgs::LaserScan& scan_in, 
     rmcl_msgs::ScanStamped& scan_out)
 {

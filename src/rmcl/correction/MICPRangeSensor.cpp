@@ -232,6 +232,38 @@ void MICPRangeSensor::updateCorrectors()
     #endif // RMCL_OPTIX
 }
 
+#ifdef RMCL_EMBREE
+void MICPRangeSensor::setMap(rmagine::EmbreeMapPtr map)
+{
+    if(corr_sphere_embree)
+    {
+        corr_sphere_embree->setMap(map);
+    } else if(corr_pinhole_embree) {
+        corr_pinhole_embree->setMap(map);
+    } else if(corr_o1dn_embree) {
+        corr_o1dn_embree->setMap(map);
+    } else if(corr_ondn_embree) {
+        corr_ondn_embree->setMap(map);
+    }
+}
+#endif // RMCL_EMBREE
+
+#ifdef RMCL_OPTIX
+void MICPRangeSensor::setMap(rmagine::OptixMapPtr map)
+{
+    if(corr_sphere_optix)
+    {
+        corr_sphere_optix->setMap(map);
+    } else if(corr_pinhole_optix) {
+        corr_pinhole_optix->setMap(map);
+    } else if(corr_o1dn_optix) {
+        corr_o1dn_optix->setMap(map);
+    } else if(corr_ondn_optix) {
+        corr_ondn_optix->setMap(map);
+    }
+}
+#endif // RMCL_OPTIX
+
 void MICPRangeSensor::countValidRanges()
 {
     n_ranges_valid = 0;

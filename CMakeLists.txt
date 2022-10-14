@@ -28,9 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     tf2_ros
     dynamic_reconfigure
-    mesh_msgs
     rmcl_msgs
-    rosmath
     image_transport
     depth_image_proc
 )
@@ -63,7 +61,6 @@ catkin_package(
         sensor_msgs
         tf2_ros
         rmcl_msgs
-        rosmath
     DEPENDS 
         rmagine
 )
@@ -116,7 +113,6 @@ if(${rmagine_embree_FOUND})
         ${rmagine_LIBRARY}
         ${rmagine_embree_LIBRARY}
         ${rmagine_ext_LIBRARIES}
-        Eigen3::Eigen
         rmcl
     )
 
