@@ -1,0 +1,56 @@
+# required
+base_frame: base_footprint
+map_frame: map
+odom_frame: odom
+
+# rate of broadcasting tf transformations
+tf_rate: 50
+
+micp:
+  # merging on gpu or cpu
+  combining_unit: gpu
+  # maximum number of correction steps per second
+  # lower this to decrease the correction speed but save energy 
+  corr_rate_max: 1000
+  print_corr_rate: False
+
+  # adjust max distance dependend of the state of localization
+  adaptive_max_dist: True # enable adaptive max dist
+
+  # TESTING 
+  # async performance
+  poses: 1
+
+  # initial pose changes
+  trans: [0.0, 0.0, 0.0]
+  rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
+
+# describe your sensor setup here
+sensors: # list of range sensors - at least one is required
+  sick:
+    topic: scan
+    micp:
+      weight: 1
+      backend: optix
+  wheels: # pull robot to the mesh
+    ranges: [0.2, 0.2, 0.2, 0.2]
+    type: ondn
+    frame: base_footprint
+    model:
+      width: 4
+      height: 1
+      range_min: 0.0
+      range_max: 10.0
+      origs: [[ 0.2,  0.15,  0.2], # front left 
+              [ 0.2, -0.15,  0.2], # front right
+              [-0.2,  0.15,  0.2], # rear left
+              [-0.2, -0.15,  0.2]] # rear right
+      dirs:  [[ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0]]
+    micp:
+      max_dist: 1.0
+      adaptive_max_dist_min: 0.2
+      weight: 1
+      backend: optix

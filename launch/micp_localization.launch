@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <launch>
 
-<arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
+<arg name="map" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
+<arg name="config" default="$(find rmcl)/config/examples/micp_velodyne_cpu.yaml"/>
 
 <node pkg="rmcl" type="micp_localization" name="micp_localization" output="screen">
-    <param name="map_file" type="string" value="$(arg meshfile)" />
-    <rosparam command="load" file="$(find rmcl)/config/micp.yaml" />
+    <param name="map_file" type="string" value="$(arg map)" />
+    <rosparam command="load" file="$(arg config)" />
     <remap from="pose_wc" to="/initialpose" />
 </node>
-
 
 </launch>

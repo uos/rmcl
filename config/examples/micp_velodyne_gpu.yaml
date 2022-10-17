@@ -1,0 +1,46 @@
+# required
+base_frame: base_footprint
+map_frame: map
+odom_frame: odom
+
+# rate of broadcasting tf transformations
+tf_rate: 50
+invert_tf: False
+
+micp:
+  # merging on gpu or cpu
+  combining_unit: gpu
+  # maximum number of correction steps per second
+  # lower this to decrease the correction speed but save energy 
+  corr_rate_max: 1000
+  print_corr_rate: False
+
+  # adjust max distance dependend of the state of localization
+  adaptive_max_dist: True # enable adaptive max dist
+
+  # TESTING 
+  # async performance
+  poses: 1
+
+  # initial pose changes
+  trans: [0.0, 0.0, 0.0]
+  rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
+
+# describe your sensor setup here
+sensors: # list of range sensors - at least one is required
+  velodyne:
+    topic: velodyne_points
+    type: spherical
+    model:
+      range_min: 0.5
+      range_max: 130.0
+      phi_min: -0.261799067259
+      phi_inc: 0.03490658503988659
+      phi_N: 16
+      theta_min: -3.14159011841
+      theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
+      theta_N: 440
+    micp:
+      max_dist: 1.0
+      adaptive_max_dist_min: 0.15
+      backend: optix
