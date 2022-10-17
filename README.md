@@ -167,7 +167,6 @@ odom_frame: odom
 
 # rate of broadcasting tf transformations
 tf_rate: 50
-invert_tf: False
 
 micp:
   # merging on gpu or cpu
@@ -180,28 +179,43 @@ micp:
   # adjust max distance dependend of the state of localization
   adaptive_max_dist: True # enable adaptive max dist
 
+  # TESTING 
+  # async performance
+  poses: 1
+
   # initial pose changes
   trans: [0.0, 0.0, 0.0]
   rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
 
 # describe your sensor setup here
 sensors: # list of range sensors - at least one is required
-  velodyne:
-    topic: velodyne_points
-    type: spherical
+  sick:
+    topic: scan
+    micp:
+      weight: 1
+      backend: optix
+  wheels: # pull robot to the mesh
+    ranges: [0.2, 0.2, 0.2, 0.2]
+    type: ondn
+    frame: base_footprint
     model:
-      range_min: 0.5
-      range_max: 130.0
-      phi_min: -0.261799067259
-      phi_inc: 0.03490658503988659
-      phi_N: 16
-      theta_min: -3.14159011841
-      theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
-      theta_N: 440
+      width: 4
+      height: 1
+      range_min: 0.0
+      range_max: 10.0
+      origs: [[ 0.2,  0.15,  0.2], # front left 
+              [ 0.2, -0.15,  0.2], # front right
+              [-0.2,  0.15,  0.2], # rear left
+              [-0.2, -0.15,  0.2]] # rear right
+      dirs:  [[ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0],
+              [ 0.0,  0.0, -1.0]]
     micp:
       max_dist: 1.0
-      adaptive_max_dist_min: 0.15
-      backend: embree
+      adaptive_max_dist_min: 0.2
+      weight: 1
+      backend: optix
 ```
 
 
