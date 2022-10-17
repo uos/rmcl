@@ -271,7 +271,6 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 }
 
 
-
 void updateTF()
 {
     // std::cout << "updateTF" << std::endl;

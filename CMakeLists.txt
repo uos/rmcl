@@ -439,21 +439,18 @@ if(RMCL_OPTIX)
         rmcl_optix_ros
     )
 
-    # add_executable(ondn_corrector_optix src/nodes/ondn_corrector_optix.cpp)
+    add_executable(ex_ondn_corrector_optix src/nodes/examples/ondn_corrector_optix.cpp)
 
-    # add_dependencies(ondn_corrector_optix 
-    #     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    #     ${catkin_EXPORTED_TARGETS}
-    # )
+    add_dependencies(ex_ondn_corrector_optix 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
 
-    # ## Specify libraries to link a library or executable target against
-    # target_link_libraries(ondn_corrector_optix
-    #     ${catkin_LIBRARIES}
-    #     ${rmagine_ext_LIBRARIES}
-    #     rmcl
-    #     rmcl_ros
-    #     rmcl_optix_ros
-    # )
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(ex_ondn_corrector_optix
+        ${catkin_LIBRARIES}
+        rmcl_optix_ros
+    )
 
     # add_executable(combined_corrector_optix src/nodes/combined_corrector_optix.cpp)
 
