@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2021, University Osnabrück
+/*
+ * Copyright (c) 2022, University Osnabrück
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,13 +25,18 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * EmbreeCorrector.hpp
+/**
+ * @file
+ * 
+ * @brief SphereCorrectorEmbree
  *
- *  Created on: Jul 17, 2021
- *      Author: Alexander Mock
+ * @date 03.10.2022
+ * @author Alexander Mock
+ * 
+ * @copyright Copyright (c) 2022, University Osnabrück. All rights reserved.
+ * This project is released under the 3-Clause BSD License.
+ * 
  */
-
 
 #ifndef RMCL_CORRECTOR_SPHERE_EMBREE_HPP
 #define RMCL_CORRECTOR_SPHERE_EMBREE_HPP
