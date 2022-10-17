@@ -41,7 +41,7 @@ Doing that, make sure to the set the Fixed Frame to the map coordinate system.
 RMCL itself doesn't provide any tools to visualize the maps (triangle meshes).
 If you want to see the map in RViz, use for example the `rviz_mesh_plugin` of the [mesh_tools](https://github.com/uos/mesh_tools).
 
-Once the launch file is started. The output in Terminal should look as follows:
+Once the launch file is started, the output in Terminal should look as follows:
 
 ```console
 Combining Unit: CPU
