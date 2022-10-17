@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <launch>
 
-<arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae" />
+<arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
 <arg name="device" default="cpu" />
 
 
 <!-- ICP with given pose estimate -->
-<node pkg="rmcl" type="ondn_corrector_embree" name="ondn_corrector" 
+<node pkg="rmcl" type="ex_ondn_corrector_embree" name="ondn_corrector" 
     output="screen" if="$(eval arg('device') == 'cpu')">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom_combined" />
@@ -16,7 +16,7 @@
     <param name="max_distance" type="double" value="0.5" />
 </node>
 
-<node pkg="rmcl" type="ondn_corrector_optix" name="ondn_corrector" 
+<node pkg="rmcl" type="ex_ondn_corrector_optix" name="ondn_corrector" 
     output="screen" if="$(eval arg('device') == 'gpu')">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom_combined" />

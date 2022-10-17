@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <launch>
 
-<arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae" />
+<arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
 <arg name="device" default="cpu" />
 
 <node pkg="rmcl" type="pcl2_to_scan" name="pcl2_to_scan" output="screen">
     <remap from="cloud" to="velodyne_points" />
 
-    <rosparam file="$(find rmcl)/config/sensors/VLP-16-900.yaml" />
+    <rosparam file="$(find rmcl)/config/sensors/VLP-16-440.yaml" />
     <!-- UNCOMMENT FOR REAL VELODYNE -->
     <!-- <rosparam file="$(find mamcl)/config/sensors/VLP-16.yaml" /> -->
 </node>

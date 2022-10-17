@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-<arg name="meshfile" default="/home/amock/workspaces/ros/mamcl_ws/src/uos_tools/uos_gazebo_worlds/Media/models/avz_neu.dae" />
+<arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
 
 
 

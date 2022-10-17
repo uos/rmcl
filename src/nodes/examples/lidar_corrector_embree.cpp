@@ -193,9 +193,7 @@ void poseCB(geometry_msgs::PoseStamped msg)
 
     fetchTF();
 
-    // T_odom_map = T_base_map * ~T_base_odom;
     Tom = Tbm * ~Tbo;
-
 }
 
 void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
