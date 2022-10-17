@@ -87,7 +87,7 @@ Waiting for pose guess...
 
 At startup, MICP does a few sanity checks for the input parameters.
 Every possible mistake in configuration can then be inferred by this output.
-For example, once there is no data available on the given `PointCloud2` it will print `data: no` instead.
+For example, once there is no data available on the given `PointCloud2`-Topic it will print `data: no` instead.
 
 
 ### Params
