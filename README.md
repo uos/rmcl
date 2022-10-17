@@ -125,7 +125,7 @@ micp:
   # adjust max distance dependend of the state of localization
   adaptive_max_dist: True # enable adaptive max dist
 
-  # initial pose changes
+  # offset added to inital pose guess
   trans: [0.0, 0.0, 0.0]
   rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
 
@@ -179,11 +179,7 @@ micp:
   # adjust max distance dependend of the state of localization
   adaptive_max_dist: True # enable adaptive max dist
 
-  # TESTING 
-  # async performance
-  poses: 1
-
-  # initial pose changes
+  # offset added to initial pose guess
   trans: [0.0, 0.0, 0.0]
   rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
 
