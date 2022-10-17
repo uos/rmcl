@@ -87,7 +87,7 @@ bool fetchTF()
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
-            ROS_WARN_STREAM("Source: " << base_frame << ", Target: " << sensor_frame);
+            ROS_WARN_STREAM("Source (Sensor): " << sensor_frame << ", Target (Base): " << base_frame);
 
             ret = false;
         }
@@ -112,7 +112,7 @@ bool fetchTF()
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
-            ROS_WARN_STREAM("Source: " << odom_frame << ", Target: " << base_frame);
+            ROS_WARN_STREAM("Source (Base): " << base_frame << ", Target (Odom): " << odom_frame);
             ret = false;
         }
     } else {
