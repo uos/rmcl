@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/PointCloud.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
@@ -30,15 +31,10 @@
 #include <memory>
 #include <omp.h>
 
-#include <Eigen/Dense>
 
-using namespace rosmath;
 using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
-
-// SphereCorrectorEmbreePtr scan_correct;
-
 
 SphereCorrectorOptixROSPtr scan_correct;
 ros::Publisher cloud_pub;

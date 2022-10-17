@@ -466,19 +466,16 @@ if(RMCL_OPTIX)
     )
 
 
-    # add_executable(multi_lidar_corrector_optix src/nodes/multi_lidar_corrector_optix.cpp)
+    # add_executable(ex_multi_lidar_corrector_optix src/nodes/examples/multi_lidar_corrector_optix.cpp)
 
-    # add_dependencies(multi_lidar_corrector_optix 
+    # add_dependencies(ex_multi_lidar_corrector_optix 
     #     ${${PROJECT_NAME}_EXPORTED_TARGETS}
     #     ${catkin_EXPORTED_TARGETS}
     # )
 
     # ## Specify libraries to link a library or executable target against
-    # target_link_libraries(multi_lidar_corrector_optix
+    # target_link_libraries(ex_multi_lidar_corrector_optix
     #     ${catkin_LIBRARIES}
-    #     ${rmagine_ext_LIBRARIES}
-    #     rmcl
-    #     rmcl_ros
     #     rmcl_optix_ros
     # )
 endif(RMCL_OPTIX)
