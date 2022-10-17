@@ -19,20 +19,12 @@
 #include <rmcl/util/scan_operations.h>
 #include <rmcl/math/math.h>
 
-// rosmath
-// #include <rosmath/sensor_msgs/conversions.h>
-// #include <rosmath/sensor_msgs/math.h>
-// #include <rosmath/eigen/conversions.h>
-
 #include <chrono>
 #include <memory>
 #include <omp.h>
 #include <thread>
 #include <mutex>
 
-// #include <Eigen/Dense>
-
-// using namespace rosmath;
 using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
@@ -194,11 +186,6 @@ void poseCB(geometry_msgs::PoseStamped msg)
     map_frame = msg.header.frame_id;
     pose_received = true;
 
-    // set T_base_map
-    // geometry_msgs::TransformStamped T_base_map;
-    // T_base_map.header.frame_id = map_frame;
-    // T_base_map.child_frame_id = base_frame;
-    // T_base_map.transform <<= msg.pose;
 
     Transform Tbm;
     convert(msg.pose, Tbm);

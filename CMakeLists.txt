@@ -371,31 +371,31 @@ if(RMCL_EMBREE)
         rmcl_embree_ros
     )
 
-    # add_executable(depth_corrector_embree src/nodes/depth_corrector_embree.cpp)
+    add_executable(ex_depth_corrector_embree src/nodes/examples/depth_corrector_embree.cpp)
 
-    # add_dependencies(depth_corrector_embree 
-    #     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    #     ${catkin_EXPORTED_TARGETS}
-    # )
+    add_dependencies(ex_depth_corrector_embree 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
 
-    # ## Specify libraries to link a library or executable target against
-    # target_link_libraries(depth_corrector_embree
-    #     ${catkin_LIBRARIES}
-    #     rmcl_embree_ros
-    # )
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(ex_depth_corrector_embree
+        ${catkin_LIBRARIES}
+        rmcl_embree_ros
+    )
 
-    # add_executable(ondn_corrector_embree src/nodes/ondn_corrector_embree.cpp)
+    add_executable(ex_ondn_corrector_embree src/nodes/examples/ondn_corrector_embree.cpp)
 
-    # add_dependencies(ondn_corrector_embree 
-    #     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    #     ${catkin_EXPORTED_TARGETS}
-    # )
+    add_dependencies(ex_ondn_corrector_embree 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
 
-    # ## Specify libraries to link a library or executable target against
-    # target_link_libraries(ondn_corrector_embree
-    #     ${catkin_LIBRARIES}
-    #     rmcl_embree_ros
-    # )
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(ex_ondn_corrector_embree
+        ${catkin_LIBRARIES}
+        rmcl_embree_ros
+    )
 
     # add_executable(combined_corrector_embree src/nodes/combined_corrector_embree.cpp)
 
