@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/PointCloud.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
@@ -18,20 +19,12 @@
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
-// rosmath
-#include <rosmath/sensor_msgs/conversions.h>
-#include <rosmath/sensor_msgs/math.h>
-#include <rosmath/eigen/conversions.h>
-
 #include <chrono>
 #include <memory>
 #include <omp.h>
 #include <thread>
 #include <mutex>
 
-#include <Eigen/Dense>
-
-using namespace rosmath;
 using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
@@ -66,11 +59,14 @@ std::shared_ptr<tf2_ros::TransformListener> tfListener;
 
 // Estimate this
 geometry_msgs::TransformStamped T_odom_map;
-std::mutex T_odom_map_mutex;
+Transform                       Tom;
+std::mutex                      T_odom_map_mutex;
 // dynamic: ekf
 geometry_msgs::TransformStamped T_base_odom;
+Transform                       Tbo;
 // static: urdf
 geometry_msgs::TransformStamped T_sensor_base;
+Transform                       Tsb;
 
 
 std::thread correction_thread;
@@ -106,7 +102,7 @@ bool fetchTF()
         T_sensor_base.transform.rotation.z = 0.0;
         T_sensor_base.transform.rotation.w = 1.0;
     }
-
+    convert(T_sensor_base.transform, Tsb);
     scan_correct->setTsb(T_sensor_base.transform);
     
     if(has_odom_frame && has_base_frame)
@@ -130,6 +126,7 @@ bool fetchTF()
         T_base_odom.transform.rotation.z = 0.0;
         T_base_odom.transform.rotation.w = 1.0;
     }
+    convert(T_base_odom.transform, Tbo);
 
     return ret;
 }
@@ -140,13 +137,13 @@ void correctOnce()
     // ROS_INFO("Correction started.");
     // StopWatch sw;
     // 1. Get Base in Map
-    geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
+    Transform Tbm = Tom * Tbo;
     
     
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
     {
-        convert(T_base_map.transform, poses[i]);
+        poses[i] = Tbm;
     }
     // convert(T_base_map.transform, poses[0]);
     // upload to GPU
@@ -201,8 +198,8 @@ void correctOnce()
 
     scan_correct->setParams(corr_params);
 
-    convert(poses[0], T_base_map.transform);
-    T_odom_map = T_base_map * ~T_base_odom;
+    // Update T_odom_map
+    Tom = poses[0] * ~Tbo;
 }
 
 void correct()
@@ -234,14 +231,12 @@ void poseCB(geometry_msgs::PoseStamped msg)
     // msg.pose.position.z -= 1.0;
 
     // set T_base_map
-    geometry_msgs::TransformStamped T_base_map;
-    T_base_map.header.frame_id = map_frame;
-    T_base_map.child_frame_id = base_frame;
-    T_base_map.transform <<= msg.pose;
+    Transform Tbm;
+    convert(msg.pose, Tbm);
 
     fetchTF();
     
-    T_odom_map = T_base_map * ~T_base_odom;
+    Tom = Tbm * ~Tbo;
 }
 
 void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
@@ -262,9 +257,10 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
     // count valid
     valid_scan_ranges = 0;
-    for(size_t i=0; i<msg->scan.ranges.size(); i++)
+    for(size_t i=0; i<msg->scan.data.ranges.size(); i++)
     {
-        if(msg->scan.ranges[i] >= msg->scan.info.range_min && msg->scan.ranges[i] <= msg->scan.info.range_max)
+        if(msg->scan.data.ranges[i] >= msg->scan.info.range_min 
+        && msg->scan.data.ranges[i] <= msg->scan.info.range_max)
         {
             valid_scan_ranges++;
         }
@@ -278,6 +274,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
 void updateTF()
 {
+    // std::cout << "updateTF" << std::endl;
     static tf2_ros::TransformBroadcaster br;
     
     geometry_msgs::TransformStamped T;
@@ -286,22 +283,25 @@ void updateTF()
     if(has_odom_frame && has_base_frame)
     {
         // With EKF and base_frame: Send odom to map
-        T = T_odom_map;
+        convert(Tom, T.transform);
+        T.header.frame_id = map_frame;
+        T.child_frame_id = odom_frame;
     } else if(has_base_frame) {
         // With base but no EKF: send base to map
-        T = T_odom_map * T_base_odom;
+        auto Tbm = Tom * Tbo;
+        convert(Tbm, T.transform);
+        T.header.frame_id = map_frame;
+        T.child_frame_id = base_frame;
     } else {
         // Default:
         // Sensor to map
-        T = T_odom_map * T_base_odom * T_sensor_base;
+        auto Tbm = Tom * Tbo * Tsb;
+        convert(Tbm, T.transform);
+        T.header.frame_id = map_frame;
+        T.child_frame_id = sensor_frame;
     }
 
-    // double dt = (ros::Time::now() - last_scan).toSec();
-    // std::cout << "- time since last scan: " << dt << "s" << std::endl;
-
     T.header.stamp = ros::Time::now();
-    T.header.frame_id = map_frame;
-
     br.sendTransform(T);
 }
 

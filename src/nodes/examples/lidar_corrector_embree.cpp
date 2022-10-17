@@ -143,7 +143,6 @@ void correctOnce()
     // std::cout << "correctOnce" << std::endl;
     // 1. Get Base in Map
     Transform Tbm = Tom * Tbo;
-    // geometry_msgs::TransformStamped T_base_map = T_odom_map * T_base_odom;
 
     Memory<Transform, RAM> poses(Nposes);
     for(size_t i=0; i<Nposes; i++)
@@ -186,10 +185,9 @@ void poseCB(geometry_msgs::PoseStamped msg)
     map_frame = msg.header.frame_id;
     pose_received = true;
 
-
+    // set T_base_map
     Transform Tbm;
     convert(msg.pose, Tbm);
-
 
     fetchTF();
 
