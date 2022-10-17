@@ -27,7 +27,7 @@ void convert(
         for(unsigned int hid = 0; hid < model.getWidth(); hid++)
         {
             const unsigned int loc_id = model.getBufferId(vid, hid);
-            const float range = from.depth.ranges[loc_id];
+            const float range = from.depth.data.ranges[loc_id];
 
             if(model.range.inside(range))
             {
@@ -79,7 +79,7 @@ void convert(
         // with z=1
         // the solution to that is in the for loop
         // -- Tested on simulated depth images --
-        to.ranges.resize(from->width * from->height);
+        to.data.ranges.resize(from->width * from->height);
         for(unsigned int vid = 0; vid < model.getHeight(); vid++)
         {
             for(unsigned int hid = 0; hid < model.getWidth(); hid++)
@@ -88,7 +88,7 @@ void convert(
                 const float wrong_range = *reinterpret_cast<const float*>(&from->data[loc_id * sizeof(float)]);
                 Vector dir = model.getDirectionOptical(vid, hid);
                 const float real_range = wrong_range / dir.z;
-                to.ranges[loc_id] = real_range;
+                to.data.ranges[loc_id] = real_range;
             }
         }
         
@@ -130,7 +130,7 @@ void imageCB(const sensor_msgs::Image::ConstPtr& msg)
     
     convert(info, msg, out);
 
-    if(out.depth.ranges.size() > 0)
+    if(out.depth.data.ranges.size() > 0)
     {
         // std::cout << "Publish " << out.depth.ranges.size() << " points." << std::endl;
         pub_depth.publish(out);

@@ -4,7 +4,7 @@
 <arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
 <arg name="device" default="cpu" />
 
-<node pkg="rmcl" type="pcl2_to_scan" name="pcl2_to_scan" output="screen">
+<node pkg="rmcl" type="conv_pcl2_to_scan" name="conv_pcl2_to_scan" output="screen">
     <remap from="cloud" to="velodyne_points" />
 
     <param name="debug_cloud" type="bool" value="true" />
@@ -18,7 +18,7 @@
 
 <group if="$(eval arg('device') == 'cpu')">
 
-<node pkg="rmcl" type="lidar_corrector_embree" name="lidar_corrector" 
+<node pkg="rmcl" type="ex_lidar_corrector_embree" name="lidar_corrector" 
     output="screen">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom" />
@@ -35,7 +35,7 @@
 
 
 
-    <remap from="scan" to="/pcl2_to_scan/scan"/>
+    <remap from="scan" to="/conv_pcl2_to_scan/scan"/>
     <!-- <remap from="pose" to="/move_base_simple/goal"/> -->
     <remap from="pose_wc" to="/initialpose" />
 </node>

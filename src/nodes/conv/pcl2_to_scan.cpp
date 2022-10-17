@@ -140,7 +140,7 @@ void convert(
 
             if(p_id >= 0 && p_id < model.size())
             {
-                scan.scan.ranges[p_id] = range_est;
+                scan.scan.data.ranges[p_id] = range_est;
             }
         }
     }

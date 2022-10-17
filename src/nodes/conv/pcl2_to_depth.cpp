@@ -25,7 +25,7 @@ void convert(
         for(unsigned int hid = 0; hid < model.getWidth(); hid++)
         {
             const unsigned int loc_id = model.getBufferId(vid, hid);
-            const float range = from.depth.ranges[loc_id];
+            const float range = from.depth.data.ranges[loc_id];
             if(model.range.inside(range))
             {
                 Vector p;
@@ -52,7 +52,7 @@ void convert(
     const sensor_msgs::PointCloud2& from,
     rmcl_msgs::Depth& to)
 {
-    to.ranges.resize(from.width * from.height);
+    to.data.ranges.resize(from.width * from.height);
 
     sensor_msgs::PointField field_x;
     sensor_msgs::PointField field_y;
@@ -102,7 +102,7 @@ void convert(
             // {
             //     std::cout << "Correct Depth (0,0): " << range_est << std::endl;
             // }
-            to.ranges[i] = range_est;
+            to.data.ranges[i] = range_est;
         }
     }
 }
