@@ -20,10 +20,10 @@
 #include <rmcl/util/scan_operations.h>
 
 
-// rosmath
-#include <rosmath/sensor_msgs/conversions.h>
-#include <rosmath/sensor_msgs/math.h>
-#include <rosmath/eigen/conversions.h>
+// // rosmath
+// #include <rosmath/sensor_msgs/conversions.h>
+// #include <rosmath/sensor_msgs/math.h>
+// #include <rosmath/eigen/conversions.h>
 
 #include <chrono>
 #include <memory>
@@ -31,9 +31,9 @@
 #include <thread>
 #include <mutex>
 
-#include <Eigen/Dense>
+// #include <Eigen/Dense>
 
-using namespace rosmath;
+// using namespace rosmath;
 using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
@@ -86,9 +86,6 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
     ResultT res = scan_sim->simulate<ResultT>(T_);
 
-    // std::cout << "Simulated " << res.ranges.size() << " ranges" << std::endl;
-
-
 
     Memory<float, RAM> ranges = res.ranges;
     Memory<Vector, RAM> normals = res.normals;
@@ -111,7 +108,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
         {
             const size_t bid = model.getBufferId(vid, hid);
 
-            const float range_real = msg->scan.ranges[bid];
+            const float range_real = msg->scan.data.ranges[bid];
             const float range_sim = ranges[bid];
             
 

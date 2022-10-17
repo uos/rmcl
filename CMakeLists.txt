@@ -513,26 +513,26 @@ endif(BUILD_EXAMPLES)
 # )
 
 
-# add_executable(segment_node_optix src/nodes/tests/segment_node_optix.cpp)
-
-# add_dependencies(segment_node_optix 
-#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#     ${catkin_EXPORTED_TARGETS}
-# )
-
-# ## Specify libraries to link a library or executable target against
-# target_link_libraries(segment_node_optix
-#     ${catkin_LIBRARIES}
-#     rmcl
-#     rmcl_ros
-#     rmcl_optix_ros
-# )
 
 
 # endif()
 
+if(RMCL_OPTIX)
 
+    add_executable(segment_node_optix src/nodes/tests/segment_node_optix.cpp)
 
+    add_dependencies(segment_node_optix 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(segment_node_optix
+        ${catkin_LIBRARIES}
+        rmcl_optix_ros
+    )
+
+endif(RMCL_OPTIX)
 
 # BENCHMARKS
 # add_executable(rmcl_correction_embree_benchmark
