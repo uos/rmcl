@@ -21,15 +21,14 @@ set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
 )
 
+
 find_package(catkin REQUIRED COMPONENTS
     roscpp
     geometry_msgs
     sensor_msgs
     tf2_ros
-    dynamic_reconfigure
     rmcl_msgs
     image_transport
-    depth_image_proc
 )
 
 include_directories(
@@ -73,8 +72,10 @@ catkin_package(
         sensor_msgs
         tf2_ros
         rmcl_msgs
+        image_transport
     DEPENDS 
         rmagine
+        Eigen3
 )
 
 include_directories(
