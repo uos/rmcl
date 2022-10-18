@@ -6,6 +6,7 @@ Software Tools for mobile robot localization in 3D meshes.
 
 Dependencies:
 - Download and install [Rmagine](https://github.com/uos/rmagine)
+  - Recommended: Install OptiX backend if NVIDIA GPU is available
 - Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
 
 Clone this repository into your ROS workspace and build it.
@@ -19,12 +20,14 @@ Requirements:
 - Triangle Mesh as map
 - Odometry estimation of the robot given as TF-Frame
 
-
 ![Teaser](dat/micp.gif)
 
 Full Video is available on Youtube soon.
 
+## Publication
 
+- Title: "MICP-L: Fast parallel simulative Range Sensor to Mesh Registration for Robot Localization"
+- State: Submitted to ICRA 2023
 
 ## Usage
 
@@ -229,11 +232,6 @@ sensors: # list of range sensors - at least one is required
       weight: 1
       backend: optix
 ```
-
-## Publication
-
-- Title: "MICP-L: Fast parallel simulative Range Sensor to Mesh registration for robot localization"
-- State: Submitted to ICRA 2023
 
 ## Examples
 
