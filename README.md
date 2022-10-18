@@ -6,11 +6,14 @@ Software Tools for mobile robot localization in 3D meshes.
 
 Mesh-ICP Localization.
 
-
 Requirements:
-- Odometry estimation of the robot given as TF-Frame
 - At least one Range Sensor equipped and running
+- Triangle Mesh as map
+- Odometry estimation of the robot given as TF-Frame
 
+
+Full Video is available on Youtube soon.
+![Teaser](dat/micp.gif)
 
 ## Usage
 
@@ -155,6 +158,7 @@ MICP also supports to localize a robot only equipped with a 2D LiDaR in a 3D map
 To correct the third dimension the wheels can be used to pull the robot towards the map's ground plane. 
 Thus, you should only run it on a robot that always drives on ground and e.g. cannot fly.
 In this example, all MICP steps are computed on GPU.
+The wheels are 
 
 
 File: `config/examples/micp_sick_gpu.yaml`
@@ -221,10 +225,6 @@ sensors: # list of range sensors - at least one is required
 - Title: "MICP-L: Fast parallel simulative Range Sensor to Mesh registration for robot localization"
 - State: Submitted to ICRA 2023
 
-
 ## Examples
 
 How to use RMCL functions in your Node: `src/nodes/examples`.
-
-
-
