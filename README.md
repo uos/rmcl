@@ -16,9 +16,17 @@ Requirements:
 
 Full Video is available on Youtube soon.
 
+## Installation
+
+Dependencies:
+- Download and install [Rmagine](https://github.com/uos/rmagine)
+- Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
+
+Clone this repository into your ROS workspace and build it.
+
 ## Usage
 
-The `micp_localization` Node starts the process of localizing the robot to the mesh using MICP. 
+The `micp_localization` Node starts the process of localizing the robot in a mesh using MICP and a given pose estimate. 
 It is usually started through a Launch-File since it requires a large set of parameters.
 
 ### Launch
@@ -159,7 +167,8 @@ MICP also supports to localize a robot only equipped with a 2D LiDaR in a 3D map
 To correct the third dimension the wheels can be used to pull the robot towards the map's ground plane. 
 Thus, you should only run it on a robot that always drives on ground and e.g. cannot fly.
 In this example, all MICP steps are computed on GPU.
-The wheels are 
+The robot has four wheels of which the highest points are located relative to `base_footprint` as listed in `origs`.
+By setting a virtual scanner to this wheel positions scanning downwards with a range equals the wheel diameter it is possible to pull the robot to the mesh.
 
 
 File: `config/examples/micp_sick_gpu.yaml`
