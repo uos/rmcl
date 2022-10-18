@@ -1,6 +1,14 @@
-# rmcl
+# RMCL
 
 Software Tools for mobile robot localization in 3D meshes.
+
+## Installation
+
+Dependencies:
+- Download and install [Rmagine](https://github.com/uos/rmagine)
+- Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
+
+Clone this repository into your ROS workspace and build it.
 
 # MICP-L
 
@@ -16,13 +24,7 @@ Requirements:
 
 Full Video is available on Youtube soon.
 
-## Installation
 
-Dependencies:
-- Download and install [Rmagine](https://github.com/uos/rmagine)
-- Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
-
-Clone this repository into your ROS workspace and build it.
 
 ## Usage
 
@@ -228,8 +230,6 @@ sensors: # list of range sensors - at least one is required
       backend: optix
 ```
 
-
-
 ## Publication
 
 - Title: "MICP-L: Fast parallel simulative Range Sensor to Mesh registration for robot localization"
@@ -238,3 +238,11 @@ sensors: # list of range sensors - at least one is required
 ## Examples
 
 How to use RMCL functions in your Node: `src/nodes/examples`.
+
+# Roadmap
+
+This package will be expanded by more functionalities to localize a robot in mesh maps.
+The planned Roadmap is as follows:
+
+- [x] MICP-L
+- [ ] RMCL
