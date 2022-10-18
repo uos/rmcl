@@ -4,7 +4,7 @@ Software Tools for mobile robot localization in 3D meshes.
 
 # MICP-L
 
-Mesh-ICP Localization.
+Mesh-ICP Localization. Direct Range sensor to mesh registration for localization using simulative projective correspondences (See publications).
 
 Requirements:
 - At least one Range Sensor equipped and running
@@ -12,8 +12,9 @@ Requirements:
 - Odometry estimation of the robot given as TF-Frame
 
 
-Full Video is available on Youtube soon.
 ![Teaser](dat/micp.gif)
+
+Full Video is available on Youtube soon.
 
 ## Usage
 
