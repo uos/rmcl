@@ -1,12 +1,16 @@
 # RMCL
 
-Software Tools for mobile robot localization in 3D meshes.
+Software Tools for Mobile Robot Localization in 3D Meshes.
+
+
+
 
 ## Installation
 
 Dependencies:
 - Download and install [Rmagine](https://github.com/uos/rmagine)
   - Recommended: Install OptiX backend if NVIDIA GPU is available
+- ROS (tested with ROS-noetic)
 - Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
 
 Clone this repository into your ROS workspace and build it.
