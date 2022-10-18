@@ -73,9 +73,8 @@ catkin_package(
         tf2_ros
         rmcl_msgs
         image_transport
-    DEPENDS 
+    DEPENDS
         rmagine
-        Eigen3
 )
 
 include_directories(
