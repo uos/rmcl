@@ -371,7 +371,7 @@ int main(int argc, char** argv)
     Nposes = Nposes_tmp;
 
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    EmbreeMapPtr map = import_embree_map(meshfile);
     
     scan_correct = std::make_shared<SphereCorrectorEmbreeROS>(map);
     ondn_correct = std::make_shared<OnDnCorrectorEmbreeROS>(map);

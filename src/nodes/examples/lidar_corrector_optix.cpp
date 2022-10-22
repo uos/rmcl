@@ -343,7 +343,7 @@ int main(int argc, char** argv)
 
 
 
-    OptixMapPtr map = importOptixMap(meshfile);
+    OptixMapPtr map = import_optix_map(meshfile);
     scan_correct = std::make_shared<SphereCorrectorOptixROS>(map);
     
 

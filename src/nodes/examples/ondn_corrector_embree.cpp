@@ -333,7 +333,7 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    EmbreeMapPtr map = import_embree_map(meshfile);
     
     ondn_correct.reset(new OnDnCorrectorEmbreeROS(map));
     // scan_correct.reset(new SphereCorrectorEmbreeROS(map));

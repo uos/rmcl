@@ -198,7 +198,7 @@ int main(int argc, char** argv)
     nh_p.param<float>("min_dist_outlier_scan", min_dist_outlier_scan, 0.15);
     nh_p.param<float>("min_dist_outlier_map", min_dist_outlier_map, 0.15);
 
-    OptixMapPtr map = importOptixMap(meshfile);
+    OptixMapPtr map = import_optix_map(meshfile);
     scan_sim = std::make_shared<SphereSimulatorOptix>(map);
     scan_sim->setTsb(Transform::Identity());
 

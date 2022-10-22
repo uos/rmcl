@@ -297,7 +297,7 @@ int main(int argc, char** argv)
 
 
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    EmbreeMapPtr map = import_embree_map(meshfile);
     scan_correct = std::make_shared<SphereCorrectorEmbreeROS>(map);
 
     nh_p.param<float>("max_distance", max_distance, 0.8);

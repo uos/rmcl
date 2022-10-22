@@ -245,7 +245,7 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    EmbreeMapPtr map = importEmbreeMap(meshfile);
+    EmbreeMapPtr map = import_embree_map(meshfile);
     
     depth_correct.reset(new PinholeCorrectorEmbreeROS(map));
 

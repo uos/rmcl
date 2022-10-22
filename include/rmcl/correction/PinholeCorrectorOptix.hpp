@@ -117,6 +117,10 @@ private:
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
         ) const;
+
+    // rmagine::Memory<unsigned int,    rmagine::VRAM_CUDA>    m_tmp_corr_valid;
+    // rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>    m_tmp_model_points;
+    // rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA>    m_tmp_dataset_points;
 };
 
 using PinholeCorrectorOptixPtr = std::shared_ptr<PinholeCorrectorOptix>;

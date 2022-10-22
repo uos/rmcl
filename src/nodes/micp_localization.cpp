@@ -41,6 +41,7 @@ std::mutex                      T_odom_map_mutex;
 
 // dynamic: ekf
 geometry_msgs::TransformStamped T_base_odom;
+std::mutex                      T_base_odom_mutex;
 Transform Tbo;
 
 bool invert_tf = false;
@@ -65,6 +66,8 @@ bool pose_received = false;
 
 void fetchTF()
 {
+    std::lock_guard<std::mutex> guard(T_base_odom_mutex);
+
     if(has_odom_frame)
     {
         try{
@@ -131,10 +134,10 @@ void updateTF()
     br.sendTransform(T);
 }
 
-
 void correctOnce()
 {
-    std::lock_guard<std::mutex> guard(T_odom_map_mutex);
+    std::lock_guard<std::mutex> guard1(T_base_odom_mutex);
+    std::lock_guard<std::mutex> guard2(T_odom_map_mutex);
 
     // 1. Get Base in Map
     Transform Tbm = Tom * Tbo;
@@ -233,8 +236,10 @@ void correctOnce()
 
     // Update T_odom_map
 
+    // pose == Tbm
+    // Tom = Tbm * Tob
+    // 
     Tom = poses[0] * ~Tbo;
-    convert(Tom, T_odom_map.transform);
 }
 
 // Storing Pose information globally
@@ -447,6 +452,8 @@ int main(int argc, char** argv)
     // MAIN LOOP TF
     ros::Rate r(tf_rate);
     ros::Time stamp = ros::Time::now();
+
+    std::cout << "TF Rate: " << tf_rate << std::endl;
 
     std::cout << "Waiting for pose guess..." << std::endl;
 

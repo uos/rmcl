@@ -208,7 +208,6 @@ SphereCorrectorOptix::Timings SphereCorrectorOptix::benchmark(
             mem->model_points = model_points.raw();
             mem->dataset_points = dataset_points.raw();
 
-
             rm::Memory<SphereCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
             copy(mem, d_mem, m_stream);
 
@@ -321,6 +320,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
         ));
 
     m_stream->synchronize();
+
 
     rm::sumBatched(corr_valid, Ncorr);
     meanBatched(dataset_points, corr_valid, Ncorr, m1);

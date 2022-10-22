@@ -266,7 +266,7 @@ int main(int argc, char** argv)
     Nposes = Nposes_tmp;
 
 
-    auto map = importOptixMap(meshfile);
+    auto map = import_optix_map(meshfile);
     
     depth_correct.reset(new PinholeCorrectorOptixROS(map));
 

@@ -362,7 +362,7 @@ int main(int argc, char** argv)
 
 
 
-    OptixMapPtr map = importOptixMap(meshfile);
+    OptixMapPtr map = import_optix_map(meshfile);
     ondn_correct.reset(new OnDnCorrectorOptixROS(map));
     
 

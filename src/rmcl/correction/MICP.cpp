@@ -808,14 +808,14 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 void MICP::loadMap(std::string filename)
 {
     #ifdef RMCL_EMBREE
-    m_map_embree = rm::importEmbreeMap(filename);
+    m_map_embree = rm::import_embree_map(filename);
     setMap(m_map_embree);
     #else 
     m_corr_cpu = std::make_shared<Correction>();
     #endif // RMCL_EMBREE
 
     #ifdef RMCL_OPTIX
-    m_map_optix = rm::importOptixMap(filename);
+    m_map_optix = rm::import_optix_map(filename);
     setMap(m_map_optix);
     #else
     #ifdef RMCL_CUDA

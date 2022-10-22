@@ -389,7 +389,7 @@ int main(int argc, char** argv)
         has_odom_frame = false;
     }
 
-    OptixMapPtr map = importOptixMap(meshfile);
+    OptixMapPtr map = import_optix_map(meshfile);
     
     scan_correct.reset(new SphereCorrectorOptixROS(map));
 
