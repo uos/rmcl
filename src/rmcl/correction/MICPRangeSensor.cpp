@@ -88,14 +88,14 @@ visualization_msgs::Marker make_marker(
 
 void MICPRangeSensor::connect()
 {
-    if(draw_correspondences)
-    {
-        std::stringstream draw_topic;
-        draw_topic << name << "/correspondences";
-        pub_corr = std::make_shared<ros::Publisher>(
-            nh_p->advertise<visualization_msgs::Marker>(draw_topic.str(), 1)
-        );
-    }
+    // if(draw_correspondences)
+    // {
+    //     std::stringstream draw_topic;
+    //     draw_topic << name << "/correspondences";
+    //     pub_corr = std::make_shared<ros::Publisher>(
+    //         nh_p->advertise<visualization_msgs::Marker>(draw_topic.str(), 1)
+    //     );
+    // }
 
     if(type == 0) { // Spherical
         if(data_topic.msg == "rmcl_msgs/ScanStamped") {
@@ -553,6 +553,20 @@ void MICPRangeSensor::computeCovs(
 void MICPRangeSensor::enableValidRangesCounting(bool enable)
 {
     count_valid_ranges = enable;
+}
+
+void MICPRangeSensor::enableVizCorrespondences(bool enable)
+{
+    draw_correspondences = enable;
+
+    if(draw_correspondences)
+    {
+        std::stringstream draw_topic;
+        draw_topic << name << "/correspondences";
+        pub_corr = std::make_shared<ros::Publisher>(
+            nh_p->advertise<visualization_msgs::Marker>(draw_topic.str(), 1)
+        );
+    }
 }
 
 void MICPRangeSensor::sphericalCB(

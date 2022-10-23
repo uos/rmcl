@@ -46,7 +46,7 @@ Transform Tbo;
 
 bool invert_tf = false;
 bool correction_disabled = false;
-
+bool draw_correspondences = false;
 
 Transform initial_pose_offset;
 unsigned int combining_unit = 1;
@@ -358,21 +358,8 @@ int main(int argc, char** argv)
 
     nh_p.param<bool>("micp/adaptive_max_dist", adaptive_max_dist, true);
 
-    std::string combining_unit_str;
-    nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
-
-    if(combining_unit_str == "cpu")
-    {
-        std::cout << "Combining Unit: CPU" << std::endl; 
-        combining_unit = 0;
-    } else if(combining_unit_str == "gpu") {
-        std::cout << "Combining Unit: GPU" << std::endl;
-        combining_unit = 1;
-    } else {
-        // ERROR
-        std::cout << "Combining Unit: " << combining_unit_str << " unknown!" << std::endl;
-        return 0;
-    }
+    nh_p.param<bool>("micp/viz_corr", draw_correspondences, false);
+    nh_p.param<bool>("micp/disable_corr", correction_disabled, false);
 
     initial_pose_offset = Transform::Identity();
     std::vector<double> trans, rot;
@@ -405,9 +392,9 @@ int main(int argc, char** argv)
         }
     }
 
-    init();
 
-    
+
+    init();
 
     tf_buffer.reset(new tf2_ros::Buffer);
     tf_listener.reset(new tf2_ros::TransformListener(*tf_buffer));
@@ -422,6 +409,32 @@ int main(int argc, char** argv)
             elem.second->enableValidRangesCounting();
         }
     }
+
+    if(draw_correspondences)
+    {
+        for(auto elem : micp->sensors())
+        {
+            elem.second->enableVizCorrespondences();
+        }
+    }
+
+
+    std::string combining_unit_str;
+    nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
+
+    if(combining_unit_str == "cpu")
+    {
+        std::cout << "Combining Unit: CPU" << std::endl; 
+        combining_unit = 0;
+    } else if(combining_unit_str == "gpu") {
+        std::cout << "Combining Unit: GPU" << std::endl;
+        combining_unit = 1;
+    } else {
+        // ERROR
+        std::cout << "Combining Unit: " << combining_unit_str << " unknown!" << std::endl;
+        return 0;
+    }
+
 
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
     ros::Subscriber pose_wc_sub = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);

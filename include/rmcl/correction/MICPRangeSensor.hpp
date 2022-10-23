@@ -177,7 +177,7 @@ public: // TODO: dont have everything public
     float                       corr_weight = 1.0;
 
     // DEBUGGING
-    bool            draw_correspondences = true;
+    bool            draw_correspondences = false;
     PublisherPtr    pub_corr;
 
     // correction: TODO better
@@ -222,6 +222,8 @@ public: // TODO: dont have everything public
     #endif // RMCL_CUDA
 
     void enableValidRangesCounting(bool enable = true);
+
+    void enableVizCorrespondences(bool enable = true);
 
     void countValidRanges();
 
