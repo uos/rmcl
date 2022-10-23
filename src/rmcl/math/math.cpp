@@ -45,7 +45,7 @@ void Correction::correction_from_covs(
             Transform T;
             T.R.set(U * S * V.transpose());
             T.R.normalizeInplace();
-            T.t = ds[pid] - T.R * ms[pid];
+            T.t = ms[pid] - T.R * ds[pid];
 
             Tdelta[pid] = T;
         } else {
@@ -82,7 +82,7 @@ void Correction::correction_from_covs(
             R.set(U * S * V.transpose());
             R.normalizeInplace();
             Rdelta[pid] = R;
-            tdelta[pid] = ds[pid] - R * ms[pid];
+            tdelta[pid] = ms[pid] - R * ds[pid];
         } else {
             Rdelta[pid].setIdentity();
             tdelta[pid] = {0.0, 0.0, 0.0};

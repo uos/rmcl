@@ -93,6 +93,74 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
     return res;
 }
 
+void SphereCorrectorOptix::findCorrespondences(
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> dataset_points,
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
+    rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid
+) const
+{
+    // std::cout << "SphereCorrectorOptix - findCorrespondences" << std::endl;
+    if(!m_map)
+    {
+        throw std::runtime_error("NO MAP");
+    }
+
+    if(!m_map->scene())
+    {
+        throw std::runtime_error("EMPTY MAP");
+    }
+
+    if(!m_map->scene()->as())
+    {
+        throw std::runtime_error("MAP SCENE NOT COMMITTED");
+    }
+
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::findCorrespondences() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
+
+    // size_t scanSize = m_width * m_height;
+    // size_t scanSize = m_model_ram->width * m_model_ram->height;
+    // size_t Nrays = Tbm.size() * scanSize;
+
+    // rm::Memory<unsigned int,    rm::VRAM_CUDA> corr_valid(Nrays);
+    // rm::Memory<rm::Vector, rm::VRAM_CUDA> model_points(Nrays);
+    // rm::Memory<rm::Vector, rm::VRAM_CUDA> dataset_points(Nrays);
+
+    rm::Memory<SphereCorrectionDataRW, rm::RAM> mem(1);
+    mem->model = m_model.raw();
+    mem->ranges = m_ranges.raw();
+    mem->Tsb = m_Tsb.raw();
+    mem->Tbm = Tbms.raw();
+    mem->Nposes = Tbms.size();
+    mem->params = m_params.raw();
+    mem->handle = m_map->scene()->as()->handle;
+    mem->corr_valid = corr_valid.raw();
+    mem->model_points = model_points.raw();
+    mem->dataset_points = dataset_points.raw();
+
+    rm::Memory<SphereCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
+    copy(mem, d_mem, m_stream);
+
+    rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 0);
+
+    RM_OPTIX_CHECK( optixLaunch(
+        program->pipeline, 
+        m_stream->handle(), 
+        reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
+        sizeof( SphereCorrectionDataRW ), 
+        program->sbt,
+        m_width, // width Xdim
+        m_height, // height Ydim
+        Tbms.size()// depth Zdim
+        ));
+
+    m_stream->synchronize();
+}
+
 void SphereCorrectorOptix::compute_covs(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
     rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& ms,
@@ -112,6 +180,41 @@ void SphereCorrectorOptix::compute_covs(
         // raywise parallelization
         computeMeansCovsRW(Tbms, ds, ms, Cs, Ncorr);
     }
+}
+
+void SphereCorrectorOptix::findCorrespondences(
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    rm::Memory<rm::Point, rm::VRAM_CUDA>& dataset_points,
+    rm::Memory<rm::Point, rm::VRAM_CUDA>& model_points,
+    rm::Memory<unsigned int, rm::VRAM_CUDA>& corr_valid
+) const
+{
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::findCorrespondences() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
+
+    size_t scanSize = m_width * m_height;
+    size_t Nrays = Tbms.size() * scanSize;
+
+    // keep the this if bigger than required
+    if(dataset_points.size() < Nrays)
+    {
+        dataset_points.resize(Nrays);
+    }
+
+    if(model_points.size() < Nrays)
+    {
+        model_points.resize(Nrays);
+    }
+
+    if(corr_valid.size() < Nrays)
+    {
+        corr_valid.resize(Nrays);
+    }
+
+    findCorrespondences(Tbms, dataset_points(0, Nrays), model_points(0, Nrays), corr_valid(0, Nrays) );
 }
 
 void SphereCorrectorOptix::compute_covs(
@@ -260,73 +363,26 @@ SphereCorrectorOptix::Timings SphereCorrectorOptix::benchmark(
 /// PRIVATE
 void SphereCorrectorOptix::computeMeansCovsRW(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbm,
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m1, // from, dataset
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m2, // to, model
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_dataset, // from, dataset
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_model, // to, model
     rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
     rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
     ) const
 {
-    if(!m_map)
-    {
-        throw std::runtime_error("NO MAP");
-    }
-
-    if(!m_map->scene())
-    {
-        throw std::runtime_error("EMPTY MAP");
-    }
-
-    if(!m_map->scene()->as())
-    {
-        throw std::runtime_error("MAP SCENE NOT COMMITTED");
-    }
-
     size_t scanSize = m_width * m_height;
-    // size_t scanSize = m_model_ram->width * m_model_ram->height;
     size_t Nrays = Tbm.size() * scanSize;
 
     rm::Memory<unsigned int,    rm::VRAM_CUDA> corr_valid(Nrays);
     rm::Memory<rm::Vector, rm::VRAM_CUDA> model_points(Nrays);
     rm::Memory<rm::Vector, rm::VRAM_CUDA> dataset_points(Nrays);
 
-    rm::Memory<SphereCorrectionDataRW, rm::RAM> mem(1);
-    mem->model = m_model.raw();
-    mem->ranges = m_ranges.raw();
-    mem->Tsb = m_Tsb.raw();
-    mem->Tbm = Tbm.raw();
-    mem->Nposes = Tbm.size();
-    mem->params = m_params.raw();
-    mem->handle = m_map->scene()->as()->handle;
-    mem->corr_valid = corr_valid.raw();
-    mem->model_points = model_points.raw();
-    mem->dataset_points = dataset_points.raw();
-
-
-
-    rm::Memory<SphereCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
-    copy(mem, d_mem, m_stream);
-
-    rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 0);
-
-    RM_OPTIX_CHECK( optixLaunch(
-        program->pipeline, 
-        m_stream->handle(), 
-        reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
-        sizeof( SphereCorrectionDataRW ), 
-        program->sbt,
-        m_width, // width Xdim
-        m_height, // height Ydim
-        Tbm.size()// depth Zdim
-        ));
-
-    m_stream->synchronize();
-
+    findCorrespondences(Tbm, dataset_points, model_points, corr_valid);
 
     rm::sumBatched(corr_valid, Ncorr);
-    meanBatched(dataset_points, corr_valid, Ncorr, m1);
-    meanBatched(model_points, corr_valid, Ncorr, m2);
+    meanBatched(dataset_points, corr_valid, Ncorr, means_dataset);
+    meanBatched(model_points, corr_valid, Ncorr, means_model);
 
-    covFancyBatched(model_points, dataset_points,
+    covFancyBatched(dataset_points, model_points,
             corr_valid, Ncorr, Cs);
 }
 

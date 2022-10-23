@@ -72,8 +72,24 @@ public:
         const rmagine::MemoryView<float, rmagine::VRAM_CUDA>& ranges
     );
 
+    
+
     CorrectionResults<rmagine::VRAM_CUDA> correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
+    ) const;
+
+    void findCorrespondences(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        rmagine::MemoryView<rmagine::Point, rmagine::VRAM_CUDA> dataset_points,
+        rmagine::MemoryView<rmagine::Point, rmagine::VRAM_CUDA> model_points,
+        rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA> corr_valid
+    ) const;
+
+    void findCorrespondences(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        rmagine::Memory<rmagine::Point, rmagine::VRAM_CUDA>& dataset_points,
+        rmagine::Memory<rmagine::Point, rmagine::VRAM_CUDA>& model_points,
+        rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>& corr_valid
     ) const;
 
     void compute_covs(
@@ -92,8 +108,6 @@ public:
     CorrectionPreResults<rmagine::VRAM_CUDA> compute_covs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
-    
-
     struct Timings
     {   
         double sim = 0.0;
@@ -104,6 +118,20 @@ public:
     Timings benchmark(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms, 
         size_t Ntests = 100);
+
+
+    // TODO: add properly - rmagine
+    inline CorrectionParams params() const
+    {
+        rmagine::Memory<CorrectionParams, rmagine::RAM> params_ = m_params;
+        return params_[0];
+    }
+
+    inline rmagine::SphericalModel model() const
+    {
+        rmagine::Memory<rmagine::SphericalModel, rmagine::RAM> model_ = m_model;
+        return model_[0];
+    }
 
 protected:
     rmagine::Memory<float, rmagine::VRAM_CUDA> m_ranges;

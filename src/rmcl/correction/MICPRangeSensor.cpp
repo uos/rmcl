@@ -15,6 +15,9 @@
 
 
 #include <rmagine/math/math.cuh>
+#include <rmagine/util/prints.h>
+
+#include <visualization_msgs/Marker.h>
 
 
 namespace rm = rmagine;
@@ -22,8 +25,78 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
+visualization_msgs::Marker make_marker(
+    rm::MemoryView<rm::Point, rm::RAM> dataset_points,
+    rm::MemoryView<rm::Point, rm::RAM> model_points,
+    rm::MemoryView<unsigned int, rm::RAM> corr_valid,
+    rm::Transform Tbm)
+{
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "map";
+    marker.id = 0;
+    marker.type = visualization_msgs::Marker::LINE_LIST;
+    marker.action = visualization_msgs::Marker::ADD;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = 0.01;
+    marker.scale.y = 0.01;
+    marker.scale.z = 0.01;
+    marker.color.a = 1.0;
+    marker.color.g = 1.0;
+
+    for(size_t j=0; j<dataset_points.size(); j++)
+    {
+        if(corr_valid[j] > 0)
+        {
+            // transform from base coords to map coords
+            rm::Point d = Tbm * dataset_points[j];
+            rm::Point m = Tbm * model_points[j];
+            
+            geometry_msgs::Point dros;
+            geometry_msgs::Point mros;
+
+            dros.x = d.x;
+            dros.y = d.y;
+            dros.z = d.z;
+
+            mros.x = m.x;
+            mros.y = m.y;
+            mros.z = m.z;
+
+            marker.points.push_back(dros);
+            marker.points.push_back(mros);
+        }
+    }
+
+    return marker;
+}
+
+#ifdef RMCL_CUDA
+visualization_msgs::Marker make_marker(
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> dataset_points,
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
+    rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid,
+    rm::MemoryView<rm::Transform, rm::VRAM_CUDA> Tbm)
+{
+    rm::Memory<rm::Point, rm::RAM> dataset_points_ = dataset_points;
+    rm::Memory<rm::Point, rm::RAM> model_points_ = model_points;
+    rm::Memory<unsigned int, rm::RAM> corr_valid_ = corr_valid;
+    rm::Memory<rm::Transform, rm::RAM> Tbm_ = Tbm;
+
+    return make_marker(dataset_points_, model_points_, corr_valid_, Tbm_[0]);
+}
+#endif // RMCL_CUDA
+
 void MICPRangeSensor::connect()
 {
+    if(draw_correspondences)
+    {
+        std::stringstream draw_topic;
+        draw_topic << name << "/correspondences";
+        pub_corr = std::make_shared<ros::Publisher>(
+            nh_p->advertise<visualization_msgs::Marker>(draw_topic.str(), 1)
+        );
+    }
+
     if(type == 0) { // Spherical
         if(data_topic.msg == "rmcl_msgs/ScanStamped") {
             data_sub = std::make_shared<ros::Subscriber>(
@@ -144,7 +217,6 @@ void MICPRangeSensor::connect()
         } else {
             std::cout << "info topic message " << info_topic.msg << " not supported" << std::endl; 
         }
-        
     }
 }
 
@@ -155,13 +227,12 @@ void MICPRangeSensor::fetchTF()
     
     if(frame != base_frame)
     {
-        try 
+        try
         {
             T_sensor_base = tf_buffer->lookupTransform(base_frame, frame, ros::Time(0));
         } catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
             ROS_WARN_STREAM("Source: " << frame << ", Target: " << base_frame);
-
             return;
         }
     } else {
@@ -329,6 +400,31 @@ void MICPRangeSensor::computeCovs(
     if(backend == 0)
     {
         if(type == 0) {
+
+            if(draw_correspondences)
+            {
+                // draw correspondences of first pose
+                auto Tbms0 = Tbms(0, 0+1);
+
+                rm::Memory<rm::Point, rm::RAM> dataset_points;
+                rm::Memory<rm::Point, rm::RAM> model_points;
+                rm::Memory<unsigned int, rm::RAM> corr_valid;
+
+                corr_sphere_embree->findCorrespondences(Tbms0, 
+                    dataset_points, model_points, corr_valid);
+
+                auto marker = make_marker(
+                    dataset_points, model_points, 
+                    corr_valid, Tbms0[0]);
+                
+                marker.header.stamp = ros::Time::now();
+                if(pub_corr)
+                {
+                    pub_corr->publish(marker);
+                }
+            }
+
+
             corr_sphere_embree->compute_covs(Tbms, res);
         } else if(type == 1) {
             corr_pinhole_embree->compute_covs(Tbms, res);   
@@ -373,8 +469,8 @@ void MICPRangeSensor::computeCovs(
 
 #ifdef RMCL_CUDA
 void MICPRangeSensor::computeCovs(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
-    CorrectionPreResults<rmagine::VRAM_CUDA>& res)
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    CorrectionPreResults<rm::VRAM_CUDA>& res)
 {
     // this is bad. maybe we must go away from having a completely generic sensor
     // std::cout << "Compute Covs" << std::endl;
@@ -408,11 +504,37 @@ void MICPRangeSensor::computeCovs(
     }
     #endif // RMCL_EMBREE
     
+    
     #ifdef RMCL_OPTIX
     if(backend == 1)
     {
         // compute
         if(type == 0) {
+            // std::cout << "SPHERE GPU" << std::endl;
+
+            if(draw_correspondences)
+            {
+                // draw correspondences of first pose
+                auto Tbms0 = Tbms(0, 0+1);
+
+                rm::Memory<rm::Point, rm::VRAM_CUDA> dataset_points;
+                rm::Memory<rm::Point, rm::VRAM_CUDA> model_points;
+                rm::Memory<unsigned int, rm::VRAM_CUDA> corr_valid;
+
+                corr_sphere_optix->findCorrespondences(Tbms0, 
+                    dataset_points, model_points, corr_valid);
+
+                auto marker = make_marker(
+                    dataset_points, model_points, 
+                    corr_valid, Tbms0);
+                
+                marker.header.stamp = ros::Time::now();
+                if(pub_corr)
+                {
+                    pub_corr->publish(marker);
+                }
+            }
+
             corr_sphere_optix->compute_covs(Tbms, res);
         } else if(type == 1) {
             corr_pinhole_optix->compute_covs(Tbms, res);   

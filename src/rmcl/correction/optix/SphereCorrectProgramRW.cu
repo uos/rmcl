@@ -32,12 +32,9 @@ extern "C" __global__ void __raygen__rg()
     const rm::Transform Tsb = mem.Tsb[0];
     const rm::Transform Tbm = mem.Tbm[pid];
     const rm::Transform Tsm = Tbm * Tsb;
-    const rm::Quaternion Rmb = Tbm.R.inv();
-
+    const rm::Transform Tms = ~Tsm;
     
     const rm::Vector ray_dir_s = mem.model->getDirection(vid, hid);
-
-    const rm::Vector ray_dir_b = Tsb.R * ray_dir_s;
     const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
     unsigned int p0, p1, p2, p3;
@@ -60,38 +57,42 @@ extern "C" __global__ void __raygen__rg()
 
     if(real_range > range_max || sim_range > range_max || real_range < range_min)
     {
-        mem.corr_valid[glob_id] = 0;
-        mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
         mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
+        mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
+        mem.corr_valid[glob_id] = 0;
         return;
     }
         
-    const rmagine::Vector preal_b = ray_dir_b * real_range;
-    const rmagine::Vector psim_b = ray_dir_b * sim_range;
+    const rm::Vector preal_s = ray_dir_s * real_range;
+    const rm::Vector psim_s = ray_dir_s * sim_range;
     
-    const rmagine::Vector nsim_m = {
+    rmagine::Vector nsim_m = {
         __uint_as_float(p1),
         __uint_as_float(p2),
         __uint_as_float(p3)
     };
 
-    rmagine::Vector nsim_b = Rmb * nsim_m;
+    nsim_m.normalizeInplace();
 
-    if(ray_dir_b.dot(nsim_b) > 0.0)
+    rm::Vector nsim_s = Tms.R * nsim_m;
+
+    if(ray_dir_s.dot(nsim_s) > 0.0)
     {
-        nsim_b = -nsim_b;
+        nsim_s = -nsim_s;
     }
 
-    const float signed_plane_dist = (preal_b - psim_b).dot(nsim_b);
-    const rmagine::Vector pnearest_b = preal_b + nsim_b * signed_plane_dist;
-    const float dist_sqrt = (pnearest_b - preal_b).l2normSquared();
+    const float signed_plane_dist = (psim_s - preal_s).dot(nsim_s);
+    const rm::Vector pnearest_s = preal_s + nsim_s * signed_plane_dist;
+    const float dist_sqrt = (pnearest_s - preal_s).l2normSquared();
 
     if(dist_sqrt < dist_thresh * dist_thresh)
     {
+        mem.dataset_points[glob_id] = Tsb * preal_s;
+        mem.model_points[glob_id] = Tsb * pnearest_s;
         mem.corr_valid[glob_id] = 1;
-        mem.model_points[glob_id] = pnearest_b;
-        mem.dataset_points[glob_id] = preal_b;
     } else {
+        mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
+        mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
         mem.corr_valid[glob_id] = 0;
     }
 }
@@ -121,8 +122,8 @@ extern "C" __global__ void __closesthit__ch()
     }
 
     const float3 normal = make_float3(
-        mesh_data->face_normals[face_id].x, 
-        mesh_data->face_normals[face_id].y, 
+        mesh_data->face_normals[face_id].x,
+        mesh_data->face_normals[face_id].y,
         mesh_data->face_normals[face_id].z);
     float3 normal_world = optixTransformNormalFromObjectToWorldSpace(normal);
 

@@ -206,9 +206,10 @@ __global__ void covFancyBatched_kernel(
         {
             if(mask[globId + blockSize * i] > 0)
             {
-                const rm::Vector a = data1[globId + blockSize * i];
-                const rm::Vector b = data2[globId + blockSize * i];
-                sdata[tid] += b.multT(a);
+                // dataset: d, model: m
+                const rm::Vector d = data1[globId + blockSize * i];
+                const rm::Vector m = data2[globId + blockSize * i];
+                sdata[tid] += m.multT(d);
             }
         }
     }

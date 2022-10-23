@@ -92,6 +92,20 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
+    void findCorrespondences(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<unsigned int> corr_valid
+    );
+
+    void findCorrespondences(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<unsigned int>& corr_valid
+    );
+
     // TODO: camel case
     void compute_covs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
@@ -120,6 +134,17 @@ public:
     Timings benchmark(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms, 
         size_t Ntests = 100);
+
+    // TODO: add properly - rmagine
+    inline CorrectionParams params() const
+    {
+        return m_params;
+    }
+
+    inline rmagine::SphericalModel model() const
+    {
+        return m_model[0];
+    }
 
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;

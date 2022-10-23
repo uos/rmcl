@@ -45,6 +45,7 @@ std::mutex                      T_base_odom_mutex;
 Transform Tbo;
 
 bool invert_tf = false;
+bool correction_disabled = false;
 
 
 Transform initial_pose_offset;
@@ -239,7 +240,12 @@ void correctOnce()
     // pose == Tbm
     // Tom = Tbm * Tob
     // 
-    Tom = poses[0] * ~Tbo;
+
+    // apply actual correction as Tom
+    if(!correction_disabled)
+    {
+        Tom = poses[0] * ~Tbo;
+    }
 }
 
 // Storing Pose information globally
@@ -420,6 +426,7 @@ int main(int argc, char** argv)
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
     ros::Subscriber pose_wc_sub = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);
 
+
     // CORRECTION THREAD
     stop_correction_thread = false;
     correction_thread = std::thread([corr_rate_max, print_corr_rate]()
@@ -429,6 +436,9 @@ int main(int argc, char** argv)
 
         // minimum duration for one loop
         double el_min = 1.0 / corr_rate_max;
+
+        // reactivate cuda context if required
+        micp->useInThisThread();
 
         while(!stop_correction_thread)
         {

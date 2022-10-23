@@ -51,6 +51,7 @@ namespace rmcl
 
 using NodeHandlePtr = std::shared_ptr<ros::NodeHandle>;
 using SubscriberPtr = std::shared_ptr<ros::Subscriber>;
+using PublisherPtr = std::shared_ptr<ros::Publisher>;
 using ImageTransportPtr = std::shared_ptr<image_transport::ImageTransport>;
 using ITSubscriberPtr = std::shared_ptr<image_transport::Subscriber>;
 using TFBufferPtr = std::shared_ptr<tf2_ros::Buffer>;

@@ -29,6 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf2_ros
     rmcl_msgs
     image_transport
+    visualization_msgs
 )
 
 include_directories(

@@ -766,6 +766,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     
     // connect sensor to ROS
     sensor->nh = m_nh;
+    sensor->nh_p = m_nh_p;
     sensor->tf_buffer = m_tf_buffer; 
     sensor->connect();
 

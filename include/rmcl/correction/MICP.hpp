@@ -157,6 +157,22 @@ public:
         return m_sensors;
     }
 
+    void useInThisThread()
+    {
+        #ifdef RMCL_OPTIX
+        // TODO hold a context ptr at MICP object
+        if(m_map_optix)
+        {
+            auto cuda_ctx = m_map_optix->scene()->stream()->context();
+            if(!cuda_ctx->isActive())
+            {
+                std::cout << "MICP - reactivating CUDA for thread" << std::endl;
+                cuda_ctx->use();
+            }
+        }
+        #endif // RMCL_OPTIX
+    }
+
 protected:
     bool checkTF(bool prints = false);
 

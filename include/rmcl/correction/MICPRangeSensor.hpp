@@ -157,10 +157,13 @@ public: // TODO: dont have everything public
     size_t      n_ranges_valid = 0;
 
     
+    
     // subscriber to data
     NodeHandlePtr nh;
+    NodeHandlePtr nh_p;
     SubscriberPtr data_sub;
     SubscriberPtr info_sub;
+    
 
     ImageTransportPtr it;
     ITSubscriberPtr img_sub;
@@ -172,6 +175,10 @@ public: // TODO: dont have everything public
     CorrectionParams            corr_params;
     float                       adaptive_max_dist_min = 0.15;
     float                       corr_weight = 1.0;
+
+    // DEBUGGING
+    bool            draw_correspondences = true;
+    PublisherPtr    pub_corr;
 
     // correction: TODO better
     #ifdef RMCL_EMBREE

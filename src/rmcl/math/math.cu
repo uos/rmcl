@@ -51,39 +51,6 @@ void CorrectionCuda::correction_from_covs(
     rm::Memory<rm::Vector, rm::VRAM_CUDA> Ss(Cs.size());
 
     m_svd->calcUSV(Cs, Us, Ss, Vs);
-    
-    // debug
-    // {
-    //     // Memory<Matrix3x3, RAM> Cs_ = Cs;
-    //     // Memory<Matrix3x3, RAM> Us_(Cs.size());
-    //     // Memory<Matrix3x3, RAM> Vs_(Cs.size());
-
-    //     // static SVD svd;
-    //     // svd.calcUV(Cs_, Us_, Vs_);
-
-    //     // Us = Us_;
-    //     // Vs = Vs_;
-    //     Memory<Matrix3x3, RAM> Cs_       = Cs;
-    //     Memory<Matrix3x3, RAM> Us_       = Us;
-    //     Memory<Vector, RAM> ss_          = ss;
-    //     Memory<Matrix3x3, RAM> Vs_       = Vs;
-    //     Memory<unsigned int, RAM> Ncorr_ = Ncorr;
-
-    //     std::cout << "C:" << std::endl;
-    //     std::cout << Cs_[0] << std::endl;
-
-    //     std::cout << "U:" << std::endl;
-    //     std::cout << Us_[0] << std::endl;
-    //     std::cout << "s:" << std::endl;
-    //     std::cout << ss_[0] << std::endl;
-    //     std::cout << "V:" << std::endl;
-    //     std::cout << Vs_[0] << std::endl;
-    //     std::cout << "Ncorr: " << std::endl;
-    //     std::cout << Ncorr_[0] << std::endl;
-        
-
-    // }
-
     compute_transform(Us, Vs, ds, ms, Tdelta);
 }
 
@@ -102,7 +69,7 @@ void CorrectionCuda::correction_from_covs(
     rm::transposeInplace(Vs);
 
     rm::multNxN(Us, Vs, Rdelta);
-    rm::subNxN(ds, rm::multNxN(Rdelta, ms), tdelta);
+    rm::subNxN(ms, rm::multNxN(Rdelta, ds), tdelta);
 }
 
 void CorrectionCuda::correction_from_covs(
@@ -119,8 +86,6 @@ Memory<Transform, VRAM_CUDA> CorrectionCuda::correction_from_covs(
     correction_from_covs(pre_res, Tdelta);
     return Tdelta;
 }
-
-
 
 __global__
 void compute_transform_kernel(
@@ -151,7 +116,7 @@ void compute_transform_kernel(
         // computation
         T.R.set(U * S * V.transpose());
         T.R.normalizeInplace();
-        T.t = d - T.R * m;
+        T.t = m - T.R * d;
 
         // write
         dT[pid] = T;
