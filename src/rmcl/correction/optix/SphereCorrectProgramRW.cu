@@ -29,16 +29,16 @@ extern "C" __global__ void __raygen__rg()
     const unsigned int loc_id = mem.model->getBufferId(vid, hid);
     const unsigned int glob_id = pid * mem.model->size() + loc_id;
 
-    const rmagine::Transform Tsb = mem.Tsb[0];
-    const rmagine::Transform Tbm = mem.Tbm[pid];
-    const rmagine::Transform Tsm = Tbm * Tsb;
-    const rmagine::Quaternion Rmb = Tbm.R.inv();
+    const rm::Transform Tsb = mem.Tsb[0];
+    const rm::Transform Tbm = mem.Tbm[pid];
+    const rm::Transform Tsm = Tbm * Tsb;
+    const rm::Quaternion Rmb = Tbm.R.inv();
 
     
-    const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
+    const rm::Vector ray_dir_s = mem.model->getDirection(vid, hid);
 
-    const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
-    const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
+    const rm::Vector ray_dir_b = Tsb.R * ray_dir_s;
+    const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
     unsigned int p0, p1, p2, p3;
     optixTrace(
@@ -61,8 +61,8 @@ extern "C" __global__ void __raygen__rg()
     if(real_range > range_max || sim_range > range_max || real_range < range_min)
     {
         mem.corr_valid[glob_id] = 0;
-        mem.model_points[glob_id] = {0.0, 0.0, 0.0};
-        mem.dataset_points[glob_id] = {0.0, 0.0, 0.0};
+        mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
+        mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
         return;
     }
         

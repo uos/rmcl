@@ -44,7 +44,7 @@ void Correction::correction_from_covs(
 
             Transform T;
             T.R.set(U * S * V.transpose());
-            T.R.normalize();
+            T.R.normalizeInplace();
             T.t = ds[pid] - T.R * ms[pid];
 
             Tdelta[pid] = T;
@@ -80,7 +80,7 @@ void Correction::correction_from_covs(
 
             Quaternion R;
             R.set(U * S * V.transpose());
-            R.normalize();
+            R.normalizeInplace();
             Rdelta[pid] = R;
             tdelta[pid] = ds[pid] - R * ms[pid];
         } else {

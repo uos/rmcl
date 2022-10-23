@@ -124,7 +124,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
                     
                     Vector pint_s = model.getDirection(vid, hid) * range_sim;
                     Vector nint_s = normals[bid];
-                    nint_s.normalize();
+                    nint_s.normalizeInplace();
 
                     float signed_plane_dist = (preal_s - pint_s).dot(nint_s);
                     const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  

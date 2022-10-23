@@ -110,7 +110,7 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
-                    nint_m.normalize();
+                    nint_m.normalizeInplace();
                     
                     // transform normal from global to local
                     nint_b = Tmb.R * nint_m;
@@ -258,7 +258,7 @@ void OnDnCorrectorEmbree::compute_covs(
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
-                    nint_m.normalize();
+                    nint_m.normalizeInplace();
                     
                     // transform normal from global to local
                     nint_b = Tmb.R * nint_m;

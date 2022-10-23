@@ -150,7 +150,7 @@ void compute_transform_kernel(
 
         // computation
         T.R.set(U * S * V.transpose());
-        T.R.normalize();
+        T.R.normalizeInplace();
         T.t = d - T.R * m;
 
         // write
