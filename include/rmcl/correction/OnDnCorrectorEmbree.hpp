@@ -92,7 +92,7 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
-    void compute_covs(
+    void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
         rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
@@ -100,12 +100,12 @@ public:
         rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
     );
 
-    void compute_covs(
+    void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         CorrectionPreResults<rmagine::RAM>& res
     );
 
-    CorrectionPreResults<rmagine::RAM> compute_covs(
+    CorrectionPreResults<rmagine::RAM> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 

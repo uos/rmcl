@@ -425,13 +425,13 @@ void MICPRangeSensor::computeCovs(
             }
 
 
-            corr_sphere_embree->compute_covs(Tbms, res);
+            corr_sphere_embree->computeCovs(Tbms, res);
         } else if(type == 1) {
-            corr_pinhole_embree->compute_covs(Tbms, res);   
+            corr_pinhole_embree->computeCovs(Tbms, res);   
         } else if(type == 2) {
-            corr_o1dn_embree->compute_covs(Tbms, res);
+            corr_o1dn_embree->computeCovs(Tbms, res);
         } else if(type == 3) {
-            corr_ondn_embree->compute_covs(Tbms, res);
+            corr_ondn_embree->computeCovs(Tbms, res);
         }
     }
     #endif // RMCL_EMBREE
@@ -449,13 +449,13 @@ void MICPRangeSensor::computeCovs(
 
         // compute
         if(type == 0) {
-            corr_sphere_optix->compute_covs(Tbms_, res_);
+            corr_sphere_optix->computeCovs(Tbms_, res_);
         } else if(type == 1) {
-            corr_pinhole_optix->compute_covs(Tbms_, res_);   
+            corr_pinhole_optix->computeCovs(Tbms_, res_);   
         } else if(type == 2) {
-            corr_o1dn_optix->compute_covs(Tbms_, res_);
+            corr_o1dn_optix->computeCovs(Tbms_, res_);
         } else if(type == 3) {
-            corr_ondn_optix->compute_covs(Tbms_, res_);
+            corr_ondn_optix->computeCovs(Tbms_, res_);
         }
 
         // download
@@ -487,13 +487,13 @@ void MICPRangeSensor::computeCovs(
         res_.Ncorr.resize(Tbms.size());
 
         if(type == 0) {
-            corr_sphere_embree->compute_covs(Tbms_, res_);
+            corr_sphere_embree->computeCovs(Tbms_, res_);
         } else if(type == 1) {
-            corr_pinhole_embree->compute_covs(Tbms_, res_);   
+            corr_pinhole_embree->computeCovs(Tbms_, res_);   
         } else if(type == 2) {
-            corr_o1dn_embree->compute_covs(Tbms_, res_);
+            corr_o1dn_embree->computeCovs(Tbms_, res_);
         } else if(type == 3) {
-            corr_ondn_embree->compute_covs(Tbms_, res_);
+            corr_ondn_embree->computeCovs(Tbms_, res_);
         }
 
         // upload
@@ -535,13 +535,13 @@ void MICPRangeSensor::computeCovs(
                 }
             }
 
-            corr_sphere_optix->compute_covs(Tbms, res);
+            corr_sphere_optix->computeCovs(Tbms, res);
         } else if(type == 1) {
-            corr_pinhole_optix->compute_covs(Tbms, res);   
+            corr_pinhole_optix->computeCovs(Tbms, res);   
         } else if(type == 2) {
-            corr_o1dn_optix->compute_covs(Tbms, res);
+            corr_o1dn_optix->computeCovs(Tbms, res);
         } else if(type == 3) {
-            corr_ondn_optix->compute_covs(Tbms, res);
+            corr_ondn_optix->computeCovs(Tbms, res);
         }
     }
     #endif // RMCL_OPTIX

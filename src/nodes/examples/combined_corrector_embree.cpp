@@ -198,8 +198,8 @@ void correctOnce()
     
     // Extra memory for laser (_l) and wheels (_w)
 
-    auto laser_covs = scan_correct->compute_covs(poses);
-    auto wheel_covs = ondn_correct->compute_covs(poses);
+    auto laser_covs = scan_correct->computeCovs(poses);
+    auto wheel_covs = ondn_correct->computeCovs(poses);
     auto merged_covs = weighted_average({laser_covs, wheel_covs}, {0.5, 0.5});
     auto Tdelta = Correction()(merged_covs);
 

@@ -174,7 +174,7 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbree::correct(
     return res;
 }
 
-void OnDnCorrectorEmbree::compute_covs(
+void OnDnCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
@@ -305,14 +305,14 @@ void OnDnCorrectorEmbree::compute_covs(
     }
 }
 
-void OnDnCorrectorEmbree::compute_covs(
+void OnDnCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     CorrectionPreResults<rmagine::RAM>& res)
 {
-    compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+    computeCovs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 
-CorrectionPreResults<rmagine::RAM> OnDnCorrectorEmbree::compute_covs(
+CorrectionPreResults<rmagine::RAM> OnDnCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionPreResults<rmagine::RAM> res;
@@ -322,7 +322,7 @@ CorrectionPreResults<rmagine::RAM> OnDnCorrectorEmbree::compute_covs(
     res.Cs.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
-    compute_covs(Tbms, res);
+    computeCovs(Tbms, res);
 
     return res;
 }

@@ -177,7 +177,7 @@ CorrectionResults<rmagine::RAM> O1DnCorrectorEmbree::correct(
 // TODO: move to rmagine
 #pragma omp declare reduction( + : rmagine::Matrix3x3 : omp_out += omp_in )
 
-void O1DnCorrectorEmbree::compute_covs(
+void O1DnCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
@@ -308,14 +308,14 @@ void O1DnCorrectorEmbree::compute_covs(
     }
 }
 
-void O1DnCorrectorEmbree::compute_covs(
+void O1DnCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     CorrectionPreResults<rmagine::RAM>& res)
 {
-    compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+    computeCovs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 
-CorrectionPreResults<rmagine::RAM> O1DnCorrectorEmbree::compute_covs(
+CorrectionPreResults<rmagine::RAM> O1DnCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionPreResults<rmagine::RAM> res;
@@ -325,7 +325,7 @@ CorrectionPreResults<rmagine::RAM> O1DnCorrectorEmbree::compute_covs(
     res.Cs.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
-    compute_covs(Tbms, res);
+    computeCovs(Tbms, res);
 
     return res;
 }

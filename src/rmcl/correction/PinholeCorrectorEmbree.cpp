@@ -220,7 +220,7 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
 }
 
 
-void PinholeCorrectorEmbree::compute_covs(
+void PinholeCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
@@ -364,14 +364,14 @@ void PinholeCorrectorEmbree::compute_covs(
     }
 }
 
-void PinholeCorrectorEmbree::compute_covs(
+void PinholeCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     CorrectionPreResults<rmagine::RAM>& res)
 {
-    compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+    computeCovs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 
-CorrectionPreResults<rmagine::RAM> PinholeCorrectorEmbree::compute_covs(
+CorrectionPreResults<rmagine::RAM> PinholeCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionPreResults<rmagine::RAM> res;
@@ -380,7 +380,7 @@ CorrectionPreResults<rmagine::RAM> PinholeCorrectorEmbree::compute_covs(
     res.Cs.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
-    compute_covs(Tbms, res);
+    computeCovs(Tbms, res);
 
     return res;
 }

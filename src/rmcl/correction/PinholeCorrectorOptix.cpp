@@ -79,7 +79,7 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     
-    compute_covs(Tbms, ms, ds, Cs, res.Ncorr);
+    computeCovs(Tbms, ms, ds, Cs, res.Ncorr);
 
     static CorrectionCuda corr(m_svd);
     corr.correction_from_covs(ms, ds, Cs, res.Ncorr, res.Tdelta);
@@ -127,7 +127,7 @@ static size_t rw_mode_additional_bytes(size_t Nposes, size_t Nrays)
     return Nposes * rw_mode_additional_bytes_per_pose(Nrays);
 }
 
-void PinholeCorrectorOptix::compute_covs(
+void PinholeCorrectorOptix::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
@@ -207,20 +207,20 @@ void PinholeCorrectorOptix::compute_covs(
     }
 }
 
-void PinholeCorrectorOptix::compute_covs(
+void PinholeCorrectorOptix::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
     CorrectionPreResults<rmagine::VRAM_CUDA>& res
 ) const
 {
     if(!m_stream->context()->isActive())
     {
-        std::cout << "[PinholeCorrectorOptix::compute_covs() Need to activate map context" << std::endl;
+        std::cout << "[PinholeCorrectorOptix::computeCovs() Need to activate map context" << std::endl;
         m_stream->context()->use();
     }
-    compute_covs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+    computeCovs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
 }
 
-CorrectionPreResults<rmagine::VRAM_CUDA> PinholeCorrectorOptix::compute_covs(
+CorrectionPreResults<rmagine::VRAM_CUDA> PinholeCorrectorOptix::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
 ) const
 {
@@ -230,7 +230,7 @@ CorrectionPreResults<rmagine::VRAM_CUDA> PinholeCorrectorOptix::compute_covs(
     res.Cs.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
-    compute_covs(Tbms, res);
+    computeCovs(Tbms, res);
 
     return res;
 }

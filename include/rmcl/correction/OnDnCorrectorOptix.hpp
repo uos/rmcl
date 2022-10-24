@@ -78,7 +78,7 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
 
-    void compute_covs(
+    void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
         rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
         rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
@@ -86,12 +86,12 @@ public:
         rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
     ) const;
 
-    void compute_covs(
+    void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
         CorrectionPreResults<rmagine::VRAM_CUDA>& res
     ) const;
 
-    CorrectionPreResults<rmagine::VRAM_CUDA> compute_covs(
+    CorrectionPreResults<rmagine::VRAM_CUDA> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
     
