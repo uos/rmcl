@@ -463,7 +463,11 @@ int main(int argc, char** argv)
 
             if(print_corr_rate)
             {
-                double total_dur = abs(el_left) + el;
+                double total_dur = el;
+                if(el_left > 0.0)
+                {
+                    total_dur += el_left;
+                }
                 std::cout << "- Current Correction Rate:  " << total_dur << " s" << ", " << 1.0/total_dur << " hz" << std::endl; 
                 std::cout << "- Possible Correction Rate: " << el << " s" << ", " << 1.0/el << " hz" << std::endl;
             }

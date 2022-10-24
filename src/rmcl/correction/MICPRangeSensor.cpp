@@ -424,9 +424,31 @@ void MICPRangeSensor::computeCovs(
                 }
             }
 
-
             corr_sphere_embree->computeCovs(Tbms, res);
         } else if(type == 1) {
+            if(draw_correspondences)
+            {
+                // draw correspondences of first pose
+                auto Tbms0 = Tbms(0, 0+1);
+
+                rm::Memory<rm::Point, rm::RAM> dataset_points;
+                rm::Memory<rm::Point, rm::RAM> model_points;
+                rm::Memory<unsigned int, rm::RAM> corr_valid;
+
+                corr_pinhole_embree->findSPC(Tbms0, 
+                    dataset_points, model_points, corr_valid);
+
+                auto marker = make_marker(
+                    dataset_points, model_points, 
+                    corr_valid, Tbms0[0]);
+                
+                marker.header.stamp = ros::Time::now();
+                if(pub_corr)
+                {
+                    pub_corr->publish(marker);
+                }
+            }
+
             corr_pinhole_embree->computeCovs(Tbms, res);   
         } else if(type == 2) {
             corr_o1dn_embree->computeCovs(Tbms, res);

@@ -188,8 +188,8 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
 
 void SphereCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
 {
@@ -199,8 +199,7 @@ void SphereCorrectorEmbree::computeCovs(
 
     const rmagine::Transform Tsb = m_Tsb[0];
 
-
-    #pragma omp parallel for default(shared)
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -215,15 +214,9 @@ void SphereCorrectorEmbree::computeCovs(
         Matrix3x3 C;
         C.setZeros();
 
-        #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr_, C)
+        // #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr_, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
-            Vector Dmean_inner = {0.0, 0.0, 0.0};
-            Vector Mmean_inner = {0.0, 0.0, 0.0};
-            unsigned int Ncorr_inner = 0;
-            Matrix3x3 C_inner;
-            C_inner.setZeros();
-
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
@@ -293,35 +286,39 @@ void SphereCorrectorEmbree::computeCovs(
                     {
                         const Vector preal_b = Tsb * preal_s;
                         const Vector pmesh_b = Tsb * pmesh_s;
-                        Dmean_inner += preal_b;
-                        Mmean_inner += pmesh_b;
-                        C_inner += pmesh_b.multT(preal_b);
-                        Ncorr_inner++;
+
+                        // Online update: Covariance and means 
+                        // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+
+                        {
+                            const Vector dD = preal_b - Dmean;
+                            const Vector dM = pmesh_b - Mmean;
+                            float N = static_cast<float>(Ncorr_ + 1);
+
+                            // reduction
+                            Ncorr_++;
+                            Mmean += dM / N;
+                            Dmean += dD / N;
+                            C += dM.multT(dD);
+                        }
                     }
                 }
             }
-
-            // reduction
-            Dmean += Dmean_inner;
-            Mmean += Mmean_inner;
-            Ncorr_ += Ncorr_inner;
-            C += C_inner;
         }
 
         Ncorr[pid] = Ncorr_;
 
         if(Ncorr_ > 0)
         {
-            Dmean /= Ncorr_;
-            Mmean /= Ncorr_;
-            C /= Ncorr_;
+            const float Ncorr_f = static_cast<float>(Ncorr_);
+            C /= Ncorr_f;
             
-            ms[pid] = Mmean;
             ds[pid] = Dmean;
+            ms[pid] = Mmean;
             Cs[pid] = C;
         } else {
-            ms[pid] = {0.0, 0.0, 0.0};
             ds[pid] = {0.0, 0.0, 0.0};
+            ms[pid] = {0.0, 0.0, 0.0};
             Cs[pid].setZeros();
         }
     }
@@ -331,15 +328,15 @@ void SphereCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     CorrectionPreResults<rmagine::RAM>& res)
 {
-    computeCovs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+    computeCovs(Tbms, res.ds, res.ms, res.Cs, res.Ncorr);
 }
 
 CorrectionPreResults<rmagine::RAM> SphereCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
 {
     CorrectionPreResults<rmagine::RAM> res;
-    res.ms.resize(Tbms.size());
     res.ds.resize(Tbms.size());
+    res.ms.resize(Tbms.size());
     res.Cs.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
@@ -347,8 +344,6 @@ CorrectionPreResults<rmagine::RAM> SphereCorrectorEmbree::computeCovs(
 
     return res;
 }
-
-
 
 void SphereCorrectorEmbree::findSPC(
     const rm::MemoryView<rm::Transform, rm::RAM>& Tbms,

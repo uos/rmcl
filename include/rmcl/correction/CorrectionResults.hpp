@@ -43,10 +43,10 @@ namespace rmcl {
 template<typename MemT>
 struct CorrectionPreResults 
 {
-    // model mean
-    rmagine::Memory<rmagine::Vector, MemT>      ms;
-    // dataset means
+    // dataset means (from)
     rmagine::Memory<rmagine::Vector, MemT>      ds;
+    // model means (to)
+    rmagine::Memory<rmagine::Vector, MemT>      ms;
     // covs
     rmagine::Memory<rmagine::Matrix3x3, MemT>   Cs;
     // number of correspondences

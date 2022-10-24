@@ -103,8 +103,8 @@ public:
      */
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
+        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& data_means,
+        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_means,
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
     );
@@ -128,7 +128,7 @@ public:
      */
     void findSPC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> data_points,
         rmagine::MemoryView<rmagine::Point> model_points,
         rmagine::MemoryView<unsigned int> corr_valid
     );
