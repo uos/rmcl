@@ -26,8 +26,8 @@ void O1DnCorrectorEmbree::setInputData(
     m_ranges = ranges;
 }
 
-CorrectionResults<rmagine::RAM> O1DnCorrectorEmbree::correct(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
+CorrectionResults<rm::RAM> O1DnCorrectorEmbree::correct(
+    const rm::MemoryView<rm::Transform, rm::RAM>& Tbms)
 {
     CorrectionResults<RAM> res;
     res.Tdelta.resize(Tbms.size());
@@ -37,13 +37,14 @@ CorrectionResults<rmagine::RAM> O1DnCorrectorEmbree::correct(
 
     auto scene = m_map->scene->handle();
 
+    const rm::Transform Tsb = m_Tsb[0];
+
     #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
-        const rmagine::Transform Tbm = Tbms[pid];
-        const rmagine::Transform Tsb = m_Tsb[0];
-        const rmagine::Transform Tsm = Tbm * Tsb;
-        const rmagine::Transform Tms = ~Tsm;
+        const rm::Transform Tbm = Tbms[pid];
+        const rm::Transform Tsm = Tbm * Tsb;
+        const rm::Transform Tms = ~Tsm;
 
         const unsigned int glob_shift = pid * m_model->size();
 
@@ -53,12 +54,10 @@ CorrectionResults<rmagine::RAM> O1DnCorrectorEmbree::correct(
         Matrix3x3 C;
         C.setZeros();
 
-        // #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
-                // std::cout << "(vid, hid): " << vid << ", " << hid << std::endl;
                 const unsigned int loc_id = m_model->getBufferId(vid, hid);
                 const unsigned int glob_id = glob_shift + loc_id;
 
@@ -193,15 +192,15 @@ void O1DnCorrectorEmbree::computeCovs(
 
     auto scene = m_map->scene->handle();
 
-    const rmagine::Transform Tsb = m_Tsb[0];
+    const rm::Transform Tsb = m_Tsb[0];
 
 
     #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
-        const rmagine::Transform Tbm = Tbms[pid];
-        const rmagine::Transform Tsm = Tbm * Tsb;
-        const rmagine::Transform Tms = ~Tsm;
+        const rm::Transform Tbm = Tbms[pid];
+        const rm::Transform Tsm = Tbm * Tsb;
+        const rm::Transform Tms = ~Tsm;
 
         const unsigned int glob_shift = pid * m_model->size();
 
@@ -356,7 +355,7 @@ void O1DnCorrectorEmbree::findSPC(
 
     const rm::Transform Tsb = m_Tsb[0];
 
-    #pragma omp parallel for default(shared)
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
