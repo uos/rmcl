@@ -111,6 +111,7 @@ public:
         rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
     );
 
+    // Next: reuse the already computed correspondences
     // void computeCovs(
     //     const rmagine::MemoryView<rmagine::Point> dataset_points,
     //     const rmagine::MemoryView<rmagine::Point> model_points,

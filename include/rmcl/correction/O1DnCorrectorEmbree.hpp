@@ -94,8 +94,8 @@ public:
 
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
+        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& data_means,
+        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_means,
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
     );
@@ -108,6 +108,40 @@ public:
     CorrectionPreResults<rmagine::RAM> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
+
+    /**
+     * @brief Find Simulative Projective Correspondences (SPC)
+     * 
+     * @param Tbms 
+     * @param dataset_points 
+     * @param model_points 
+     * @param corr_valid 
+     */
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point> data_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<unsigned int> corr_valid
+    );
+
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<unsigned int>& corr_valid
+    );
+    
+
+    // TODO: add properly - rmagine
+    inline CorrectionParams params() const
+    {
+        return m_params;
+    }
+
+    inline rmagine::O1DnModel model() const
+    {
+        return m_model[0];
+    }
 
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;

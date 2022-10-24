@@ -39,7 +39,7 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
 
     auto scene = m_map->scene->handle();
 
-    #pragma omp parallel for default(shared)
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -55,15 +55,9 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
         Matrix3x3 C;
         C.setZeros();
         
-        #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr, C)
+        // #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
-            Vector Dmean_inner = {0.0, 0.0, 0.0};
-            Vector Mmean_inner = {0.0, 0.0, 0.0};
-            unsigned int Ncorr_inner = 0;
-            Matrix3x3 C_inner;
-            C_inner.setZeros();
-
             // #pragma omp parallel for default(shared) reduction(+:C_inner,Ncorr_inner)
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
             {
@@ -123,7 +117,7 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                     }
 
                     // distance of real point to plane at simulated point
-                    float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
+                    const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
                     const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
 
@@ -134,20 +128,23 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                         const Vector preal_b = Tsb * preal_s;
                         const Vector pmesh_b = Tsb * pmesh_s;
 
-                        Dmean_inner += preal_b;
-                        Mmean_inner += pmesh_b;
-                        C_inner += pmesh_b.multT(preal_b);
-                        Ncorr_inner++;
+                        // Online update: Covariance and means 
+                        // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+                        {
+                            Ncorr++;
+                            const float N = static_cast<float>(Ncorr);
+
+                            const Vector dD = preal_b - Dmean;
+                            const Vector dM = pmesh_b - Mmean;
+
+                            // reduction
+                            Dmean += dD / N;
+                            Mmean += dM / N;
+                            C += dM.multT(dD);
+                        }
                     }
                 }
             }
-
-            // reduction
-            Dmean += Dmean_inner;
-            Mmean += Mmean_inner;
-            Ncorr += Ncorr_inner;
-            C += C_inner;
-
         }
 
         res.Ncorr[pid] = Ncorr;
@@ -214,7 +211,6 @@ void SphereCorrectorEmbree::computeCovs(
         Matrix3x3 C;
         C.setZeros();
 
-        // #pragma omp parallel for default(shared) reduction(+:Dmean, Mmean, Ncorr_, C)
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
