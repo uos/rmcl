@@ -273,7 +273,7 @@ void O1DnCorrectorEmbree::computeCovs(
                     }
 
                     // distance of real point to plane at simulated point
-                    float signed_plane_dist = (preal_s - pint_s).dot(nint_s);
+                    float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
                     const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
 

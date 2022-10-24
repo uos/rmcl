@@ -117,7 +117,7 @@ CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
                     }
 
                     // distance of real point to plane at simulated point
-                    const float signed_plane_dist = (preal_s - pint_s).dot(nint_s);
+                    const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
                     const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
 
@@ -274,7 +274,7 @@ void OnDnCorrectorEmbree::computeCovs(
                     }
 
                     // distance of real point to plane at simulated point
-                    float signed_plane_dist = (preal_s - pint_s).dot(nint_s);
+                    float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
                     const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
 
@@ -311,12 +311,12 @@ void OnDnCorrectorEmbree::computeCovs(
             const float Ncorr_f = static_cast<float>(Ncorr_);
             C /= Ncorr_f;
 
-            ms[pid] = Mmean;
             ds[pid] = Dmean;
+            ms[pid] = Mmean;
             Cs[pid] = C;
         } else {
-            ms[pid] = {0.0, 0.0, 0.0};
             ds[pid] = {0.0, 0.0, 0.0};
+            ms[pid] = {0.0, 0.0, 0.0};
             Cs[pid].setZeros();
         }
     }
