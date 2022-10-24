@@ -94,6 +94,17 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
+    
+
+    /**
+     * @brief Compute Covs. Required for fusion of different sensors
+     * 
+     * @param Tbms 
+     * @param ms 
+     * @param ds 
+     * @param Cs 
+     * @param Ncorr 
+     */
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
@@ -110,6 +121,41 @@ public:
     CorrectionPreResults<rmagine::RAM> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
+
+
+     /**
+     * @brief Find Simulative Projective Correspondences (SPC)
+     * 
+     * @param Tbms 
+     * @param dataset_points 
+     * @param model_points 
+     * @param corr_valid 
+     */
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<unsigned int> corr_valid
+    );
+
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<unsigned int>& corr_valid
+    );
+
+
+    // TODO: add properly - rmagine
+    inline CorrectionParams params() const
+    {
+        return m_params;
+    }
+
+    inline rmagine::PinholeModel model() const
+    {
+        return m_model[0];
+    }
 
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;

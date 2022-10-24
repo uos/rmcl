@@ -410,7 +410,7 @@ void MICPRangeSensor::computeCovs(
                 rm::Memory<rm::Point, rm::RAM> model_points;
                 rm::Memory<unsigned int, rm::RAM> corr_valid;
 
-                corr_sphere_embree->findCorrespondences(Tbms0, 
+                corr_sphere_embree->findSPC(Tbms0, 
                     dataset_points, model_points, corr_valid);
 
                 auto marker = make_marker(
@@ -521,7 +521,7 @@ void MICPRangeSensor::computeCovs(
                 rm::Memory<rm::Point, rm::VRAM_CUDA> model_points;
                 rm::Memory<unsigned int, rm::VRAM_CUDA> corr_valid;
 
-                corr_sphere_optix->findCorrespondences(Tbms0, 
+                corr_sphere_optix->findSPC(Tbms0, 
                     dataset_points, model_points, corr_valid);
 
                 auto marker = make_marker(

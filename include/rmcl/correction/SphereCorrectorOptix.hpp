@@ -78,14 +78,14 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
 
-    void findCorrespondences(
+    void findSPC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
         rmagine::MemoryView<rmagine::Point, rmagine::VRAM_CUDA> dataset_points,
         rmagine::MemoryView<rmagine::Point, rmagine::VRAM_CUDA> model_points,
         rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA> corr_valid
     ) const;
 
-    void findCorrespondences(
+    void findSPC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
         rmagine::Memory<rmagine::Point, rmagine::VRAM_CUDA>& dataset_points,
         rmagine::Memory<rmagine::Point, rmagine::VRAM_CUDA>& model_points,

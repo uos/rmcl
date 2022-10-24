@@ -93,14 +93,14 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
     return res;
 }
 
-void SphereCorrectorOptix::findCorrespondences(
+void SphereCorrectorOptix::findSPC(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
     rm::MemoryView<rm::Point, rm::VRAM_CUDA> dataset_points,
     rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
     rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid
 ) const
 {
-    // std::cout << "SphereCorrectorOptix - findCorrespondences" << std::endl;
+    // std::cout << "SphereCorrectorOptix - findSPC" << std::endl;
     if(!m_map)
     {
         throw std::runtime_error("NO MAP");
@@ -118,7 +118,7 @@ void SphereCorrectorOptix::findCorrespondences(
 
     if(!m_stream->context()->isActive())
     {
-        std::cout << "[SphereCorrectorOptix::findCorrespondences() Need to activate map context" << std::endl;
+        std::cout << "[SphereCorrectorOptix::findSPC() Need to activate map context" << std::endl;
         m_stream->context()->use();
     }
 
@@ -182,7 +182,7 @@ void SphereCorrectorOptix::computeCovs(
     }
 }
 
-void SphereCorrectorOptix::findCorrespondences(
+void SphereCorrectorOptix::findSPC(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
     rm::Memory<rm::Point, rm::VRAM_CUDA>& dataset_points,
     rm::Memory<rm::Point, rm::VRAM_CUDA>& model_points,
@@ -191,7 +191,7 @@ void SphereCorrectorOptix::findCorrespondences(
 {
     if(!m_stream->context()->isActive())
     {
-        std::cout << "[SphereCorrectorOptix::findCorrespondences() Need to activate map context" << std::endl;
+        std::cout << "[SphereCorrectorOptix::findSPC() Need to activate map context" << std::endl;
         m_stream->context()->use();
     }
 
@@ -214,7 +214,7 @@ void SphereCorrectorOptix::findCorrespondences(
         corr_valid.resize(Nrays);
     }
 
-    findCorrespondences(Tbms, dataset_points(0, Nrays), model_points(0, Nrays), corr_valid(0, Nrays) );
+    findSPC(Tbms, dataset_points(0, Nrays), model_points(0, Nrays), corr_valid(0, Nrays) );
 }
 
 void SphereCorrectorOptix::computeCovs(
@@ -376,7 +376,7 @@ void SphereCorrectorOptix::computeMeansCovsRW(
     rm::Memory<rm::Vector, rm::VRAM_CUDA> model_points(Nrays);
     rm::Memory<rm::Vector, rm::VRAM_CUDA> dataset_points(Nrays);
 
-    findCorrespondences(Tbm, dataset_points, model_points, corr_valid);
+    findSPC(Tbm, dataset_points, model_points, corr_valid);
 
     rm::sumBatched(corr_valid, Ncorr);
     meanBatched(dataset_points, corr_valid, Ncorr, means_dataset);

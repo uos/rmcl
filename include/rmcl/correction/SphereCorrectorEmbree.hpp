@@ -92,21 +92,15 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
-    void findCorrespondences(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Point> dataset_points,
-        rmagine::MemoryView<rmagine::Point> model_points,
-        rmagine::MemoryView<unsigned int> corr_valid
-    );
-
-    void findCorrespondences(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::Memory<rmagine::Point>& dataset_points,
-        rmagine::Memory<rmagine::Point>& model_points,
-        rmagine::Memory<unsigned int>& corr_valid
-    );
-
-    // TODO: camel case
+    /**
+     * @brief Compute Covs. Required for fusion of different sensors
+     * 
+     * @param Tbms 
+     * @param ms 
+     * @param ds 
+     * @param Cs 
+     * @param Ncorr 
+     */
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
@@ -124,16 +118,27 @@ public:
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
     );
 
-    struct Timings
-    {   
-        double sim = 0.0;
-        double red = 0.0;
-        double svd = 0.0;
-    };
+    /**
+     * @brief Find Simulative Projective Correspondences (SPC)
+     * 
+     * @param Tbms 
+     * @param dataset_points 
+     * @param model_points 
+     * @param corr_valid 
+     */
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<unsigned int> corr_valid
+    );
 
-    Timings benchmark(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms, 
-        size_t Ntests = 100);
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<unsigned int>& corr_valid
+    );
 
     // TODO: add properly - rmagine
     inline CorrectionParams params() const
