@@ -62,10 +62,7 @@ extern "C" __global__ void __raygen__rg()
         mem.corr_valid[glob_id] = 0;
         return;
     }
-        
-    const rm::Vector preal_s = ray_dir_s * real_range;
-    const rm::Vector psim_s = ray_dir_s * sim_range;
-    
+
     rmagine::Vector nsim_m = {
         __uint_as_float(p1),
         __uint_as_float(p2),
@@ -73,6 +70,11 @@ extern "C" __global__ void __raygen__rg()
     };
 
     nsim_m.normalizeInplace();
+
+    // going to sensor space
+        
+    const rm::Vector preal_s = ray_dir_s * real_range;
+    const rm::Vector psim_s = ray_dir_s * sim_range;
 
     rm::Vector nsim_s = Tms.R * nsim_m;
 

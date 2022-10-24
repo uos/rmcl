@@ -185,9 +185,9 @@ __global__ void covFancyBatched_kernel(
 
 template<unsigned int blockSize>
 __global__ void covFancyBatched_kernel(
-    const rm::Vector* data1, // to
-    const rm::Vector* data2, // from
-    const unsigned int* mask,
+    const rm::Vector* dataset_points, // from, dataset
+    const rm::Vector* model_points, // to, model
+    const unsigned int* mask, // valid correspondences
     const unsigned int* Ncorr,
     unsigned int chunkSize,
     rm::Matrix3x3* Cs)
@@ -207,8 +207,8 @@ __global__ void covFancyBatched_kernel(
             if(mask[globId + blockSize * i] > 0)
             {
                 // dataset: d, model: m
-                const rm::Vector d = data1[globId + blockSize * i];
-                const rm::Vector m = data2[globId + blockSize * i];
+                const rm::Vector d = dataset_points[globId + blockSize * i];
+                const rm::Vector m = model_points[globId + blockSize * i];
                 sdata[tid] += m.multT(d);
             }
         }

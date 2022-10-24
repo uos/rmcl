@@ -388,8 +388,8 @@ void SphereCorrectorOptix::computeMeansCovsRW(
 
 void SphereCorrectorOptix::computeMeansCovsSW(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbm,
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m1, // ms
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m2, // ds
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_dataset, // from, dataset
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_model, // to, model
     rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
     rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
     ) const
@@ -404,15 +404,14 @@ void SphereCorrectorOptix::computeMeansCovsSW(
     mem->params = m_params.raw();
     mem->handle = m_map->scene()->as()->handle;
     mem->C = Cs.raw();
-    mem->m1 = m1.raw(); // Sim
-    mem->m2 = m2.raw(); // Real
+    mem->m1 = means_dataset.raw();
+    mem->m2 = means_model.raw();
     mem->Ncorr = Ncorr.raw();
 
     rm::Memory<SphereCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, m_stream);
 
     rm::PipelinePtr program = make_pipeline_corr_sw(m_map->scene(), 0);
-
     
     RM_OPTIX_CHECK( optixLaunch(
         program->pipeline, 

@@ -392,8 +392,6 @@ int main(int argc, char** argv)
         }
     }
 
-
-
     init();
 
     tf_buffer.reset(new tf2_ros::Buffer);
@@ -417,7 +415,6 @@ int main(int argc, char** argv)
             elem.second->enableVizCorrespondences();
         }
     }
-
 
     std::string combining_unit_str;
     nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
@@ -463,9 +460,12 @@ int main(int argc, char** argv)
             {
                 std::this_thread::sleep_for(std::chrono::duration<double>(el_left));
             }
+
             if(print_corr_rate)
             {
-                std::cout << "Current Correction Rate: " << el << " s" << ", " << 1.0/el << " hz" << std::endl;
+                double total_dur = abs(el_left) + el;
+                std::cout << "- Current Correction Rate:  " << total_dur << " s" << ", " << 1.0/total_dur << " hz" << std::endl; 
+                std::cout << "- Possible Correction Rate: " << el << " s" << ", " << 1.0/el << " hz" << std::endl;
             }
         }
 
@@ -482,13 +482,17 @@ int main(int argc, char** argv)
 
     while(ros::ok())
     {
-        fetchTF();
-
         if(pose_received)
         {
             // updateTF();
             // weird bug. new_stamp sometimes is equal to stamp. results 
+
+            // if(print_corr_rate)
+            // {
+            //     std::cout << "- update tf" << std::endl;
+            // }
             
+
             ros::Time new_stamp = ros::Time::now();
             if(new_stamp > stamp)
             {
