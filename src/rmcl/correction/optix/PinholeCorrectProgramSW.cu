@@ -3,6 +3,8 @@
 #include <rmagine/math/types.h>
 #include <rmagine/util/optix/OptixData.hpp>
 
+namespace rm = rmagine;
+
 extern "C" {
 __constant__ rmcl::PinholeCorrectionDataSW mem;
 }
@@ -25,16 +27,16 @@ extern "C" __global__ void __raygen__rg()
         const float rangeMin = mem.model->range.min;
         const float rangeMax = mem.model->range.max;
         
-        const rmagine::Transform Tsb = mem.Tsb[0];
-        const rmagine::Transform Tbm = mem.Tbm[pid];
-        const rmagine::Transform Tsm = Tbm * Tsb;
-        const rmagine::Transform Tmb = Tbm.inv();
+        const rm::Transform Tsb = mem.Tsb[0];
+        const rm::Transform Tbm = mem.Tbm[pid];
+        const rm::Transform Tsm = Tbm * Tsb;
+        const rm::Transform Tms = Tsm.inv();
 
         // TODO: is it possible to not doing optixTrace twice?
-        rmagine::Vector Dmean = {0.0, 0.0, 0.0};
-        rmagine::Vector Mmean = {0.0, 0.0, 0.0};
+        rm::Vector Dmean = {0.0, 0.0, 0.0};
+        rm::Vector Mmean = {0.0, 0.0, 0.0};
         unsigned int Ncorr = 0;
-        rmagine::Matrix3x3 C;
+        rm::Matrix3x3 C;
         C.setZeros();
         
         // Computing Means
@@ -48,7 +50,7 @@ extern "C" __global__ void __raygen__rg()
                 const float real_range = mem.ranges[loc_id];
                 if(real_range < rangeMin || real_range > rangeMax){continue;}
 
-                rmagine::Vector ray_dir_s;
+                rm::Vector ray_dir_s;
                 if(mem.optical)
                 {
                     ray_dir_s = mem.model->getDirectionOptical(vid, hid);
@@ -56,8 +58,7 @@ extern "C" __global__ void __raygen__rg()
                     ray_dir_s = mem.model->getDirection(vid, hid);
                 }
                 
-                const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
-                const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
+                const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 unsigned int p0, p1, p2, p3;
                 optixTrace(
@@ -80,33 +81,45 @@ extern "C" __global__ void __raygen__rg()
                     continue;
                 }
 
-                const rmagine::Vector preal_b = ray_dir_b * real_range;
-                const rmagine::Vector pint_b = ray_dir_b * range;
-
-                const rmagine::Vector nint_m = {
+                const rm::Vector nint_m = {
                     __uint_as_float( p1 ),
                     __uint_as_float( p2 ),
                     __uint_as_float( p3 )
                 };
 
-                rmagine::Vector nint_b = Tmb.R * nint_m;
+                const rm::Vector preal_s = ray_dir_s * real_range;
+                const rm::Vector pint_s = ray_dir_s * range;
+
+                rmagine::Vector nint_s = Tms.R * nint_m;
                 
-                if(nint_b.dot(ray_dir_b) > 0.0 )
-                {
-                    nint_b *= -1.0;
-                }
+                // if(nint_s.dot(ray_dir_s) > 0.0 )
+                // {
+                //     nint_s *= -1.0;
+                // }
 
-                const float signed_plane_dist = (preal_b - pint_b).dot(nint_b);
-                const rmagine::Vector pmesh_b = preal_b + nint_b * signed_plane_dist;
+                const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
+                const rm::Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
 
-                const float dist_sqrt = (pmesh_b - preal_b).l2normSquared();
+                const float dist_sqrt = (pmesh_s - preal_s).l2normSquared();
 
                 if(dist_sqrt < dist_thresh * dist_thresh)
                 {
-                    Ncorr++;
-                    Dmean += preal_b;
-                    Mmean += pmesh_b;
-                    C += preal_b.multT(pmesh_b);
+                    const rm::Vector preal_b = Tsb * preal_s;
+                    const rm::Vector pmesh_b = Tsb * pmesh_s;
+                    // Online update: Covariance and means 
+                    // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+                    {
+                        Ncorr++;
+                        const float N = static_cast<float>(Ncorr);
+
+                        const rm::Vector dD = preal_b - Dmean;
+                        const rm::Vector dM = pmesh_b - Mmean;
+
+                        // reduction
+                        Dmean += dD / N;
+                        Mmean += dM / N;
+                        C += dM.multT(dD);
+                    }
                 }
             }
         }
@@ -115,8 +128,6 @@ extern "C" __global__ void __raygen__rg()
 
         if(Ncorr > 0)
         {
-            Dmean /= static_cast<float>(Ncorr);
-            Mmean /= static_cast<float>(Ncorr);
             C /= static_cast<float>(Ncorr);
         }
 

@@ -11,8 +11,6 @@ __constant__ rmcl::PinholeCorrectionDataRW mem;
 
 extern "C" __global__ void __raygen__rg()
 {
-
-
     // Parameters
     const float dist_thresh = mem.params->max_distance;
     const float range_max = mem.model->range.max;
@@ -28,20 +26,15 @@ extern "C" __global__ void __raygen__rg()
     // pose id
     const unsigned int pid = idx.z;
 
-    // if(hid == 0 && vid == 0 && pid == 0)
-    // {
-    //     printf("PinholeCorrectProgramRW.cu\n");
-    // }
-
     const unsigned int loc_id = mem.model->getBufferId(vid, hid);
     const unsigned int glob_id = pid * mem.model->size() + loc_id;
 
-    const rmagine::Transform Tsb = mem.Tsb[0];
-    const rmagine::Transform Tbm = mem.Tbm[pid];
-    const rmagine::Transform Tsm = Tbm * Tsb;
-    const rmagine::Quaternion Rmb = Tbm.R.inv();
+    const rm::Transform Tsb = mem.Tsb[0];
+    const rm::Transform Tbm = mem.Tbm[pid];
+    const rm::Transform Tsm = Tbm * Tsb;
+    const rm::Quaternion Rms = Tsm.R.inv();
     
-    rmagine::Vector ray_dir_s;
+    rm::Vector ray_dir_s;
     if(mem.optical)
     {
         ray_dir_s = mem.model->getDirectionOptical(vid, hid);
@@ -49,8 +42,7 @@ extern "C" __global__ void __raygen__rg()
         ray_dir_s = mem.model->getDirection(vid, hid);
     }        
 
-    const rmagine::Vector ray_dir_b = Tsb.R * ray_dir_s;
-    const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
+    const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
     unsigned int p0, p1, p2, p3;
     optixTrace(
@@ -72,40 +64,43 @@ extern "C" __global__ void __raygen__rg()
 
     if(real_range > range_max || sim_range > range_max || real_range < range_min)
     {
+        mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
+        mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
         mem.corr_valid[glob_id] = 0;
-        mem.model_points[glob_id] = {0.0, 0.0, 0.0};
-        mem.dataset_points[glob_id] = {0.0, 0.0, 0.0};
-        return;
-    }
-        
-    const rmagine::Vector preal_b = ray_dir_b * real_range;
-    const rmagine::Vector psim_b = ray_dir_b * sim_range;
-    
-    const rmagine::Vector nsim_m = {
-        __uint_as_float(p1),
-        __uint_as_float(p2),
-        __uint_as_float(p3)
-    };
-
-    rmagine::Vector nsim_b = Rmb * nsim_m;
-
-    if(ray_dir_b.dot(nsim_b) > 0.0)
-    {
-        nsim_b = -nsim_b;
-    }
-
-    const float signed_plane_dist = (preal_b - psim_b).dot(nsim_b);
-    const rmagine::Vector pnearest_b = preal_b + nsim_b * signed_plane_dist;
-    const float dist_sqrt = (pnearest_b - preal_b).l2normSquared();
-
-    if(dist_sqrt < dist_thresh * dist_thresh)
-    {
-        mem.corr_valid[glob_id] = 1;
-        mem.model_points[glob_id] = pnearest_b;
-        mem.dataset_points[glob_id] = preal_b;
     } else {
-        mem.corr_valid[glob_id] = 0;
+        const rm::Vector nsim_m = {
+            __uint_as_float(p1),
+            __uint_as_float(p2),
+            __uint_as_float(p3)
+        };
+
+        // going to sensor space
+        const rm::Vector preal_s = ray_dir_s * real_range;
+        const rm::Vector psim_s = ray_dir_s * sim_range;    
+        
+        rm::Vector nsim_s = Rms * nsim_m;
+
+        // if(ray_dir_s.dot(nsim_s) > 0.0)
+        // {
+        //     nsim_s = -nsim_s;
+        // }
+
+        const float signed_plane_dist = (psim_s - preal_s).dot(nsim_s);
+        const rm::Vector pnearest_s = preal_s + nsim_s * signed_plane_dist;
+        const float dist_sqrt = (pnearest_s - preal_s).l2normSquared();
+
+        if(dist_sqrt < dist_thresh * dist_thresh)
+        {
+            mem.dataset_points[glob_id] = Tsb * preal_s;
+            mem.model_points[glob_id] = Tsb * pnearest_s;
+            mem.corr_valid[glob_id] = 1;
+        } else {
+            mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
+            mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
+            mem.corr_valid[glob_id] = 0;
+        }
     }
+
 }
 
 extern "C" __global__ void __miss__ms()

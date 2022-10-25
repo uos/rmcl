@@ -73,9 +73,9 @@ struct CorrectionDataSW
     // handle
     unsigned long long          handle;
     // outputs
-    rmagine::Matrix3x3*             C; // C between 1 and 2
     rmagine::Vector*                m1; // from
     rmagine::Vector*                m2; // to
+    rmagine::Matrix3x3*             C; // C between 1 and 2
     unsigned int*                   Ncorr;
 };
 
@@ -102,9 +102,9 @@ struct CorrectionDataRW
     // handle
     unsigned long long              handle;
     // outputs
-    unsigned int*                   corr_valid;
-    rmagine::Vector*                model_points; // nearest points on mesh
     rmagine::Vector*                dataset_points;
+    rmagine::Vector*                model_points; // nearest points on mesh
+    unsigned int*                   corr_valid;
 };
 
 using SphereCorrectionDataRW = CorrectionDataRW<rmagine::SphericalModel>;

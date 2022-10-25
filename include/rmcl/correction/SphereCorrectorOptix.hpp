@@ -72,9 +72,24 @@ public:
         const rmagine::MemoryView<float, rmagine::VRAM_CUDA>& ranges
     );
 
-    
-
     CorrectionResults<rmagine::VRAM_CUDA> correct(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
+    ) const;
+
+    void computeCovs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data_means,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_means,
+        rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+        rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
+    ) const;
+
+    void computeCovs(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        CorrectionPreResults<rmagine::VRAM_CUDA>& res
+    ) const;
+
+    CorrectionPreResults<rmagine::VRAM_CUDA> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
 
@@ -91,34 +106,6 @@ public:
         rmagine::Memory<rmagine::Point, rmagine::VRAM_CUDA>& model_points,
         rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>& corr_valid
     ) const;
-
-    void computeCovs(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
-        rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
-        rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
-    ) const;
-
-    void computeCovs(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
-        CorrectionPreResults<rmagine::VRAM_CUDA>& res
-    ) const;
-
-    CorrectionPreResults<rmagine::VRAM_CUDA> computeCovs(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
-    ) const;
-    struct Timings
-    {   
-        double sim = 0.0;
-        double red = 0.0;
-        double svd = 0.0;
-    };
-
-    Timings benchmark(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms, 
-        size_t Ntests = 100);
-
 
     // TODO: add properly - rmagine
     inline CorrectionParams params() const

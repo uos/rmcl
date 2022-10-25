@@ -27,10 +27,10 @@ extern "C" __global__ void __raygen__rg()
         const float rangeMin = mem.model->range.min;
         const float rangeMax = mem.model->range.max;
         
-        const rmagine::Transform Tsb = mem.Tsb[0];
-        const rmagine::Transform Tbm = mem.Tbm[pid];
-        const rmagine::Transform Tsm = Tbm * Tsb;
-        const rmagine::Transform Tms = Tsm.inv();
+        const rm::Transform Tsb = mem.Tsb[0];
+        const rm::Transform Tbm = mem.Tbm[pid];
+        const rm::Transform Tsm = Tbm * Tsb;
+        const rm::Transform Tms = Tsm.inv();
 
         // TODO: is it possible to not doing optixTrace twice?
         // - solution: fixing the rotation center to the robot's base
@@ -38,10 +38,16 @@ extern "C" __global__ void __raygen__rg()
         // -- expected pros:
         // --- better stability. never glitch through walls: better recovery after an error
         // --- faster: 2x
-        rmagine::Vector Dmean = {0.0, 0.0, 0.0};
-        rmagine::Vector Mmean = {0.0, 0.0, 0.0};
+        // Solution was not good, correspondences need sometime force the problem
+        // to have another rotation center. For example: Depth Cameras having 
+        // having correspondences mostly in front of the sensor, thus the rotation must be 
+        // around enother center, not the robots.
+        // But how to weighted fuse measurements then?
+
+        rm::Vector Dmean = {0.0, 0.0, 0.0};
+        rm::Vector Mmean = {0.0, 0.0, 0.0};
         unsigned int Ncorr = 0;
-        rmagine::Matrix3x3 C;
+        rm::Matrix3x3 C;
         C.setZeros();
         
         // Computing Means
@@ -58,8 +64,8 @@ extern "C" __global__ void __raygen__rg()
                     continue;
                 }
 
-                const rmagine::Vector ray_dir_s = mem.model->getDirection(vid, hid);
-                const rmagine::Vector ray_dir_m = Tsm.R * ray_dir_s;
+                const rm::Vector ray_dir_s = mem.model->getDirection(vid, hid);
+                const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 unsigned int p0, p1, p2, p3;
                 optixTrace(
@@ -96,10 +102,10 @@ extern "C" __global__ void __raygen__rg()
 
                 rm::Vector nint_s = Tms.R * nint_m;
                 
-                if(nint_s.dot(ray_dir_s) > 0.0 )
-                {
-                    nint_s *= -1.0;
-                }
+                // if(nint_s.dot(ray_dir_s) > 0.0)
+                // {
+                //     nint_s *= -1.0;
+                // }
 
                 const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                 const rm::Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
@@ -109,10 +115,20 @@ extern "C" __global__ void __raygen__rg()
                 {
                     const rm::Vector preal_b = Tsb * preal_s;
                     const rm::Vector pmesh_b = Tsb * pmesh_s;
-                    Ncorr++;
-                    Dmean += preal_b;
-                    Mmean += pmesh_b;
-                    C += pmesh_b.multT(preal_b);
+                    // Online update: Covariance and means 
+                    // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+                    {
+                        Ncorr++;
+                        const float N = static_cast<float>(Ncorr);
+
+                        const rm::Vector dD = preal_b - Dmean;
+                        const rm::Vector dM = pmesh_b - Mmean;
+
+                        // reduction
+                        Dmean += dD / N;
+                        Mmean += dM / N;
+                        C += dM.multT(dD);
+                    }
                 }
             }
         }
@@ -121,8 +137,6 @@ extern "C" __global__ void __raygen__rg()
 
         if(Ncorr > 0)
         {
-            Dmean /= static_cast<float>(Ncorr);
-            Mmean /= static_cast<float>(Ncorr);
             C /= static_cast<float>(Ncorr);
         }
 

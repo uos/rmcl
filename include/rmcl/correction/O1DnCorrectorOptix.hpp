@@ -80,8 +80,8 @@ public:
 
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data_means,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_means,
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
     ) const;
@@ -94,7 +94,7 @@ public:
     CorrectionPreResults<rmagine::VRAM_CUDA> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
-    
+
 protected:
     rmagine::Memory<float, rmagine::VRAM_CUDA> m_ranges;
     rmagine::Memory<CorrectionParams, rmagine::VRAM_CUDA> m_params;

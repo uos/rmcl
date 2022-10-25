@@ -1,13 +1,20 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.2...10.0)
 project(rmcl)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_CONV "Build Conversion Nodes" ON)
 
+include(GNUInstallDirs)
+
 add_compile_options(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
 
+message(STATUS "CMake Version: ${CMAKE_VERSION}")
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
+    message(STATUS ">= 3.9 - Enabling Link Time Optimization")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 
 # DEFAULT RELEASE
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
@@ -20,7 +27,6 @@ set(CMAKE_MODULE_PATH
   ${rmcl_SOURCE_DIR}/cmake
   ${CMAKE_MODULE_PATH}
 )
-
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp

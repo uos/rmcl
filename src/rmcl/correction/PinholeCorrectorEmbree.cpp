@@ -120,11 +120,11 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
                     // transform normal from global to local
                     nint_s = Tms.R * nint_m;
 
-                    // flip to base: check if this is really needed
-                    if(ray_dir_s.dot(nint_s) > 0.0)
-                    {
-                        nint_s = -nint_s;
-                    }
+                    // flip to base: check if this is really needed: no
+                    // if(ray_dir_s.dot(nint_s) > 0.0)
+                    // {
+                    //     nint_s = -nint_s;
+                    // }
 
                     // distance of real point to plane at simulated point
                     float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
@@ -282,11 +282,11 @@ void PinholeCorrectorEmbree::computeCovs(
                     // transform normal from global to local
                     nint_s = Tms.R * nint_m;
 
-                    // flip to base: check if this is really needed
-                    if(ray_dir_s.dot(nint_s) > 0.0)
-                    {
-                        nint_s = -nint_s;
-                    }
+                    // flip to base: check if this is really needed: no
+                    // if(ray_dir_s.dot(nint_s) > 0.0)
+                    // {
+                    //     nint_s = -nint_s;
+                    // }
 
                     // distance of real point to plane at simulated point
                     const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
@@ -443,11 +443,11 @@ void PinholeCorrectorEmbree::findSPC(
                     // transform normal from global to local
                     nint_s = Tms.R * nint_m;
 
-                    // flip to base
-                    if(ray_dir_s.dot(nint_s) > 0.0)
-                    {
-                        nint_s = -nint_s;
-                    }
+                    // flip to base: no
+                    // if(ray_dir_s.dot(nint_s) > 0.0)
+                    // {
+                    //     nint_s = -nint_s;
+                    // }
 
                     // distance of real point to plane at simulated point
                     float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
@@ -678,11 +678,11 @@ void PinholeCorrectorEmbree::computeCovsOuterInnerParallel(
                     // transform normal from global to local
                     nint_s = Tms.R * nint_m;
 
-                    // flip to base: check if this is really needed
-                    if(ray_dir_s.dot(nint_s) > 0.0)
-                    {
-                        nint_s = -nint_s;
-                    }
+                    // flip to base: check if this is really needed: no
+                    // if(ray_dir_s.dot(nint_s) > 0.0)
+                    // {
+                    //     nint_s = -nint_s;
+                    // }
 
                     // distance of real point to plane at simulated point
                     float signed_plane_dist = (pint_s - preal_s).dot(nint_s);

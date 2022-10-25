@@ -110,11 +110,11 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                     // transform normal from global to local
                     nint_s = Tms.R * nint_m;
 
-                    // flip to base: check if this is really needed
-                    if(ray_dir_s.dot(nint_s) > 0.0)
-                    {
-                        nint_s = -nint_s;
-                    }
+                    // flip to base: check if this is really needed: no
+                    // if(ray_dir_s.dot(nint_s) > 0.0)
+                    // {
+                    //     nint_s = -nint_s;
+                    // }
 
                     // distance of real point to plane at simulated point
                     const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
@@ -151,9 +151,8 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
 
         if(Ncorr > 0)
         {
-            Dmean /= Ncorr;
-            Mmean /= Ncorr;
-            C /= Ncorr;
+            const float Ncorr_f = static_cast<float>(Ncorr);
+            C /= Ncorr_f;
 
             Matrix3x3 U, V, S;
 
@@ -265,11 +264,11 @@ void SphereCorrectorEmbree::computeCovs(
                     // transform normal from global to local
                     nint_s = Tms.R * nint_m;
 
-                    // flip to base: check if this is really needed
-                    if(ray_dir_s.dot(nint_s) > 0.0)
-                    {
-                        nint_s = -nint_s;
-                    }
+                    // flip to base: check if this is really needed: no
+                    // if(ray_dir_s.dot(nint_s) > 0.0)
+                    // {
+                    //     nint_s = -nint_s;
+                    // }
 
                     // distance of real point to plane at simulated point
                     float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
@@ -353,7 +352,7 @@ void SphereCorrectorEmbree::findSPC(
 
     const rm::Transform Tsb = m_Tsb[0];
 
-    #pragma omp parallel for default(shared)
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -417,11 +416,11 @@ void SphereCorrectorEmbree::findSPC(
                     // transform normal from global to local
                     nint_s = Tms.R * nint_m;
 
-                    // flip to base
-                    if(ray_dir_s.dot(nint_s) > 0.0)
-                    {
-                        nint_s = -nint_s;
-                    }
+                    // flip to base: not required
+                    // if(ray_dir_s.dot(nint_s) > 0.0)
+                    // {
+                    //     nint_s = -nint_s;
+                    // }
 
                     // distance of real point to plane at simulated point
                     float signed_plane_dist = (pint_s - preal_s).dot(nint_s);

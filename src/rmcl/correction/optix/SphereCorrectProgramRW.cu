@@ -32,7 +32,7 @@ extern "C" __global__ void __raygen__rg()
     const rm::Transform Tsb = mem.Tsb[0];
     const rm::Transform Tbm = mem.Tbm[pid];
     const rm::Transform Tsm = Tbm * Tsb;
-    const rm::Transform Tms = ~Tsm;
+    const rm::Quaternion Rms = Tsm.R.inv();
     
     const rm::Vector ray_dir_s = mem.model->getDirection(vid, hid);
     const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
@@ -60,43 +60,43 @@ extern "C" __global__ void __raygen__rg()
         mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
         mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
         mem.corr_valid[glob_id] = 0;
-        return;
-    }
-
-    rmagine::Vector nsim_m = {
-        __uint_as_float(p1),
-        __uint_as_float(p2),
-        __uint_as_float(p3)
-    };
-
-    nsim_m.normalizeInplace();
-
-    // going to sensor space
-        
-    const rm::Vector preal_s = ray_dir_s * real_range;
-    const rm::Vector psim_s = ray_dir_s * sim_range;
-
-    rm::Vector nsim_s = Tms.R * nsim_m;
-
-    if(ray_dir_s.dot(nsim_s) > 0.0)
-    {
-        nsim_s = -nsim_s;
-    }
-
-    const float signed_plane_dist = (psim_s - preal_s).dot(nsim_s);
-    const rm::Vector pnearest_s = preal_s + nsim_s * signed_plane_dist;
-    const float dist_sqrt = (pnearest_s - preal_s).l2normSquared();
-
-    if(dist_sqrt < dist_thresh * dist_thresh)
-    {
-        mem.dataset_points[glob_id] = Tsb * preal_s;
-        mem.model_points[glob_id] = Tsb * pnearest_s;
-        mem.corr_valid[glob_id] = 1;
     } else {
-        mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
-        mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
-        mem.corr_valid[glob_id] = 0;
+        rm::Vector nsim_m = {
+            __uint_as_float(p1),
+            __uint_as_float(p2),
+            __uint_as_float(p3)
+        };
+
+        nsim_m.normalizeInplace();
+
+        // going to sensor space
+        const rm::Vector preal_s = ray_dir_s * real_range;
+        const rm::Vector psim_s = ray_dir_s * sim_range;
+
+        rm::Vector nsim_s = Rms * nsim_m;
+
+        // if(ray_dir_s.dot(nsim_s) > 0.0)
+        // {
+        //     nsim_s = -nsim_s;
+        // }
+
+        const float signed_plane_dist = (psim_s - preal_s).dot(nsim_s);
+        const rm::Vector pnearest_s = preal_s + nsim_s * signed_plane_dist;
+        const float dist_sqrt = (pnearest_s - preal_s).l2normSquared();
+
+        if(dist_sqrt < dist_thresh * dist_thresh)
+        {
+            mem.dataset_points[glob_id] = Tsb * preal_s;
+            mem.model_points[glob_id] = Tsb * pnearest_s;
+            mem.corr_valid[glob_id] = 1;
+        } else {
+            mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
+            mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
+            mem.corr_valid[glob_id] = 0;
+        }
     }
+
+    
 }
 
 extern "C" __global__ void __miss__ms()
