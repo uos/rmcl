@@ -56,6 +56,8 @@
 #include <tf2_ros/transform_listener.h>
 #include <image_transport/image_transport.h>
 
+#include <std_msgs/ColorRGBA.h>
+
 #include <rmcl/correction/CorrectionParams.hpp>
 #include <rmcl/correction/CorrectionResults.hpp>
 
@@ -160,7 +162,8 @@ public: // TODO: dont have everything public
     
     // subscriber to data
     NodeHandlePtr nh;
-    NodeHandlePtr nh_p;
+    NodeHandlePtr nh_p; // micp
+    NodeHandlePtr nh_sensor;
     SubscriberPtr data_sub;
     SubscriberPtr info_sub;
     
@@ -177,7 +180,12 @@ public: // TODO: dont have everything public
     float                       corr_weight = 1.0;
 
     // DEBUGGING
-    bool            draw_correspondences = false;
+    bool            viz_corr = false;
+    std_msgs::ColorRGBA viz_corr_data_color;
+    std_msgs::ColorRGBA viz_corr_model_color;
+    float viz_corr_scale = 0.005;
+    int viz_corr_step = 1;
+
     PublisherPtr    pub_corr;
 
     // correction: TODO better
@@ -197,6 +205,8 @@ public: // TODO: dont have everything public
 
     // connect to topics
     void connect();
+
+    void fetchParams();
 
     // called once every new data message
     void fetchTF();

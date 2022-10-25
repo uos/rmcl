@@ -768,6 +768,10 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     sensor->nh = m_nh;
     sensor->nh_p = m_nh_p;
     sensor->tf_buffer = m_tf_buffer; 
+
+    // load additional params
+    sensor->fetchParams();
+    // connect to sensor topics
     sensor->connect();
 
     // add sensor to class
@@ -799,9 +803,9 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     }
     #endif // RMCL_OPTIX
 
+    
     sensor->fetchTF();
     sensor->updateCorrectors();
-    sensor->countValidRanges();
     
     return true;
 }

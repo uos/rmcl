@@ -9,15 +9,19 @@
 #include <rmcl/util/conversions.h>
 
 #include <rmcl/math/math.h>
+
+#ifdef RMCL_CUDA
 #include <rmcl/math/math.cuh>
+#include <rmcl/math/math_batched.cuh>
+#endif // RMCL_CUDA
 
 #include <rmagine/util/StopWatch.hpp>
 
 
-#include <rmagine/math/math.cuh>
 #include <rmagine/util/prints.h>
 
 #include <visualization_msgs/Marker.h>
+
 
 
 namespace rm = rmagine;
@@ -30,7 +34,10 @@ visualization_msgs::Marker make_marker(
     rm::MemoryView<rm::Point, rm::RAM> model_points,
     rm::MemoryView<unsigned int, rm::RAM> corr_valid,
     rm::Transform Tbm,
-    unsigned int step = 1)
+    std_msgs::ColorRGBA dcol,
+    std_msgs::ColorRGBA mcol,
+    float scale,
+    unsigned int step)
 {
     visualization_msgs::Marker marker;
     marker.header.frame_id = "map";
@@ -38,23 +45,11 @@ visualization_msgs::Marker make_marker(
     marker.type = visualization_msgs::Marker::LINE_LIST;
     marker.action = visualization_msgs::Marker::ADD;
     marker.pose.orientation.w = 1.0;
-    marker.scale.x = 0.01;
-    marker.scale.y = 0.01;
-    marker.scale.z = 0.01;
+    marker.scale.x = scale;
+    marker.scale.y = scale;
+    marker.scale.z = scale;
     // marker.color.a = 1.0;
     // marker.color.g = 1.0;
-
-    std_msgs::ColorRGBA  dcol;
-    std_msgs::ColorRGBA  mcol;
-    dcol.r = 1.0;
-    dcol.g = 1.0;
-    dcol.b = 0.0;
-    dcol.a = 0.7;
-
-    mcol.r = 0.0;
-    mcol.g = 1.0;
-    mcol.b = 0.0;
-    mcol.a = 1.0;
 
     for(size_t j=0; j<dataset_points.size(); j += step)
     {
@@ -92,14 +87,18 @@ visualization_msgs::Marker make_marker(
     rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
     rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid,
     rm::MemoryView<rm::Transform, rm::VRAM_CUDA> Tbm,
-    unsigned int step = 1)
+    std_msgs::ColorRGBA dcol,
+    std_msgs::ColorRGBA mcol,
+    float scale,
+    unsigned int step)
 {
     rm::Memory<rm::Point, rm::RAM> dataset_points_ = dataset_points;
     rm::Memory<rm::Point, rm::RAM> model_points_ = model_points;
     rm::Memory<unsigned int, rm::RAM> corr_valid_ = corr_valid;
     rm::Memory<rm::Transform, rm::RAM> Tbm_ = Tbm;
 
-    return make_marker(dataset_points_, model_points_, corr_valid_, Tbm_[0], step);
+    return make_marker(dataset_points_, model_points_, corr_valid_, Tbm_[0], 
+        dcol, mcol, scale, step);
 }
 #endif // RMCL_CUDA
 
@@ -226,6 +225,69 @@ void MICPRangeSensor::connect()
             std::cout << "info topic message " << info_topic.msg << " not supported" << std::endl; 
         }
     }
+}
+
+void MICPRangeSensor::fetchParams()
+{
+    if(!nh_sensor)
+    {
+        nh_sensor = std::make_shared<ros::NodeHandle>(
+            *nh_p, name
+        );
+    }
+
+    // local settings
+
+    { // viz cor dataset color
+        std::vector<double> colors;
+        if(!nh_sensor->getParam("micp/viz_corr_data_color", colors))
+        {
+            if(!nh_p->getParam("micp/viz_corr_data_color", colors))
+            {
+                colors = {0.1, 0.1, 0.1, 1.0};
+            }
+        }
+
+        viz_corr_data_color.r = colors[0];
+        viz_corr_data_color.g = colors[1];
+        viz_corr_data_color.b = colors[2];
+        viz_corr_data_color.a = colors[3];
+    }
+
+    { // viz cor model color
+        std::vector<double> colors;
+        if(!nh_sensor->getParam("micp/viz_corr_model_color", colors))
+        {
+            if(!nh_p->getParam("micp/viz_corr_model_color", colors))
+            {
+                colors = {1.0, 1.0, 1.0, 0.8};
+            }
+        }
+
+        viz_corr_model_color.r = colors[0];
+        viz_corr_model_color.g = colors[1];
+        viz_corr_model_color.b = colors[2];
+        viz_corr_model_color.a = colors[3];
+    }
+    
+    if(!nh_sensor->getParam("micp/viz_corr_scale", viz_corr_scale))
+    {
+        if(!nh_p->getParam("micp/viz_corr_scale", viz_corr_scale))
+        {
+            viz_corr_scale = 0.008;
+        }
+    }
+
+    if(!nh_sensor->getParam("micp/viz_corr_step", viz_corr_step))
+    {
+        if(!nh_p->getParam("micp/viz_corr_step", viz_corr_step))
+        {
+            viz_corr_step = 1;
+        }
+    }
+
+
+    // ros::NodeHandle nh_sensor()
 }
 
 void MICPRangeSensor::fetchTF()
@@ -408,7 +470,7 @@ void MICPRangeSensor::computeCovs(
     {
         if(type == 0) {
 
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
                 auto Tbms0 = Tbms(0, 0+1);
@@ -422,7 +484,9 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0[0]);
+                    corr_valid, Tbms0[0], 
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -433,9 +497,10 @@ void MICPRangeSensor::computeCovs(
 
             corr_sphere_embree->computeCovs(Tbms, res);
         } else if(type == 1) {
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
+                // only allowed for one pose
                 auto Tbms0 = Tbms(0, 0+1);
 
                 rm::Memory<rm::Point, rm::RAM> dataset_points;
@@ -447,19 +512,22 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0[0]);
+                    corr_valid, Tbms0[0], 
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
                 {
                     pub_corr->publish(marker);
                 }
-            }
-
-            corr_pinhole_embree->computeCovs(Tbms, res);   
+            } 
+            
+            corr_pinhole_embree->computeCovs(Tbms, res);
+            
         } else if(type == 2) {
             
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
                 auto Tbms0 = Tbms(0, 0+1);
@@ -473,7 +541,9 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0[0]);
+                    corr_valid, Tbms0[0], 
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -485,7 +555,7 @@ void MICPRangeSensor::computeCovs(
             corr_o1dn_embree->computeCovs(Tbms, res);
         } else if(type == 3) {
 
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
                 auto Tbms0 = Tbms(0, 0+1);
@@ -499,7 +569,9 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0[0]);
+                    corr_valid, Tbms0[0], 
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -589,7 +661,7 @@ void MICPRangeSensor::computeCovs(
         if(type == 0) {
             // std::cout << "SPHERE GPU" << std::endl;
 
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
                 auto Tbms0 = Tbms(0, 0+1);
@@ -603,19 +675,33 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0);
+                    corr_valid, Tbms0,
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
                 {
                     pub_corr->publish(marker);
                 }
-            }
 
-            corr_sphere_optix->computeCovs(Tbms, res);
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_sphere_optix->computeCovs(Tbms, res);
+            }
+            
         } else if(type == 1) {
             
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
                 auto Tbms0 = Tbms(0, 0+1);
@@ -629,7 +715,9 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0, 10);
+                    corr_valid, Tbms0,
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -641,7 +729,7 @@ void MICPRangeSensor::computeCovs(
             corr_pinhole_optix->computeCovs(Tbms, res);   
         } else if(type == 2) {
 
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
                 auto Tbms0 = Tbms(0, 0+1);
@@ -655,7 +743,9 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0);
+                    corr_valid, Tbms0,
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -667,7 +757,7 @@ void MICPRangeSensor::computeCovs(
             corr_o1dn_optix->computeCovs(Tbms, res);
         } else if(type == 3) {
 
-            if(draw_correspondences)
+            if(viz_corr)
             {
                 // draw correspondences of first pose
                 auto Tbms0 = Tbms(0, 0+1);
@@ -681,7 +771,9 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0);
+                    corr_valid, Tbms0,
+                    viz_corr_data_color, viz_corr_model_color,
+                    viz_corr_scale, viz_corr_step);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -706,14 +798,19 @@ void MICPRangeSensor::enableValidRangesCounting(bool enable)
 
 void MICPRangeSensor::enableVizCorrespondences(bool enable)
 {
-    draw_correspondences = enable;
+    viz_corr = enable;
 
-    if(draw_correspondences)
+    if(viz_corr)
     {
-        std::stringstream draw_topic;
-        draw_topic << name << "/correspondences";
+        if(!nh_sensor)
+        {
+            nh_sensor = std::make_shared<ros::NodeHandle>(
+                *nh_p, name
+            );
+        }
+
         pub_corr = std::make_shared<ros::Publisher>(
-            nh_p->advertise<visualization_msgs::Marker>(draw_topic.str(), 1)
+            nh_sensor->advertise<visualization_msgs::Marker>("correspondences", 1)
         );
     }
 }
