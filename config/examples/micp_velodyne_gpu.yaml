@@ -12,19 +12,22 @@ micp:
   combining_unit: gpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
-  corr_rate_max: 1000
-  print_corr_rate: False
-
+  corr_rate_max: 500
+  
   # adjust max distance dependend of the state of localization
-  adaptive_max_dist: True # enable adaptive max dist
+  adaptive_max_dist: False # enable adaptive max dist
 
-  # TESTING 
-  # async performance
-  poses: 1
+  # DEBUGGING   
+  # corr = correspondences
+  viz_corr: False
+  # corr = correction
+  print_corr_rate: False
+  disable_corr: False
 
   # initial pose changes
   trans: [0.0, 0.0, 0.0]
-  rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
+  rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4) 
+
 
 # describe your sensor setup here
 sensors: # list of range sensors - at least one is required

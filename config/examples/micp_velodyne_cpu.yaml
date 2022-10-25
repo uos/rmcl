@@ -12,11 +12,20 @@ micp:
   combining_unit: cpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
-  corr_rate_max: 1000
+  corr_rate_max: 10
   print_corr_rate: False
 
   # adjust max distance dependend of the state of localization
-  adaptive_max_dist: True # enable adaptive max dist
+  adaptive_max_dist: False # enable adaptive max dist
+
+  # DEBUGGING   
+  # corr = correspondences
+  print_n_corr: True
+  print_corr_dist: True
+  viz_corr: True
+  # corr = correction
+  print_corr_rate: False
+  disable_corr: True
 
   # initial pose changes
   trans: [0.0, 0.0, 0.0]

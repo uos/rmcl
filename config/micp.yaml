@@ -11,21 +11,24 @@ invert_tf: True
 
 micp:
   # merging on gpu or cpu
-  combining_unit: cpu
+  combining_unit: gpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
   corr_rate_max: 1000
-  print_corr_rate: False
 
   # adjust max distance dependend of the state of localization
-  adaptive_max_dist: True # enable adaptive max dist
+  adaptive_max_dist: False # enable adaptive max dist
 
-  # TESTING 
-  # async performance
-  poses: 1
+  # DEBUGGING / VISUALIZATION
+  # - enable with care. Decreases the processing time a lot
+  # corr = correspondences
+  viz_corr: False
+  # corr = correction
+  print_corr_rate: False
+  disable_corr: False
 
   # initial pose changes
-  trans: [0.0, 0.0, 0.5]
+  trans: [0.0, 0.0, 0.35]
   rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
 
 # describe your sensor setup here
@@ -46,17 +49,19 @@ sensors: # list of range sensors - at least one is required
       max_dist: 1.0
       adaptive_max_dist_min: 0.15
       weight: 10
-      backend: embree
+      backend: optix
   # sick:
   #   topic: scan
   #   micp:
+  #     max_dist: 1.0
+  #     adaptive_max_dist_min: 0.15
   #     weight: 2.0
   #     backend: optix
   # kinect:
   #   topic: kinect/depth/image_raw
   #   model_topic: kinect/rgb/camera_info
   #   micp:
-  #     max_dist: 0.5
+  #     max_dist: 0.7
   #     weight: 2.0
   #     backend: optix
   # wheels: # pull robot to the mesh
@@ -68,10 +73,10 @@ sensors: # list of range sensors - at least one is required
   #     height: 1
   #     range_min: 0.0
   #     range_max: 10.0
-  #     origs: [[ 0.2,  0.15,  0.2], # front left 
-  #             [ 0.2, -0.15,  0.2], # front right
-  #             [-0.2,  0.15,  0.2], # rear left
-  #             [-0.2, -0.15,  0.2]] # rear right
+  #     origs: [[ 0.15,  0.18,  0.2], # front left 
+  #             [ 0.15, -0.18,  0.2], # front right
+  #             [-0.15,  0.18,  0.2], # rear left
+  #             [-0.15, -0.18,  0.2]] # rear right
   #     dirs:  [[ 0.0,  0.0, -1.0],
   #             [ 0.0,  0.0, -1.0],
   #             [ 0.0,  0.0, -1.0],
@@ -79,7 +84,7 @@ sensors: # list of range sensors - at least one is required
   #   micp:
   #     max_dist: 1.0
   #     adaptive_max_dist_min: 0.2
-  #     weight: 1
+  #     weight: 1.0
   #     backend: optix
   # dont_drive_through_walls:
   #   ranges: [0.0]
