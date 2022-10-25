@@ -144,6 +144,17 @@ rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> cov_batched(
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr);
 
+
+void means_covs_online_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr);
+
+
 } // namespace rmcl
 
 #endif // RMCL_MATH_BATCHED_CUH

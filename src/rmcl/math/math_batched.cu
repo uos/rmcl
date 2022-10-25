@@ -6,7 +6,7 @@ namespace rmcl
 {
 
 template<unsigned int blockSize, typename T>
-__device__ void warp_reduce(volatile T* sdata, unsigned int tid)
+__device__ void warp_sum(volatile T* sdata, unsigned int tid)
 {
     if(blockSize >= 64) sdata[tid] += sdata[tid + 32];
     if(blockSize >= 32) sdata[tid] += sdata[tid + 16];
@@ -15,6 +15,72 @@ __device__ void warp_reduce(volatile T* sdata, unsigned int tid)
     if(blockSize >=  4) sdata[tid] += sdata[tid + 2];
     if(blockSize >=  2) sdata[tid] += sdata[tid + 1];
 }
+
+// TODO
+// template<unsigned int blockSize, typename T>
+// __device__ void warp_mean(
+//     volatile T* sdata,
+//     volatile unsigned int* sN, 
+//     unsigned int tid)
+// {
+//     if(blockSize >= 64) 
+//     {
+//         volatile unsigned int N1 = sN[tid];
+//         volatile unsigned int N2 = sN[tid + 32];
+//         volatile unsigned int Ntot = N1 + N2;
+//         volatile float w1 = static_cast<volatile float>(N1) / static_cast<volatile float>(Ntot);
+//         volatile float w2 = static_cast<volatile float>(N2) / static_cast<volatile float>(Ntot);
+//         volatile rm::Vector res = sdata[tid].mult(w1) + sdata[tid + 32].mult(w2);
+//         sdata[tid].x = res.x;
+//         sdata[tid].y = res.y;
+//         sdata[tid].z = res.z;
+//     }
+//     if(blockSize >= 32)
+//     {
+//         const unsigned int N1 = sN[tid];
+//         const unsigned int N2 = sN[tid + 16];
+//         const unsigned int Ntot = N1 + N2;
+//         const float w1 = static_cast<float>(N1) / static_cast<float>(Ntot);
+//         const float w2 = static_cast<float>(N2) / static_cast<float>(Ntot);
+//         sdata[tid] = sdata[tid] * w1 + sdata[tid + 16] * w2;
+//     }
+//     if(blockSize >= 16) 
+//     {
+//         const unsigned int N1 = sN[tid];
+//         const unsigned int N2 = sN[tid + 8];
+//         const unsigned int Ntot = N1 + N2;
+//         const float w1 = static_cast<float>(N1) / static_cast<float>(Ntot);
+//         const float w2 = static_cast<float>(N2) / static_cast<float>(Ntot);
+//         sdata[tid] = sdata[tid] * w1 + sdata[tid + 8] * w2;
+//     }
+//     if(blockSize >= 8) 
+//     {
+//         const unsigned int N1 = sN[tid];
+//         const unsigned int N2 = sN[tid + 4];
+//         const unsigned int Ntot = N1 + N2;
+//         const float w1 = static_cast<float>(N1) / static_cast<float>(Ntot);
+//         const float w2 = static_cast<float>(N2) / static_cast<float>(Ntot);
+//         sdata[tid] = sdata[tid] * w1 + sdata[tid + 4] * w2;
+//     }
+//     if(blockSize >= 4) 
+//     {
+//         const unsigned int N1 = sN[tid];
+//         const unsigned int N2 = sN[tid + 2];
+//         const unsigned int Ntot = N1 + N2;
+//         const float w1 = static_cast<float>(N1) / static_cast<float>(Ntot);
+//         const float w2 = static_cast<float>(N2) / static_cast<float>(Ntot);
+//         sdata[tid] = sdata[tid] * w1 + sdata[tid + 2] * w2;
+//     }
+//     if(blockSize >= 2) 
+//     {
+//         const unsigned int N1 = sN[tid];
+//         const unsigned int N2 = sN[tid + 1];
+//         const unsigned int Ntot = N1 + N2;
+//         const float w1 = static_cast<float>(N1) / static_cast<float>(Ntot);
+//         const float w2 = static_cast<float>(N2) / static_cast<float>(Ntot);
+//         sdata[tid] = sdata[tid] * w1 + sdata[tid + 1] * w2;
+//     }
+// }
 
 template<unsigned int blockSize>
 __global__ void mean_batched_kernel(
@@ -55,7 +121,7 @@ __global__ void mean_batched_kernel(
 
     if(tid < blockSize / 2 && tid < 32)
     {
-        warp_reduce<blockSize>(sdata, tid);
+        warp_sum<blockSize>(sdata, tid);
     }
 
     if(tid == 0)
@@ -113,7 +179,7 @@ __global__ void sum_batched_kernel(
 
     if(tid < blockSize / 2 && tid < 32)
     {
-        warp_reduce<blockSize>(sdata, tid);
+        warp_sum<blockSize>(sdata, tid);
     }
 
     if(tid == 0)
@@ -167,7 +233,7 @@ __global__ void cov_batched_kernel(
 
     if(tid < blockSize / 2 && tid < 32)
     {
-        warp_reduce<blockSize>(sdata, tid);
+        warp_sum<blockSize>(sdata, tid);
     }
 
     if(tid == 0)
@@ -226,7 +292,7 @@ __global__ void cov_batched_kernel(
 
     if(tid < blockSize / 2 && tid < 32)
     {
-        warp_reduce<blockSize>(sdata, tid);
+        warp_sum<blockSize>(sdata, tid);
     }
 
     if(tid == 0)
@@ -241,64 +307,119 @@ __global__ void cov_batched_kernel(
     }
 }
 
-// template<unsigned int blockSize>
-// __global__ void cov_online_batched_kernel(
-//     const rm::Vector* dataset_points, // from, dataset
-//     const rm::Vector* model_points, // to, model
-//     const unsigned int* mask,
-//     const unsigned int* Ncorr,
-//     unsigned int chunkSize,
-//     rm::Vector* dataset_center,
-//     rm::Vector* model_center,
-//     rm::Matrix3x3* Cs)
-// {
-//     __shared__ rm::Matrix3x3 sdata[blockSize];
+template<unsigned int blockSize>
+__global__ void means_covs_online_batched_kernel(
+    const rm::Vector* dataset_points, // from, dataset
+    const rm::Vector* model_points, // to, model
+    const unsigned int* mask,
+    unsigned int chunkSize,
+    rm::Vector* dataset_center,
+    rm::Vector* model_center,
+    rm::Matrix3x3* Cs,
+    unsigned int* Ncorr)
+{
+    // Online update: Covariance and means 
+    // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+    // 
+    // Comment:
+    // I dont think the Wikipedia algorithm is completely correct (Covariances).
+    // But it is used in a lot of code -> Let everything be equally incorrect
 
-//     const unsigned int tid = threadIdx.x;
-//     const unsigned int globId = chunkSize * blockIdx.x + threadIdx.x;
-//     const unsigned int rows = (chunkSize + blockSize - 1) / blockSize;
-
-//     sdata[tid].setZeros();
-
-//     for(unsigned int i=0; i<rows; i++)
-//     {
-//         if(tid + blockSize * i < chunkSize)
-//         {
-//             if(mask[globId + blockSize * i] > 0)
-//             {
-//                 const rm::Vector d = dataset_points[globId + blockSize * i] - dataset_center[blockIdx.x];
-//                 const rm::Vector m = model_points[globId + blockSize * i] - model_center[blockIdx.x];
-//                 sdata[tid] += m.multT(d);
-//             }
-//         }
-//     }
-//     __syncthreads();
+    __shared__ rm::Vector sD[blockSize];
+    __shared__ rm::Vector sM[blockSize];
+    __shared__ rm::Matrix3x3 sC[blockSize];
+    __shared__ unsigned int sN[blockSize];
     
-//     for(unsigned int s = blockSize / 2; s > 32; s >>= 1)
-//     {
-//         if(tid < s)
-//         {
-//             sdata[tid] += sdata[tid + s];
-//         }
-//         __syncthreads();
-//     }
 
-//     if(tid < blockSize / 2 && tid < 32)
-//     {
-//         warp_reduce<blockSize>(sdata, tid);
-//     }
+    const unsigned int tid = threadIdx.x;
+    const unsigned int globId = chunkSize * blockIdx.x + threadIdx.x;
+    const unsigned int rows = (chunkSize + blockSize - 1) / blockSize;
 
-//     if(tid == 0)
-//     {
-//         const unsigned int Ncorr_ = Ncorr[blockIdx.x];
-//         if(Ncorr_ > 0)
-//         {
-//             Cs[blockIdx.x] = sdata[0] / Ncorr_;
-//         } else {
-//             Cs[blockIdx.x].setZeros();
-//         }
-//     }
-// }
+    sD[tid].setZeros();
+    sM[tid].setZeros();
+    sC[tid].setZeros();
+    sN[tid] = 0;
+
+    for(unsigned int i=0; i<rows; i++)
+    {
+        if(tid + blockSize * i < chunkSize)
+        {
+            if(mask[globId + blockSize * i] > 0)
+            {
+                // shared read 
+                const rm::Vector D      = sD[tid];
+                const rm::Vector M      = sM[tid];
+                const rm::Matrix3x3 C   = sC[tid];
+                const unsigned int N    = sN[tid];
+
+                // compute
+                const rm::Vector dD = dataset_points[globId + blockSize * i] - D;
+                const rm::Vector dM = model_points[globId + blockSize * i] - M;
+
+                // shared write
+                sD[tid] = D + dD / static_cast<float>(N + 1);
+                sM[tid] = M + dM / static_cast<float>(N + 1); 
+                sC[tid] = C + dM.multT(dD);
+                sN[tid] = N + 1;
+            }
+        }
+    }
+    __syncthreads();
+    
+    for(unsigned int s = blockSize / 2; s > 0; s >>= 1)
+    {
+        if(tid < s)
+        {
+            // shared read 
+            const rm::Vector D      = sD[tid];
+            const rm::Vector M      = sM[tid];
+            const rm::Matrix3x3 C   = sC[tid];
+            const unsigned int N    = sN[tid];
+
+            const rm::Vector Dnext      = sD[tid + s];
+            const rm::Vector Mnext      = sM[tid + s];
+            const rm::Matrix3x3 Cnext   = sC[tid + s];
+            const unsigned int Nnext    = sN[tid + s];
+
+            // compute
+            const unsigned int Ntot = N + Nnext;
+            const float w1 = static_cast<float>(N) / static_cast<float>(Ntot);
+            const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot); 
+
+            // shared write
+            sD[tid] = D * w1 + Dnext * w2;
+            sM[tid] = M * w1 + Mnext * w2;
+            sC[tid] = C + Cnext; // currently only a sum
+            sN[tid] = Ntot;
+        }
+        __syncthreads();
+    }
+
+    // if(tid < blockSize / 2 && tid < 32)
+    // {
+    //     warp_mean<blockSize>(sD, sN, tid);
+    //     warp_mean<blockSize>(sM, sN, tid);
+    //     warp_sum<blockSize>(sC, tid);
+    //     warp_sum<blockSize>(sN, tid);
+    // }
+
+    if(tid == 0)
+    {
+        const unsigned int N = sN[blockIdx.x];
+        if(N > 0)
+        {
+            dataset_center[blockIdx.x] = sD[0];
+            model_center[blockIdx.x] = sM[0];
+            Cs[blockIdx.x] = sC[0] / static_cast<float>(N);
+            Ncorr[blockIdx.x] = N;
+        } else {
+            dataset_center[blockIdx.x].setZeros();
+            model_center[blockIdx.x].setZeros();
+            Cs[blockIdx.x].setZeros();
+            Ncorr[blockIdx.x] = 0;
+        }
+    }
+}
 
 void mean_batched(
     const rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& data,
@@ -420,6 +541,25 @@ rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> cov_batched(
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Nchunks);
     cov_batched(dataset_points, model_points, mask, Ncorr, Cs);
     return Cs;
+}
+
+void means_covs_online_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr)
+{
+    unsigned int Nchunks = Ncorr.size();
+    unsigned int batchSize = dataset_points.size() / Nchunks;
+    constexpr unsigned int blockSize = 64; // TODO: get best value for this one
+
+    means_covs_online_batched_kernel<blockSize> <<<Nchunks, blockSize>>>(
+        dataset_points.raw(), model_points.raw(), mask.raw(), 
+        batchSize, 
+        dataset_center.raw(), model_center.raw(), Cs.raw(), Ncorr.raw());
 }
 
 } // namespace rmcl

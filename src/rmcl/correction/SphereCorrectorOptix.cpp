@@ -253,13 +253,26 @@ void SphereCorrectorOptix::computeMeansCovsRW(
 
     findSPC(Tbm, dataset_points, model_points, corr_valid);
 
-    mean_batched(dataset_points, corr_valid, Ncorr, means_dataset);
-    mean_batched(model_points, corr_valid, Ncorr, means_model);
-    rm::sumBatched(corr_valid, Ncorr);
+    // one pass function: TODO test
 
-    cov_batched(dataset_points, means_dataset,
-            model_points, means_model,
-            corr_valid, Ncorr, Cs);
+    const bool onepass = true;
+
+    if(onepass)
+    {
+        means_covs_online_batched(
+            dataset_points, model_points, corr_valid, // input
+            means_dataset, means_model, // outputs
+            Cs, Ncorr
+        );
+    } else {
+        mean_batched(dataset_points, corr_valid, Ncorr, means_dataset);
+        mean_batched(model_points, corr_valid, Ncorr, means_model);
+        rm::sumBatched(corr_valid, Ncorr);
+
+        cov_batched(dataset_points, means_dataset,
+                model_points, means_model,
+                corr_valid, Ncorr, Cs);
+    }
 }
 
 void SphereCorrectorOptix::computeMeansCovsSW(
