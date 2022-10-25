@@ -29,7 +29,8 @@ visualization_msgs::Marker make_marker(
     rm::MemoryView<rm::Point, rm::RAM> dataset_points,
     rm::MemoryView<rm::Point, rm::RAM> model_points,
     rm::MemoryView<unsigned int, rm::RAM> corr_valid,
-    rm::Transform Tbm)
+    rm::Transform Tbm,
+    unsigned int step = 1)
 {
     visualization_msgs::Marker marker;
     marker.header.frame_id = "map";
@@ -55,7 +56,7 @@ visualization_msgs::Marker make_marker(
     mcol.b = 0.0;
     mcol.a = 1.0;
 
-    for(size_t j=0; j<dataset_points.size(); j++)
+    for(size_t j=0; j<dataset_points.size(); j += step)
     {
         if(corr_valid[j] > 0)
         {
@@ -90,14 +91,15 @@ visualization_msgs::Marker make_marker(
     rm::MemoryView<rm::Point, rm::VRAM_CUDA> dataset_points,
     rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
     rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid,
-    rm::MemoryView<rm::Transform, rm::VRAM_CUDA> Tbm)
+    rm::MemoryView<rm::Transform, rm::VRAM_CUDA> Tbm,
+    unsigned int step = 1)
 {
     rm::Memory<rm::Point, rm::RAM> dataset_points_ = dataset_points;
     rm::Memory<rm::Point, rm::RAM> model_points_ = model_points;
     rm::Memory<unsigned int, rm::RAM> corr_valid_ = corr_valid;
     rm::Memory<rm::Transform, rm::RAM> Tbm_ = Tbm;
 
-    return make_marker(dataset_points_, model_points_, corr_valid_, Tbm_[0]);
+    return make_marker(dataset_points_, model_points_, corr_valid_, Tbm_[0], step);
 }
 #endif // RMCL_CUDA
 
@@ -627,7 +629,7 @@ void MICPRangeSensor::computeCovs(
 
                 auto marker = make_marker(
                     dataset_points, model_points, 
-                    corr_valid, Tbms0);
+                    corr_valid, Tbms0, 10);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -638,8 +640,56 @@ void MICPRangeSensor::computeCovs(
 
             corr_pinhole_optix->computeCovs(Tbms, res);   
         } else if(type == 2) {
+
+            if(draw_correspondences)
+            {
+                // draw correspondences of first pose
+                auto Tbms0 = Tbms(0, 0+1);
+
+                rm::Memory<rm::Point, rm::VRAM_CUDA> dataset_points;
+                rm::Memory<rm::Point, rm::VRAM_CUDA> model_points;
+                rm::Memory<unsigned int, rm::VRAM_CUDA> corr_valid;
+
+                corr_o1dn_optix->findSPC(Tbms0, 
+                    dataset_points, model_points, corr_valid);
+
+                auto marker = make_marker(
+                    dataset_points, model_points, 
+                    corr_valid, Tbms0);
+                
+                marker.header.stamp = ros::Time::now();
+                if(pub_corr)
+                {
+                    pub_corr->publish(marker);
+                }
+            }
+
             corr_o1dn_optix->computeCovs(Tbms, res);
         } else if(type == 3) {
+
+            if(draw_correspondences)
+            {
+                // draw correspondences of first pose
+                auto Tbms0 = Tbms(0, 0+1);
+
+                rm::Memory<rm::Point, rm::VRAM_CUDA> dataset_points;
+                rm::Memory<rm::Point, rm::VRAM_CUDA> model_points;
+                rm::Memory<unsigned int, rm::VRAM_CUDA> corr_valid;
+
+                corr_ondn_optix->findSPC(Tbms0, 
+                    dataset_points, model_points, corr_valid);
+
+                auto marker = make_marker(
+                    dataset_points, model_points, 
+                    corr_valid, Tbms0);
+                
+                marker.header.stamp = ros::Time::now();
+                if(pub_corr)
+                {
+                    pub_corr->publish(marker);
+                }
+            }
+
             corr_ondn_optix->computeCovs(Tbms, res);
         }
     }

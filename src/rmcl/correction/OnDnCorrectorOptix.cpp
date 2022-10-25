@@ -129,40 +129,88 @@ CorrectionPreResults<rmagine::VRAM_CUDA> OnDnCorrectorOptix::computeCovs(
     return res;
 }
 
-/// PRIVATE
-void OnDnCorrectorOptix::computeMeansCovsRW(
-    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbm,
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m1, // from, dataset
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m2, // to, model
-    rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
-    rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
-    ) const
+
+void OnDnCorrectorOptix::findSPC(
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    rm::Memory<rm::Point, rm::VRAM_CUDA>& dataset_points,
+    rm::Memory<rm::Point, rm::VRAM_CUDA>& model_points,
+    rm::Memory<unsigned int, rm::VRAM_CUDA>& corr_valid
+) const
 {
-    rm::Memory<rm::OnDnModel_<rm::VRAM_CUDA>, rm::VRAM_CUDA> model(1);
-    copy(m_model, model, m_stream);
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::findSPC() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
 
     size_t scanSize = m_width * m_height;
-    // size_t scanSize = m_model_ram->width * m_model_ram->height;
-    size_t Nrays = Tbm.size() * scanSize;
+    size_t Nrays = Tbms.size() * scanSize;
 
-    rm::Memory<unsigned int,    rm::VRAM_CUDA> corr_valid(Nrays);
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> model_points(Nrays);
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> dataset_points(Nrays);
+    // keep the this if bigger than required
+    if(dataset_points.size() < Nrays)
+    {
+        dataset_points.resize(Nrays);
+    }
 
+    if(model_points.size() < Nrays)
+    {
+        model_points.resize(Nrays);
+    }
+
+    if(corr_valid.size() < Nrays)
+    {
+        corr_valid.resize(Nrays);
+    }
+
+    findSPC(Tbms, dataset_points(0, Nrays), model_points(0, Nrays), corr_valid(0, Nrays) );
+}
+
+void OnDnCorrectorOptix::findSPC(
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> dataset_points,
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
+    rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid
+) const
+{
+    if(!m_map)
+    {
+        throw std::runtime_error("NO MAP");
+    }
+
+    if(!m_map->scene())
+    {
+        throw std::runtime_error("EMPTY MAP");
+    }
+
+    if(!m_map->scene()->as())
+    {
+        throw std::runtime_error("MAP SCENE NOT COMMITTED");
+    }
+
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::findSPC() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
+
+    rm::Memory<rm::OnDnModel_<rm::VRAM_CUDA>, rm::VRAM_CUDA> model_d(1);
+    copy(m_model, model_d, m_stream);
+
+    // m_model_d
     rm::Memory<OnDnCorrectionDataRW, rm::RAM> mem(1);
-    mem->model = model.raw();
+    mem->model = model_d.raw();
     mem->ranges = m_ranges.raw();
     mem->Tsb = m_Tsb.raw();
-    mem->Tbm = Tbm.raw();
-    mem->Nposes = Tbm.size();
+    mem->Tbm = Tbms.raw();
+    mem->Nposes = Tbms.size();
     mem->params = m_params.raw();
     mem->handle = m_map->scene()->as()->handle;
     mem->corr_valid = corr_valid.raw();
-    mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
+    mem->model_points = model_points.raw();
 
     rm::Memory<OnDnCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
-    copy(mem, d_mem, Base::m_stream);
+    copy(mem, d_mem, m_stream);
 
     rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 3);
 
@@ -174,18 +222,59 @@ void OnDnCorrectorOptix::computeMeansCovsRW(
         program->sbt,
         m_width, // width Xdim
         m_height, // height Ydim
-        Tbm.size()// depth Zdim
+        Tbms.size()// depth Zdim
         ));
 
     m_stream->synchronize();
+}
 
-    rm::sumBatched(corr_valid, Ncorr);
-    mean_batched(dataset_points, corr_valid, Ncorr, m1);
-    mean_batched(model_points, corr_valid, Ncorr, m2);
+/// PRIVATE
+void OnDnCorrectorOptix::computeMeansCovsRW(
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbm,
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_dataset, // from, dataset
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_model, // to, model
+    rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
+    rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
+    ) const
+{
+    size_t scanSize = m_width * m_height;
+    size_t Nrays = Tbm.size() * scanSize;
 
-    cov_batched(dataset_points, m1, 
-            model_points, m2, 
-            corr_valid, Ncorr, Cs);
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> dataset_points(Nrays);
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> model_points(Nrays);
+    rm::Memory<unsigned int,    rm::VRAM_CUDA> corr_valid(Nrays);
+
+    findSPC(Tbm, dataset_points, model_points, corr_valid);
+
+
+    // new: one-pass
+    means_covs_online_batched(
+            dataset_points, model_points, corr_valid, // input
+            means_dataset, means_model, // outputs
+            Cs, Ncorr
+        );
+
+    // cudaDeviceSynchronize();
+
+    // rm::Memory<rm::Vector> means_dataset_h = means_dataset;
+    // rm::Memory<rm::Vector> means_model_h = means_model;
+    // rm::Memory<rm::Matrix3x3> Cs_h = Cs;
+    // rm::Memory<unsigned int> Ncorr_h = Ncorr;
+
+    // std::cout << "OnDn" << std::endl;
+    // std::cout << "- ds: " << means_dataset << std::endl;
+    // std::cout << "- ms: " << means_model << std::endl;
+    // std::cout << "- Cs: " << Cs << std::endl;
+    // std::cout << "- Ncorr: " << Ncorr << std::endl;
+
+    // old: two-pass
+    // mean_batched(dataset_points, corr_valid, Ncorr, means_dataset);
+    // mean_batched(model_points, corr_valid, Ncorr, means_model);
+    // rm::sumBatched(corr_valid, Ncorr);
+
+    // cov_batched(dataset_points, means_dataset,
+    //         model_points, means_model,
+    //         corr_valid, Ncorr, Cs);
 }
 
 void OnDnCorrectorOptix::computeMeansCovsSW(

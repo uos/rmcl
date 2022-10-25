@@ -90,8 +90,8 @@ extern "C" __global__ void __raygen__rg()
 
         if(dist_sqrt < dist_thresh * dist_thresh)
         {
-            mem.dataset_points[glob_id] = Tsm * preal_s;
-            mem.model_points[glob_id] = Tsm * pnearest_s;
+            mem.dataset_points[glob_id] = Tsb * preal_s;
+            mem.model_points[glob_id] = Tsb * pnearest_s;
             mem.corr_valid[glob_id] = 1;
         } else {
             mem.dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};

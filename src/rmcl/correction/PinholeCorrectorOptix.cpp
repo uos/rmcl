@@ -306,6 +306,7 @@ void PinholeCorrectorOptix::findSPC(
     mem->Tbm = Tbms.raw();
     mem->Nposes = Tbms.size();
     mem->params = m_params.raw();
+    mem->optical = m_optical;
     mem->handle = m_map->scene()->as()->handle;
     mem->corr_valid = corr_valid.raw();
     mem->dataset_points = dataset_points.raw();
@@ -331,122 +332,42 @@ void PinholeCorrectorOptix::findSPC(
 }
 
 
-
 /// PRIVATE
 void PinholeCorrectorOptix::computeMeansCovsRW(
     const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbm,
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m1, // from, dataset
-    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& m2, // to, model
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_dataset, // from, dataset
+    rm::MemoryView<rm::Vector, rm::VRAM_CUDA>& means_model, // to, model
     rm::MemoryView<rm::Matrix3x3, rm::VRAM_CUDA>& Cs,
     rm::MemoryView<unsigned int, rm::VRAM_CUDA>& Ncorr
     ) const
 {
-    // #define PRINT_TIMINGS
-
-    #ifdef PRINT_TIMINGS
-    rm::StopWatchHR sw;
-    double el;
-    #endif // PRINT_TIMINGS
-
-
     size_t scanSize = m_width * m_height;
-    // size_t scanSize = m_model_ram->width * m_model_ram->height;
     size_t Nrays = Tbm.size() * scanSize;
-
-    #ifdef PRINT_TIMINGS 
-    sw();
-    #endif // PRINT_TIMINGS
     
     // TODO: this is a lot of memory. preallocate it
     rm::Memory<rm::Vector, rm::VRAM_CUDA>  dataset_points(Nrays);
     rm::Memory<rm::Vector, rm::VRAM_CUDA>    model_points(Nrays);
     rm::Memory<unsigned int,    rm::VRAM_CUDA> corr_valid(Nrays);
-
-    #ifdef PRINT_TIMINGS 
-    el = sw();
-    std::cout << "- Mem Alloc: " << el * 1000.0 << " ms" << std::endl;
-    #endif // PRINT_TIMINGS
-
-
-    rm::Memory<PinholeCorrectionDataRW, rm::RAM> mem(1);
-    mem->model = m_model.raw();
-    mem->ranges = m_ranges.raw();
-    mem->Tsb = m_Tsb.raw();
-    mem->Tbm = Tbm.raw();
-    mem->Nposes = Tbm.size();
-    mem->params = m_params.raw();
-    mem->optical = m_optical;
-    mem->handle = m_map->scene()->as()->handle;
-    mem->corr_valid = corr_valid.raw();
-    mem->dataset_points = dataset_points.raw();
-    mem->model_points = model_points.raw();
-
-    rm::Memory<PinholeCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
-    copy(mem, d_mem, m_stream);
     
+    // find correspondences
+    findSPC(Tbm, dataset_points, model_points, corr_valid);
 
-    #ifdef PRINT_TIMINGS 
-    sw();
-    #endif // PRINT_TIMINGS
-    
-    rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 1);
+    // one pass function: TODO test
+    // new: one pass
+    means_covs_online_batched(
+            dataset_points, model_points, corr_valid, // input
+            means_dataset, means_model, // outputs
+            Cs, Ncorr
+        );
 
-    #ifdef PRINT_TIMINGS
-    el = sw();
-    std::cout << "- Get Program: " << el * 1000.0 << " ms" << std::endl;
-    sw();
-    #endif // PRINT_TIMINGS
-    RM_OPTIX_CHECK( optixLaunch(
-        program->pipeline, 
-        m_stream->handle(), 
-        reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
-        sizeof( PinholeCorrectionDataRW ), 
-        program->sbt,
-        m_width, // width Xdim
-        m_height, // height Ydim
-        Tbm.size()// depth Zdim
-        ));
+    // old: two pass
+    // mean_batched(dataset_points, corr_valid, Ncorr, means_dataset);
+    // mean_batched(model_points, corr_valid, Ncorr, means_model);
+    // rm::sumBatched(corr_valid, Ncorr);
 
-    m_stream->synchronize();
-
-    #ifdef PRINT_TIMINGS
-    el = sw();
-    std::cout << "- Launch: " << el * 1000.0 << " ms" << std::endl;
-    sw();
-    #endif // PRINT_TIMINGS
-
-    rm::sumBatched(corr_valid, Ncorr);
-
-    #ifdef PRINT_TIMINGS
-    el = sw();
-    std::cout << "- sumBatched: " << el * 1000.0 << " ms" << std::endl;
-    sw();
-    #endif // PRINT_TIMINGS
-
-    mean_batched(dataset_points, corr_valid, Ncorr, m1);
-
-    #ifdef PRINT_TIMINGS
-    el = sw();
-    std::cout << "- meanBatched: " << el * 1000.0 << " ms" << std::endl;
-    sw();
-    #endif // PRINT_TIMINGS
-
-    mean_batched(model_points, corr_valid, Ncorr, m2);
-
-    #ifdef PRINT_TIMINGS
-    el = sw();
-    std::cout << "- meanBatched: " << el * 1000.0 << " ms" << std::endl;
-    sw();
-    #endif // PRINT_TIMINGS
-
-    cov_batched(dataset_points, m1, 
-        model_points, m2, 
-        corr_valid, Ncorr, Cs);
-
-    #ifdef PRINT_TIMINGS
-    el = sw();
-    std::cout << "- covFancyBatched: " << el * 1000.0 << " ms" << std::endl;
-    #endif // PRINT_TIMINGS
+    // cov_batched(dataset_points, means_dataset,
+    //         model_points, means_model,
+    //         corr_valid, Ncorr, Cs);
 }
 
 void PinholeCorrectorOptix::computeMeansCovsSW(

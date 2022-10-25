@@ -224,6 +224,8 @@ __global__ void cov_batched_kernel(
     
     for(unsigned int s = blockSize / 2; s > 32; s >>= 1)
     {
+        // s <= blockSize / 2 and tid < s so tid + s < blockSize. Good
+        //  -> add '&& tid + s < chunkSize' to reduce this even more
         if(tid < s)
         {
             sdata[tid] += sdata[tid + s];
@@ -335,6 +337,11 @@ __global__ void means_covs_online_batched_kernel(
     const unsigned int globId = chunkSize * blockIdx.x + threadIdx.x;
     const unsigned int rows = (chunkSize + blockSize - 1) / blockSize;
 
+    // if(tid == 0)
+    // {
+    //     printf("blockSize: %u, chunkSize %u\n", blockSize, chunkSize);
+    // }
+
     sD[tid].setZeros();
     sM[tid].setZeros();
     sC[tid].setZeros();
@@ -356,9 +363,11 @@ __global__ void means_covs_online_batched_kernel(
                 const rm::Vector dD = dataset_points[globId + blockSize * i] - D;
                 const rm::Vector dM = model_points[globId + blockSize * i] - M;
 
+                // printf("Adding glob mem %u to shared mem %u\n", globId + blockSize * i, tid);
+
                 // shared write
                 sD[tid] = D + dD / static_cast<float>(N + 1);
-                sM[tid] = M + dM / static_cast<float>(N + 1); 
+                sM[tid] = M + dM / static_cast<float>(N + 1);
                 sC[tid] = C + dM.multT(dD);
                 sN[tid] = N + 1;
             }
@@ -368,8 +377,9 @@ __global__ void means_covs_online_batched_kernel(
     
     for(unsigned int s = blockSize / 2; s > 0; s >>= 1)
     {
-        if(tid < s)
+        if(tid < s && tid < chunkSize / 2)
         {
+            // if(tid < s)
             // shared read 
             const rm::Vector D      = sD[tid];
             const rm::Vector M      = sM[tid];
@@ -384,7 +394,9 @@ __global__ void means_covs_online_batched_kernel(
             // compute
             const unsigned int Ntot = N + Nnext;
             const float w1 = static_cast<float>(N) / static_cast<float>(Ntot);
-            const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot); 
+            const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot);
+
+            // printf("Adding shared mem %u to shared mem %u\n", tid + s, tid);
 
             // shared write
             sD[tid] = D * w1 + Dnext * w2;
@@ -392,16 +404,8 @@ __global__ void means_covs_online_batched_kernel(
             sC[tid] = C + Cnext; // currently only a sum
             sN[tid] = Ntot;
         }
-        __syncthreads();
+        __syncthreads();   
     }
-
-    // if(tid < blockSize / 2 && tid < 32)
-    // {
-    //     warp_mean<blockSize>(sD, sN, tid);
-    //     warp_mean<blockSize>(sM, sN, tid);
-    //     warp_sum<blockSize>(sC, tid);
-    //     warp_sum<blockSize>(sN, tid);
-    // }
 
     if(tid == 0)
     {
