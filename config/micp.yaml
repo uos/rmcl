@@ -23,8 +23,8 @@ micp:
   # - enable with care. Decreases the processing time a lot
   # corr = correspondences
   viz_corr: True
-  viz_corr_data_color: [0.1, 0.1, 0.1, 1.0] # rgba
-  viz_corr_model_color: [1.0, 1.0, 1.0, 0.8] # rgba
+  viz_corr_data_color: [1.0, 1.0, 1.0, 0.5] # rgba
+  viz_corr_model_color: [0.2, 0.2, 0.2, 1.0] # rgba
   viz_corr_scale: 0.008
 
   # corr = correction

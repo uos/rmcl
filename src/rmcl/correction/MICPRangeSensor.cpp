@@ -244,7 +244,7 @@ void MICPRangeSensor::fetchParams()
         {
             if(!nh_p->getParam("micp/viz_corr_data_color", colors))
             {
-                colors = {0.1, 0.1, 0.1, 1.0};
+                colors = {1.0, 1.0, 1.0, 0.5};
             }
         }
 
@@ -260,7 +260,7 @@ void MICPRangeSensor::fetchParams()
         {
             if(!nh_p->getParam("micp/viz_corr_model_color", colors))
             {
-                colors = {1.0, 1.0, 1.0, 0.8};
+                colors = {0.2, 0.2, 0.2, 1.0};
             }
         }
 
