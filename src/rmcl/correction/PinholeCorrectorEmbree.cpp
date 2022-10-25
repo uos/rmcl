@@ -371,7 +371,7 @@ void PinholeCorrectorEmbree::findSPC(
 
     const rm::Transform Tsb = m_Tsb[0];
 
-    #pragma omp parallel for default(shared)
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
         const rmagine::Transform Tbm = Tbms[pid];
@@ -380,7 +380,7 @@ void PinholeCorrectorEmbree::findSPC(
 
         const unsigned int glob_shift = pid * m_model->size();
 
-        #pragma omp parallel for
+        // #pragma omp parallel for
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
         {
             for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
@@ -450,7 +450,7 @@ void PinholeCorrectorEmbree::findSPC(
                     // }
 
                     // distance of real point to plane at simulated point
-                    float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
+                    const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
                     const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
 

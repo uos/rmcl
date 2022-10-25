@@ -40,8 +40,20 @@ visualization_msgs::Marker make_marker(
     marker.scale.x = 0.01;
     marker.scale.y = 0.01;
     marker.scale.z = 0.01;
-    marker.color.a = 1.0;
-    marker.color.g = 1.0;
+    // marker.color.a = 1.0;
+    // marker.color.g = 1.0;
+
+    std_msgs::ColorRGBA  dcol;
+    std_msgs::ColorRGBA  mcol;
+    dcol.r = 1.0;
+    dcol.g = 1.0;
+    dcol.b = 0.0;
+    dcol.a = 0.7;
+
+    mcol.r = 0.0;
+    mcol.g = 1.0;
+    mcol.b = 0.0;
+    mcol.a = 1.0;
 
     for(size_t j=0; j<dataset_points.size(); j++)
     {
@@ -64,6 +76,9 @@ visualization_msgs::Marker make_marker(
 
             marker.points.push_back(dros);
             marker.points.push_back(mros);
+
+            marker.colors.push_back(dcol);
+            marker.colors.push_back(mcol);
         }
     }
 
@@ -88,15 +103,6 @@ visualization_msgs::Marker make_marker(
 
 void MICPRangeSensor::connect()
 {
-    // if(draw_correspondences)
-    // {
-    //     std::stringstream draw_topic;
-    //     draw_topic << name << "/correspondences";
-    //     pub_corr = std::make_shared<ros::Publisher>(
-    //         nh_p->advertise<visualization_msgs::Marker>(draw_topic.str(), 1)
-    //     );
-    // }
-
     if(type == 0) { // Spherical
         if(data_topic.msg == "rmcl_msgs/ScanStamped") {
             data_sub = std::make_shared<ros::Subscriber>(
@@ -219,7 +225,6 @@ void MICPRangeSensor::connect()
         }
     }
 }
-
 
 void MICPRangeSensor::fetchTF()
 {
@@ -512,9 +517,9 @@ void MICPRangeSensor::computeCovs(
         // upload
         rm::Memory<rm::Transform, rm::VRAM_CUDA> Tbms_ = Tbms;
         CorrectionPreResults<rm::VRAM_CUDA> res_;
-        res_.Cs.resize(Tbms.size());
-        res_.ms.resize(Tbms.size());
         res_.ds.resize(Tbms.size());
+        res_.ms.resize(Tbms.size());
+        res_.Cs.resize(Tbms.size());
         res_.Ncorr.resize(Tbms.size());
 
         // compute
@@ -529,9 +534,9 @@ void MICPRangeSensor::computeCovs(
         }
 
         // download
-        res.Cs = res_.Cs;
-        res.ms = res_.ms;
         res.ds = res_.ds;
+        res.ms = res_.ms;
+        res.Cs = res_.Cs;
         res.Ncorr = res_.Ncorr;
     }
     #endif // RMCL_OPTIX
@@ -607,6 +612,30 @@ void MICPRangeSensor::computeCovs(
 
             corr_sphere_optix->computeCovs(Tbms, res);
         } else if(type == 1) {
+            
+            if(draw_correspondences)
+            {
+                // draw correspondences of first pose
+                auto Tbms0 = Tbms(0, 0+1);
+
+                rm::Memory<rm::Point, rm::VRAM_CUDA> dataset_points;
+                rm::Memory<rm::Point, rm::VRAM_CUDA> model_points;
+                rm::Memory<unsigned int, rm::VRAM_CUDA> corr_valid;
+
+                corr_pinhole_optix->findSPC(Tbms0, 
+                    dataset_points, model_points, corr_valid);
+
+                auto marker = make_marker(
+                    dataset_points, model_points, 
+                    corr_valid, Tbms0);
+                
+                marker.header.stamp = ros::Time::now();
+                if(pub_corr)
+                {
+                    pub_corr->publish(marker);
+                }
+            }
+
             corr_pinhole_optix->computeCovs(Tbms, res);   
         } else if(type == 2) {
             corr_o1dn_optix->computeCovs(Tbms, res);

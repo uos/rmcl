@@ -78,8 +78,8 @@ public:
 
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data_means,
+        rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_means,
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
     ) const;
@@ -92,6 +92,33 @@ public:
     CorrectionPreResults<rmagine::VRAM_CUDA> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
+
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        rmagine::MemoryView<rmagine::Point, rmagine::VRAM_CUDA> dataset_points,
+        rmagine::MemoryView<rmagine::Point, rmagine::VRAM_CUDA> model_points,
+        rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA> corr_valid
+    ) const;
+
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
+        rmagine::Memory<rmagine::Point, rmagine::VRAM_CUDA>& dataset_points,
+        rmagine::Memory<rmagine::Point, rmagine::VRAM_CUDA>& model_points,
+        rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>& corr_valid
+    ) const;
+
+    // TODO: add properly - rmagine
+    inline CorrectionParams params() const
+    {
+        rmagine::Memory<CorrectionParams, rmagine::RAM> params_ = m_params;
+        return params_[0];
+    }
+
+    inline rmagine::PinholeModel model() const
+    {
+        rmagine::Memory<rmagine::PinholeModel, rmagine::RAM> model_ = m_model;
+        return model_[0];
+    }
     
 protected:
     rmagine::Memory<float, rmagine::VRAM_CUDA> m_ranges;

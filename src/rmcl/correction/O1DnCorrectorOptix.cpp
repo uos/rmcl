@@ -69,16 +69,16 @@ CorrectionResults<rm::VRAM_CUDA> O1DnCorrectorOptix::correct(
     res.Ncorr.resize(Tbms.size());
     res.Tdelta.resize(Tbms.size());
 
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ds(Tbms.size());
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     
-    computeCovs(Tbms, ms, ds, Cs, res.Ncorr);
+    computeCovs(Tbms, ds, ms, Cs, res.Ncorr);
 
     static CorrectionCuda corr(m_svd);
-    corr.correction_from_covs(ms, ds, Cs, res.Ncorr, res.Tdelta);
+    corr.correction_from_covs(ds, ms, Cs, res.Ncorr, res.Tdelta);
 
     return res;
 }
@@ -113,7 +113,7 @@ void O1DnCorrectorOptix::computeCovs(
         std::cout << "[SphereCorrectorOptix::computeCovs() Need to activate map context" << std::endl;
         m_stream->context()->use();
     }
-    computeCovs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+    computeCovs(Tbms, res.ds, res.ms, res.Cs, res.Ncorr);
 }
 
 CorrectionPreResults<rmagine::VRAM_CUDA> O1DnCorrectorOptix::computeCovs(
@@ -121,8 +121,8 @@ CorrectionPreResults<rmagine::VRAM_CUDA> O1DnCorrectorOptix::computeCovs(
 ) const
 {
     CorrectionPreResults<rmagine::VRAM_CUDA> res;
-    res.ms.resize(Tbms.size());
     res.ds.resize(Tbms.size());
+    res.ms.resize(Tbms.size());
     res.Cs.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
@@ -182,11 +182,11 @@ void O1DnCorrectorOptix::computeMeansCovsRW(
     m_stream->synchronize();
 
     rm::sumBatched(corr_valid, Ncorr);
-    meanBatched(dataset_points, corr_valid, Ncorr, m1);
-    meanBatched(model_points, corr_valid, Ncorr, m2);
+    mean_batched(dataset_points, corr_valid, Ncorr, m1);
+    mean_batched(model_points, corr_valid, Ncorr, m2);
 
-    covFancyBatched(model_points, m2, 
-            dataset_points, m1, 
+    cov_batched(dataset_points, m1, 
+            model_points, m2, 
             corr_valid, Ncorr, Cs);
 }
 
@@ -211,8 +211,8 @@ void O1DnCorrectorOptix::computeMeansCovsSW(
     mem->params = m_params.raw();
     mem->handle = m_map->scene()->as()->handle;
     mem->C = Cs.raw();
-    mem->m1 = m1.raw(); // Sim
-    mem->m2 = m2.raw(); // Real
+    mem->m1 = m1.raw(); // Real
+    mem->m2 = m2.raw(); // Sim
     mem->Ncorr = Ncorr.raw();
 
     rm::Memory<O1DnCorrectionDataSW, rm::VRAM_CUDA> d_mem(1);

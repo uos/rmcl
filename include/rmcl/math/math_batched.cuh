@@ -58,18 +58,18 @@ namespace rmcl
  * @param Ncorr 
  * @param res 
  */
-void meanBatched(
+void mean_batched(
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& res);
 
-rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA> meanBatched(
+rmagine::Memory<rmagine::Vector, rmagine::VRAM_CUDA> mean_batched(
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr);
 
-void sumFancyBatched(
+void sum_batched(
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1,
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2,
@@ -77,7 +77,7 @@ void sumFancyBatched(
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs);
 
-rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> sumFancyBatched(
+rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> sum_batched(
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to
@@ -89,31 +89,30 @@ rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> sumFancyBatched(
  *  - masked version. better for GPU
  *  - if Ncorr[i] == 0: Cs[i] get only zeros entries
  * 
- * @param data1 size = points * poses
- * @param center1 size = poses
- * @param data2 size = points * poses
- * @param center2 size = poses
+ * @param dataset_points size = points * poses
+ * @param dataset_center size = poses
+ * @param model_points size = points * poses
+ * @param model_center size = poses
  * @param mask size = points * poses
  * @param Ncorr size = poses
  * @param Cs size = poses
  */
-void covFancyBatched(
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1,
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2,
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center2,
+void cov_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs);
 
-rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> covFancyBatched(
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center1,
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& center2,
+rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> cov_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr);
-
 
 /**
  * @brief computes covariances of correspondences that are already centered 
@@ -125,23 +124,23 @@ rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> covFancyBatched(
  * data1[N] -> data2[N] if mask[N] == 1
  * 
  * 
- * @param data1 
- * @param data2 
+ * @param dataset_points 
+ * @param model_points 
  * @param mask 
  * @param Ncorr 
  * @param Cs 
  * @return * compute 
  */
-void covFancyBatched(
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from, dataset
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to, model
+void cov_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from, dataset
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to, model
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs);
 
-rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> covFancyBatched(
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data1, // from, dataset
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& data2, // to, model
+rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> cov_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from, dataset
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to, model
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr);
 

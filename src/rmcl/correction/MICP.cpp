@@ -1138,6 +1138,7 @@ void MICP::correct(
             #endif // RMCL_EMBREE
             #ifdef RMCL_OPTIX
             if(elem.second->backend == 1) {
+                std::cout << "Compute Covs" << std::endl;
                 // use preuploaded poses as input
                 elem.second->computeCovs(Tbm, res);
             } else

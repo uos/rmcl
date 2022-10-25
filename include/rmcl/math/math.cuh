@@ -58,16 +58,16 @@ public:
     CorrectionCuda(rmagine::CudaContextPtr ctx);
 
     void correction_from_covs(
-        const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
         const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+        const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
         const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
         rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tdelta
     ) const;
 
     void correction_from_covs(
-        const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
         const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+        const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
         const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
         const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
         rmagine::MemoryView<rmagine::Quaternion, rmagine::VRAM_CUDA>& Rdelta,
@@ -102,56 +102,56 @@ void compute_transform(
 // TODO: more than two
 
 void weighted_average(
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms1,
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds1,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms1,
     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs1,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr1,
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms2,
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds2,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms2,
     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs2,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr2,
-    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
 );
 
 void weighted_average(
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms1,
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds1,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms1,
     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs1,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr1,
     float w1,
-    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms2,
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds2,
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms2,
     const rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs2,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr2,
     float w2,
-    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
 );
 
 void weighted_average(
-    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA> >& model_means,
     const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA> >& dataset_means,
+    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA> >& model_means,
     const std::vector<rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA> >& covs,
     const std::vector<rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA> >& Ncorrs,
-    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
 );
 
 void weighted_average(
-    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA> >& model_means,
     const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA> >& dataset_means,
+    const std::vector<rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA> >& model_means,
     const std::vector<rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA> >& covs,
     const std::vector<rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA> >& Ncorrs,
     const std::vector<float>& weights,
-    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr
 );

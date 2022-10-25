@@ -94,6 +94,26 @@ public:
     CorrectionPreResults<rmagine::VRAM_CUDA> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms
     ) const;
+
+
+    // TODO: add properly - rmagine
+    inline CorrectionParams params() const
+    {
+        rmagine::Memory<CorrectionParams, rmagine::RAM> params_ = m_params;
+        return params_[0];
+    }
+
+    inline rmagine::OnDnModel model() const
+    {
+        rmagine::OnDnModel res;
+        res.width = m_model[0].width;
+        res.height = m_model[0].height;
+        res.range = m_model[0].range;
+        // download buffers
+        res.origs = m_model[0].origs;
+        res.dirs = m_model[0].dirs;
+        return res;
+    }
     
 protected:
     rmagine::Memory<float, rmagine::VRAM_CUDA> m_ranges;

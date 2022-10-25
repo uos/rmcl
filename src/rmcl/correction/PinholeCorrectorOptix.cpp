@@ -73,16 +73,16 @@ CorrectionResults<rm::VRAM_CUDA> PinholeCorrectorOptix::correct(
     res.Ncorr.resize(Tbms.size());
     res.Tdelta.resize(Tbms.size());
 
-    rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ds(Tbms.size());
+    rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     
-    computeCovs(Tbms, ms, ds, Cs, res.Ncorr);
+    computeCovs(Tbms, ds, ms, Cs, res.Ncorr);
 
     static CorrectionCuda corr(m_svd);
-    corr.correction_from_covs(ms, ds, Cs, res.Ncorr, res.Tdelta);
+    corr.correction_from_covs(ds, ms, Cs, res.Ncorr, res.Tdelta);
 
     return res;
 }
@@ -129,8 +129,8 @@ static size_t rw_mode_additional_bytes(size_t Nposes, size_t Nrays)
 
 void PinholeCorrectorOptix::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA>& Tbms,
-    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ds,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& ms,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr) const
 {
@@ -149,7 +149,6 @@ void PinholeCorrectorOptix::computeCovs(
     // fix estimation with 3/4
     max_poses_rw *= 3;
     max_poses_rw /= 4;
-
 
     // TODO how to make this dynamic somehow
     constexpr unsigned int POSE_SWITCH = 1024 * 8;
@@ -187,8 +186,8 @@ void PinholeCorrectorOptix::computeCovs(
 
                 // slice
                 auto Tbms_ = Tbms(chunk_start, chunk_end);
-                auto ms_ = ms(chunk_start, chunk_end);
                 auto ds_ = ds(chunk_start, chunk_end);
+                auto ms_ = ms(chunk_start, chunk_end);
                 auto Cs_ = Cs(chunk_start, chunk_end);
                 auto Ncorr_ = Ncorr(chunk_start, chunk_end);
 
@@ -217,7 +216,7 @@ void PinholeCorrectorOptix::computeCovs(
         std::cout << "[PinholeCorrectorOptix::computeCovs() Need to activate map context" << std::endl;
         m_stream->context()->use();
     }
-    computeCovs(Tbms, res.ms, res.ds, res.Cs, res.Ncorr);
+    computeCovs(Tbms, res.ds, res.ms, res.Cs, res.Ncorr);
 }
 
 CorrectionPreResults<rmagine::VRAM_CUDA> PinholeCorrectorOptix::computeCovs(
@@ -225,8 +224,8 @@ CorrectionPreResults<rmagine::VRAM_CUDA> PinholeCorrectorOptix::computeCovs(
 ) const
 {
     CorrectionPreResults<rmagine::VRAM_CUDA> res;
-    res.ms.resize(Tbms.size());
     res.ds.resize(Tbms.size());
+    res.ms.resize(Tbms.size());
     res.Cs.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
@@ -234,6 +233,104 @@ CorrectionPreResults<rmagine::VRAM_CUDA> PinholeCorrectorOptix::computeCovs(
 
     return res;
 }
+
+
+void PinholeCorrectorOptix::findSPC(
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    rm::Memory<rm::Point, rm::VRAM_CUDA>& dataset_points,
+    rm::Memory<rm::Point, rm::VRAM_CUDA>& model_points,
+    rm::Memory<unsigned int, rm::VRAM_CUDA>& corr_valid
+) const
+{
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::findSPC() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
+
+    size_t scanSize = m_width * m_height;
+    size_t Nrays = Tbms.size() * scanSize;
+
+    // keep the this if bigger than required
+    if(dataset_points.size() < Nrays)
+    {
+        dataset_points.resize(Nrays);
+    }
+
+    if(model_points.size() < Nrays)
+    {
+        model_points.resize(Nrays);
+    }
+
+    if(corr_valid.size() < Nrays)
+    {
+        corr_valid.resize(Nrays);
+    }
+
+    findSPC(Tbms, dataset_points(0, Nrays), model_points(0, Nrays), corr_valid(0, Nrays) );
+}
+
+void PinholeCorrectorOptix::findSPC(
+    const rm::MemoryView<rm::Transform, rm::VRAM_CUDA>& Tbms,
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> dataset_points,
+    rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
+    rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid
+) const
+{
+    if(!m_map)
+    {
+        throw std::runtime_error("NO MAP");
+    }
+
+    if(!m_map->scene())
+    {
+        throw std::runtime_error("EMPTY MAP");
+    }
+
+    if(!m_map->scene()->as())
+    {
+        throw std::runtime_error("MAP SCENE NOT COMMITTED");
+    }
+
+    if(!m_stream->context()->isActive())
+    {
+        std::cout << "[SphereCorrectorOptix::findSPC() Need to activate map context" << std::endl;
+        m_stream->context()->use();
+    }
+
+
+    rm::Memory<PinholeCorrectionDataRW, rm::RAM> mem(1);
+    mem->model = m_model.raw();
+    mem->ranges = m_ranges.raw();
+    mem->Tsb = m_Tsb.raw();
+    mem->Tbm = Tbms.raw();
+    mem->Nposes = Tbms.size();
+    mem->params = m_params.raw();
+    mem->handle = m_map->scene()->as()->handle;
+    mem->corr_valid = corr_valid.raw();
+    mem->dataset_points = dataset_points.raw();
+    mem->model_points = model_points.raw();
+
+    rm::Memory<PinholeCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
+    copy(mem, d_mem, m_stream);
+
+    rm::PipelinePtr program = make_pipeline_corr_rw(m_map->scene(), 1);
+
+    RM_OPTIX_CHECK( optixLaunch(
+        program->pipeline, 
+        m_stream->handle(), 
+        reinterpret_cast<CUdeviceptr>(d_mem.raw()), 
+        sizeof( PinholeCorrectionDataRW ), 
+        program->sbt,
+        m_width, // width Xdim
+        m_height, // height Ydim
+        Tbms.size()// depth Zdim
+        ));
+
+    m_stream->synchronize();
+}
+
+
 
 /// PRIVATE
 void PinholeCorrectorOptix::computeMeansCovsRW(
@@ -261,9 +358,9 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
     #endif // PRINT_TIMINGS
     
     // TODO: this is a lot of memory. preallocate it
-    rm::Memory<unsigned int,    rm::VRAM_CUDA> corr_valid(Nrays);
-    rm::Memory<rm::Vector, rm::VRAM_CUDA>    model_points(Nrays);
     rm::Memory<rm::Vector, rm::VRAM_CUDA>  dataset_points(Nrays);
+    rm::Memory<rm::Vector, rm::VRAM_CUDA>    model_points(Nrays);
+    rm::Memory<unsigned int,    rm::VRAM_CUDA> corr_valid(Nrays);
 
     #ifdef PRINT_TIMINGS 
     el = sw();
@@ -281,8 +378,8 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
     mem->optical = m_optical;
     mem->handle = m_map->scene()->as()->handle;
     mem->corr_valid = corr_valid.raw();
-    mem->model_points = model_points.raw();
     mem->dataset_points = dataset_points.raw();
+    mem->model_points = model_points.raw();
 
     rm::Memory<PinholeCorrectionDataRW, rm::VRAM_CUDA> d_mem(1);
     copy(mem, d_mem, m_stream);
@@ -326,7 +423,7 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
     sw();
     #endif // PRINT_TIMINGS
 
-    meanBatched(dataset_points, corr_valid, Ncorr, m1);
+    mean_batched(dataset_points, corr_valid, Ncorr, m1);
 
     #ifdef PRINT_TIMINGS
     el = sw();
@@ -334,7 +431,7 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
     sw();
     #endif // PRINT_TIMINGS
 
-    meanBatched(model_points, corr_valid, Ncorr, m2);
+    mean_batched(model_points, corr_valid, Ncorr, m2);
 
     #ifdef PRINT_TIMINGS
     el = sw();
@@ -342,7 +439,8 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
     sw();
     #endif // PRINT_TIMINGS
 
-    covFancyBatched(model_points, dataset_points, 
+    cov_batched(dataset_points, m1, 
+        model_points, m2, 
         corr_valid, Ncorr, Cs);
 
     #ifdef PRINT_TIMINGS

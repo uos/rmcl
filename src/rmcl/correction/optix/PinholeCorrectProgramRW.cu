@@ -68,11 +68,13 @@ extern "C" __global__ void __raygen__rg()
         mem.model_points[glob_id] = {0.0f, 0.0f, 0.0f};
         mem.corr_valid[glob_id] = 0;
     } else {
-        const rm::Vector nsim_m = {
+        rm::Vector nsim_m = {
             __uint_as_float(p1),
             __uint_as_float(p2),
             __uint_as_float(p3)
         };
+
+        nsim_m.normalizeInplace();
 
         // going to sensor space
         const rm::Vector preal_s = ray_dir_s * real_range;
