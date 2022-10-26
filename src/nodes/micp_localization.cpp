@@ -400,31 +400,16 @@ int main(int argc, char** argv)
     micp = std::make_shared<MICP>();
     micp->loadParams();
 
-    if(adaptive_max_dist)
-    {
-        for(auto elem : micp->sensors())
-        {
-            elem.second->enableValidRangesCounting();
-        }
-    }
-
-    if(draw_correspondences)
-    {
-        for(auto elem : micp->sensors())
-        {
-            elem.second->enableVizCorrespondences();
-        }
-    }
 
     std::string combining_unit_str;
     nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
 
     if(combining_unit_str == "cpu")
     {
-        std::cout << "Combining Unit: CPU" << std::endl; 
+        // std::cout << "Combining Unit: CPU" << std::endl; 
         combining_unit = 0;
     } else if(combining_unit_str == "gpu") {
-        std::cout << "Combining Unit: GPU" << std::endl;
+        // std::cout << "Combining Unit: GPU" << std::endl;
         combining_unit = 1;
     } else {
         // ERROR

@@ -36,11 +36,25 @@ MICP::MICP()
     std::cout << "    --- BACKENDS ---    " << std::endl;
     std::cout << "-------------------------" << std::endl;
 
-    std::cout << "Available computing units:" << std::endl;
+    std::cout << "Available combining units:" << std::endl;
     std::cout << "- " << TC_BACKENDS << "CPU" << TC_END << std::endl;
     #ifdef RMCL_CUDA
     std::cout << "- " << TC_BACKENDS << "GPU" << TC_END << std::endl; 
     #endif // RMCL_CUDA
+
+    std::string combining_unit_str;
+    m_nh_p->param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
+
+    if(combining_unit_str == "cpu")
+    {
+        std::cout << "Selected Combining Unit: " << TC_BACKENDS << "CPU" << TC_END << std::endl;
+    } else if(combining_unit_str == "gpu") {
+        std::cout << "Selected Combining Unit: " << TC_BACKENDS << "GPU" << TC_END << std::endl;
+    } else {
+        // ERROR
+        std::cout << "Combining Unit: " << TC_RED << combining_unit_str << " unknown!" << TC_END << std::endl;
+    }
+    std::cout << std::endl;
 
     std::cout << "Available raytracing backends:" << std::endl;
     #ifdef RMCL_EMBREE
@@ -50,11 +64,13 @@ MICP::MICP()
     #ifdef RMCL_OPTIX
     std::cout << "- " << TC_BACKENDS << "Optix (GPU)" << TC_END << std::endl;
     #endif // RMCL_OPTIX
+
+    std::cout << std::endl;
 }
 
 MICP::~MICP()
 {
-    std::cout << "MICP cleanup" << std::endl;
+    // std::cout << "MICP cleanup" << std::endl;
 }
 
 void MICP::loadParams()
@@ -769,8 +785,8 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     sensor->nh_p = m_nh_p;
     sensor->tf_buffer = m_tf_buffer; 
 
-    // load additional params
-    sensor->fetchParams();
+    // load additional params: duplicated from above
+    sensor->fetchMICPParams();
     // connect to sensor topics
     sensor->connect();
 

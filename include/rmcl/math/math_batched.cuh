@@ -145,6 +145,37 @@ rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> cov_batched(
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr);
 
 
+/**
+ * @brief two-pass means and covariance computation
+ * 
+ * @param dataset_points 
+ * @param model_points 
+ * @param mask 
+ * @param dataset_center 
+ * @param model_center 
+ * @param Cs 
+ * @param Ncorr 
+ */
+void means_covs_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr);
+
+/**
+ * @brief one-pass means and covariance computation
+ * 
+ * @param dataset_points 
+ * @param model_points 
+ * @param mask 
+ * @param dataset_center 
+ * @param model_center 
+ * @param Cs 
+ * @param Ncorr 
+ */
 void means_covs_online_batched(
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from
     const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to

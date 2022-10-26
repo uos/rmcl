@@ -114,7 +114,6 @@ struct TopicInfo
     std::string     frame;
 };
 
-
 class MICPRangeSensor 
 : std::enable_shared_from_this<MICPRangeSensor>
 {
@@ -156,6 +155,7 @@ public: // TODO: dont have everything public
     ros::Time   data_last_update;
     float       data_frequency_est; // currently unused
     bool        count_valid_ranges = false;
+    bool        adaptive_max_dist = false;
     size_t      n_ranges_valid = 0;
 
     
@@ -184,7 +184,7 @@ public: // TODO: dont have everything public
     std_msgs::ColorRGBA viz_corr_data_color;
     std_msgs::ColorRGBA viz_corr_model_color;
     float viz_corr_scale = 0.005;
-    int viz_corr_step = 1;
+    int viz_corr_skip = 0;
 
     PublisherPtr    pub_corr;
 
@@ -206,7 +206,7 @@ public: // TODO: dont have everything public
     // connect to topics
     void connect();
 
-    void fetchParams();
+    void fetchMICPParams(bool init = true);
 
     // called once every new data message
     void fetchTF();

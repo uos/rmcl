@@ -312,8 +312,8 @@ void SphereCorrectorEmbree::computeCovs(
             ms[pid] = Mmean;
             Cs[pid] = C;
         } else {
-            ds[pid] = {0.0, 0.0, 0.0};
-            ms[pid] = {0.0, 0.0, 0.0};
+            ds[pid] = {0.0f, 0.0f, 0.0f};
+            ms[pid] = {0.0f, 0.0f, 0.0f};
             Cs[pid].setZeros();
         }
     }

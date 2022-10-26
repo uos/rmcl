@@ -257,19 +257,17 @@ void SphereCorrectorOptix::computeMeansCovsRW(
 
     // new: one-pass
     means_covs_online_batched(
-            dataset_points, model_points, corr_valid, // input
-            means_dataset, means_model, // outputs
-            Cs, Ncorr
-        );
+        dataset_points, model_points, corr_valid, // input
+        means_dataset, means_model, // outputs
+        Cs, Ncorr
+    );
 
     // old: two-pass
-    // mean_batched(dataset_points, corr_valid, Ncorr, means_dataset);
-    // mean_batched(model_points, corr_valid, Ncorr, means_model);
-    // rm::sumBatched(corr_valid, Ncorr);
-
-    // cov_batched(dataset_points, means_dataset,
-    //         model_points, means_model,
-    //         corr_valid, Ncorr, Cs);
+    // means_covs_batched(
+    //     dataset_points, model_points, corr_valid, // input
+    //     means_dataset, means_model, // outputs
+    //     Cs, Ncorr
+    // );
 }
 
 void SphereCorrectorOptix::computeMeansCovsSW(

@@ -9,6 +9,7 @@
 #include <rmcl/util/conversions.h>
 
 #include <rmcl/math/math.h>
+#include <rmcl/math/math_batched.h>
 
 #ifdef RMCL_CUDA
 #include <rmcl/math/math.cuh>
@@ -48,8 +49,7 @@ visualization_msgs::Marker make_marker(
     marker.scale.x = scale;
     marker.scale.y = scale;
     marker.scale.z = scale;
-    // marker.color.a = 1.0;
-    // marker.color.g = 1.0;
+
 
     for(size_t j=0; j<dataset_points.size(); j += step)
     {
@@ -227,16 +227,74 @@ void MICPRangeSensor::connect()
     }
 }
 
-void MICPRangeSensor::fetchParams()
+void MICPRangeSensor::fetchMICPParams(bool init)
 {
     if(!nh_sensor)
     {
+        std::stringstream ss;
+        ss << "sensors/" << name;
         nh_sensor = std::make_shared<ros::NodeHandle>(
-            *nh_p, name
+            *nh_p, ss.str()
         );
     }
 
     // local settings
+    if(!nh_sensor->getParam("micp/max_dist", corr_params_init.max_distance))
+    {
+        if(!nh_p->getParam("micp/max_dist", corr_params_init.max_distance))
+        {
+            corr_params_init.max_distance = 1.0;
+        }
+    }
+
+    if(init)
+    {
+        corr_params = corr_params_init;
+    }
+
+    bool adaptive_max_dist;
+    if(!nh_sensor->getParam("micp/adaptive_max_dist", adaptive_max_dist))
+    {
+        if(!nh_p->getParam("micp/adaptive_max_dist", adaptive_max_dist))
+        {
+            adaptive_max_dist = false;
+        }
+    }
+
+    if(adaptive_max_dist)
+    {
+        enableValidRangesCounting(true);
+    }
+    
+
+    std::string backend_str;
+    if(!nh_sensor->getParam("micp/backend", backend_str))
+    {
+        backend_str = "embree";
+    }
+
+    if(backend_str == "embree")
+    {
+        backend = 0;
+    } else if(backend_str == "optix") {
+        backend = 1;
+    }
+
+    if(!nh_sensor->getParam("micp/weight", corr_weight))
+    {
+        corr_weight = 1.0;
+    }
+
+    // VIZ
+    if(!nh_sensor->getParam("micp/viz_corr", viz_corr))
+    {
+        if(!nh_p->getParam("micp/viz_corr", viz_corr))
+        {
+            viz_corr = false;
+        }
+    }
+
+    enableVizCorrespondences(viz_corr);
 
     { // viz cor dataset color
         std::vector<double> colors;
@@ -278,16 +336,22 @@ void MICPRangeSensor::fetchParams()
         }
     }
 
-    if(!nh_sensor->getParam("micp/viz_corr_step", viz_corr_step))
+    if(!nh_sensor->getParam("micp/viz_corr_skip", viz_corr_scale))
     {
-        if(!nh_p->getParam("micp/viz_corr_step", viz_corr_step))
+        if(!nh_p->getParam("micp/viz_corr_scale", viz_corr_scale))
         {
-            viz_corr_step = 1;
+            viz_corr_scale = 0.008;
         }
     }
 
+    if(!nh_sensor->getParam("micp/viz_corr_skip", viz_corr_skip))
+    {
+        if(!nh_p->getParam("micp/viz_corr_skip", viz_corr_skip))
+        {
+            viz_corr_skip = 0;
+        }
+    }
 
-    // ros::NodeHandle nh_sensor()
 }
 
 void MICPRangeSensor::fetchTF()
@@ -486,16 +550,29 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0[0], 
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
                 {
                     pub_corr->publish(marker);
                 }
+
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_sphere_embree->computeCovs(Tbms, res);
             }
 
-            corr_sphere_embree->computeCovs(Tbms, res);
+            
         } else if(type == 1) {
             if(viz_corr)
             {
@@ -514,16 +591,27 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0[0], 
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
                 {
                     pub_corr->publish(marker);
                 }
-            } 
-            
-            corr_pinhole_embree->computeCovs(Tbms, res);
+
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_pinhole_embree->computeCovs(Tbms, res);
+            }
             
         } else if(type == 2) {
             
@@ -543,16 +631,29 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0[0], 
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
                 {
                     pub_corr->publish(marker);
                 }
+
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_o1dn_embree->computeCovs(Tbms, res);
             }
 
-            corr_o1dn_embree->computeCovs(Tbms, res);
+            
         } else if(type == 3) {
 
             if(viz_corr)
@@ -571,16 +672,27 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0[0], 
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
                 {
                     pub_corr->publish(marker);
                 }
-            }
 
-            corr_ondn_embree->computeCovs(Tbms, res);
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_ondn_embree->computeCovs(Tbms, res);
+            }
         }
     }
     #endif // RMCL_EMBREE
@@ -677,7 +789,7 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0,
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -717,7 +829,7 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0,
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -745,7 +857,7 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0,
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -773,7 +885,7 @@ void MICPRangeSensor::computeCovs(
                     dataset_points, model_points, 
                     corr_valid, Tbms0,
                     viz_corr_data_color, viz_corr_model_color,
-                    viz_corr_scale, viz_corr_step);
+                    viz_corr_scale, viz_corr_skip + 1);
                 
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
@@ -804,8 +916,10 @@ void MICPRangeSensor::enableVizCorrespondences(bool enable)
     {
         if(!nh_sensor)
         {
+            std::stringstream ss;
+            ss << "sensors/" << name;
             nh_sensor = std::make_shared<ros::NodeHandle>(
-                *nh_p, name
+                *nh_p, ss.str()
             );
         }
 

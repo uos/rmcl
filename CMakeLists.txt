@@ -93,6 +93,7 @@ include_directories(
 add_library(rmcl
     # Math
     src/rmcl/math/math.cpp
+    src/rmcl/math/math_batched.cpp
     # Spatial
     src/rmcl/spatial/KdTree.cpp
     # Clustering

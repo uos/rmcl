@@ -1,5 +1,7 @@
 #include "rmcl/math/math_batched.cuh"
 
+#include <rmagine/math/math_batched.cuh>
+
 namespace rm = rmagine;
 
 namespace rmcl
@@ -545,6 +547,24 @@ rmagine::Memory<rmagine::Matrix3x3, rmagine::VRAM_CUDA> cov_batched(
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Nchunks);
     cov_batched(dataset_points, model_points, mask, Ncorr, Cs);
     return Cs;
+}
+
+void means_covs_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr)
+{
+    mean_batched(dataset_points, mask, Ncorr, dataset_center);
+    mean_batched(model_points, mask, Ncorr, model_center);
+    rm::sumBatched(mask, Ncorr);
+
+    cov_batched(dataset_points, dataset_center,
+            model_points, model_center,
+            mask, Ncorr, Cs);
 }
 
 void means_covs_online_batched(

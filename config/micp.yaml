@@ -17,7 +17,9 @@ micp:
   corr_rate_max: 10
 
   # adjust max distance dependend of the state of localization
-  adaptive_max_dist: False # enable adaptive max dist
+  # max_dist: 10.0
+  # adaptive_max_dist_min: 0.15
+  adaptive_max_dist: True # enable adaptive max dist
 
   # DEBUGGING / VISUALIZATION
   # - enable with care. Decreases the processing time a lot
@@ -31,7 +33,6 @@ micp:
   print_corr_rate: False
   disable_corr: False
   
-
   # initial pose changes
   trans: [0.0, 0.0, 0.0]
   rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
@@ -51,10 +52,10 @@ sensors: # list of range sensors - at least one is required
       theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
       theta_N: 440
     micp:
-      max_dist: 1.0
       adaptive_max_dist_min: 0.15
+      max_dist: 1.0
       weight: 10
-      backend: optix
+      backend: embree
   # sick:
   #   topic: scan
   #   micp:
