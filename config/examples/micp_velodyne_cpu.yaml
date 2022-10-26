@@ -5,7 +5,6 @@ odom_frame: odom
 
 # rate of broadcasting tf transformations
 tf_rate: 50
-invert_tf: False
 
 micp:
   # merging on gpu or cpu
@@ -17,19 +16,18 @@ micp:
 
   # adjust max distance dependend of the state of localization
   adaptive_max_dist: False # enable adaptive max dist
-
-  # DEBUGGING   
-  # corr = correspondences
-  print_n_corr: True
-  print_corr_dist: True
-  viz_corr: True
-  # corr = correction
-  print_corr_rate: False
-  disable_corr: True
+  
 
   # initial pose changes
   trans: [0.0, 0.0, 0.0]
   rot: [0.0, 0.0, 0.0] # euler angles (3) or quaternion (4)  
+
+  # DEBUGGING / VISUALIZATION
+  # corr = correspondences
+  viz_corr: True # disable visualization to improve performance
+  # corr = correction
+  print_corr_rate: False # enable to print current rates
+  disable_corr: False # enable to disable actual tf corrections (use with 'viz_corr')
 
 # describe your sensor setup here
 sensors: # list of range sensors - at least one is required

@@ -5,21 +5,20 @@ odom_frame: odom
 
 # rate of broadcasting tf transformations
 tf_rate: 50
-invert_tf: False
 
 micp:
   # merging on gpu or cpu
   combining_unit: gpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
-  corr_rate_max: 500
+  corr_rate_max: 100
   
   # adjust max distance dependend of the state of localization
-  adaptive_max_dist: False # enable adaptive max dist
+  adaptive_max_dist: True # enable adaptive max dist
 
   # DEBUGGING   
   # corr = correspondences
-  viz_corr: False
+  viz_corr: True
   # corr = correction
   print_corr_rate: False
   disable_corr: False
