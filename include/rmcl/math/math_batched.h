@@ -88,6 +88,27 @@ void means_covs_online_batched(
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr);
 
 
+/**
+ * @brief one-pass means and covariance computation
+ * 
+ * @param dataset_points 
+ * @param model_points 
+ * @param mask 
+ * @param dataset_center 
+ * @param model_center 
+ * @param Cs 
+ * @param Ncorr 
+ */
+void means_covs_online_approx_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& dataset_points, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_points, // to
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& mask,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr);
+
+
 } // namespace rmcl
 
 #endif // RMCL_MATH_BATCHED_CUH

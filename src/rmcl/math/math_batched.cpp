@@ -3,7 +3,6 @@
 #include <rmagine/math/math_batched.h>
 
 namespace rm = rmagine;
-
 namespace rmcl
 {
 
@@ -34,14 +33,10 @@ void means_covs_batched(
         {
             if(mask_batch[j] > 0)
             {
-                const rm::Vector dD = data_batch[j] - d_mean;
-                const rm::Vector dM = model_batch[j] - m_mean;
-                float N = static_cast<float>(n_corr + 1);
-
-                // reduction
+                // sum
                 n_corr++;
-                d_mean += dD / N;
-                m_mean += dM / N;
+                d_mean += data_batch[j];
+                m_mean += model_batch[j];
             }
         }
 
@@ -49,14 +44,20 @@ void means_covs_batched(
 
         if(n_corr > 0)
         {
+            const float Ncorr_f = static_cast<float>(n_corr);
+            d_mean /= Ncorr_f;
+            m_mean /= Ncorr_f;
+
             rm::Matrix3x3 C = rm::Matrix3x3::Zeros();
 
             for(size_t j = 0; j < batchSize; j++)
             {
-                C += (model_batch[j] - m_mean).multT(data_batch[j] - d_mean);
+                if(mask_batch[j] > 0)
+                {
+                    C += (model_batch[j] - m_mean).multT(data_batch[j] - d_mean);
+                }
             }
-
-            const float Ncorr_f = static_cast<float>(n_corr);
+            
             C /= Ncorr_f;
 
             dataset_center[i] = d_mean;
@@ -71,6 +72,77 @@ void means_covs_batched(
 }
 
 void means_covs_online_batched(
+    const rm::MemoryView<rm::Vector, rm::RAM>& dataset_points, // from
+    const rm::MemoryView<rm::Vector, rm::RAM>& model_points, // to
+    const rm::MemoryView<unsigned int, rm::RAM>& mask,
+    rm::MemoryView<rm::Vector, rm::RAM>& dataset_center,
+    rm::MemoryView<rm::Vector, rm::RAM>& model_center,
+    rm::MemoryView<rm::Matrix3x3, rm::RAM>& Cs,
+    rm::MemoryView<unsigned int, rm::RAM>& Ncorr)
+{
+    unsigned int Nbatches = Ncorr.size();
+    unsigned int batchSize = dataset_points.size() / Nbatches;
+
+    #pragma omp parallel for default(shared) if(Nbatches > 4)
+    for(size_t i=0; i<Nbatches; i++)
+    {
+        const rm::MemoryView<rm::Vector> data_batch = dataset_points(i * batchSize, (i+1) * batchSize);
+        const rm::MemoryView<rm::Vector> model_batch = model_points(i * batchSize, (i+1) * batchSize);
+        const rm::MemoryView<unsigned int> mask_batch = mask(i * batchSize, (i+1) * batchSize);
+
+        rm::Vector d_mean = {0.0f, 0.0f, 0.0f};
+        rm::Vector m_mean = {0.0f, 0.0f, 0.0f};
+        rm::Matrix3x3 C = rm::Matrix3x3::Zeros();
+        unsigned int n_corr = 0;
+
+        for(size_t j=0; j<batchSize; j++)
+        {
+            if(mask_batch[j] > 0)
+            {
+                const float N_1 = static_cast<float>(n_corr);
+                const float N = static_cast<float>(n_corr + 1);
+
+                // update ncorr
+                n_corr++;
+
+                const rm::Vector Di = data_batch[j]; // read
+                const rm::Vector Mi = model_batch[j]; // read
+                const rm::Vector d_mean_old = d_mean; // read
+                const rm::Vector m_mean_old = m_mean; // read
+
+                // update means
+                // rm::Vector dD = Di - d_mean;
+                // rm::Vector dM = Mi - m_mean;
+                
+                // save old means for covariance
+                
+                const rm::Vector d_mean_new = d_mean_old + (Di - d_mean) / N; 
+                const rm::Vector m_mean_new = m_mean_old + (Mi - m_mean) / N; 
+
+                const float w1 = N_1/N;
+                const float w2 = 1.0/N;
+
+                auto P1 = (Mi - m_mean_new).multT(Di - d_mean_new);
+                auto P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
+
+                C = C * w1 + P1 * w2 + P2 * w1;
+
+                // C += ((Mi - m_mean_new).multT(Di - d_mean_new) - C) * 1.0 / N 
+                //     + (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new) * N_1/N;
+
+                d_mean = d_mean_new; // write
+                m_mean = m_mean_new; // write
+            }
+        }
+
+        Ncorr[i] = n_corr;
+        dataset_center[i] = d_mean;
+        model_center[i] = m_mean;
+        Cs[i] = C;
+    }
+}
+
+void means_covs_online_approx_batched(
     const rm::MemoryView<rm::Vector, rm::RAM>& dataset_points, // from
     const rm::MemoryView<rm::Vector, rm::RAM>& model_points, // to
     const rm::MemoryView<unsigned int, rm::RAM>& mask,

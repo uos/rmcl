@@ -333,6 +333,7 @@ __global__ void means_covs_online_batched_kernel(
     __shared__ rm::Vector sM[blockSize];
     __shared__ rm::Matrix3x3 sC[blockSize];
     __shared__ unsigned int sN[blockSize];
+    // __shared__ bool sMask[blockSize];
     
 
     const unsigned int tid = threadIdx.x;
@@ -344,8 +345,8 @@ __global__ void means_covs_online_batched_kernel(
     //     printf("blockSize: %u, chunkSize %u\n", blockSize, chunkSize);
     // }
 
-    sD[tid].setZeros();
-    sM[tid].setZeros();
+    sD[tid] = {0.0f, 0.0f, 0.0f};
+    sM[tid] = {0.0f, 0.0f, 0.0f};
     sC[tid].setZeros();
     sN[tid] = 0;
 
@@ -355,23 +356,55 @@ __global__ void means_covs_online_batched_kernel(
         {
             if(mask[globId + blockSize * i] > 0)
             {
+                // global read
+                const rm::Vector Di = dataset_points[globId + blockSize * i];
+                const rm::Vector Mi = model_points[globId + blockSize * i];
+
                 // shared read 
                 const rm::Vector D      = sD[tid];
                 const rm::Vector M      = sM[tid];
                 const rm::Matrix3x3 C   = sC[tid];
-                const unsigned int N    = sN[tid];
+                const unsigned int N_1    = sN[tid];
+                const float N_1f = static_cast<float>(N_1);
+                const unsigned int N = N_1 + 1;
+                const float Nf = static_cast<float>(N);
 
                 // compute
-                const rm::Vector dD = dataset_points[globId + blockSize * i] - D;
-                const rm::Vector dM = model_points[globId + blockSize * i] - M;
+                // rm::Vector dD = Di - D;
+                // rm::Vector dM = Mi - M;
 
-                // printf("Adding glob mem %u to shared mem %u\n", globId + blockSize * i, tid);
+                const rm::Vector Dnew = D + (Di - D) / Nf;
+                const rm::Vector Mnew = M + (Mi - M) / Nf;
+
+                // dD = Di - Dnew;
+                // dM = Mi - Mnew;
+
+
+                const float w1 = N_1f / Nf;
+                const float w2 = 1.0 / Nf;
+
+                auto P1 = (Mi - Mnew).multT(Di - Dnew);
+                auto P2 = (M - Mnew).multT(D - Dnew);
+
+                // printf("w1: %f\n", w1);
+                // printf("w2: %f\n", w2);
+                // printf("P1: %f\n", P1(0,0));
+                // printf("P2: %f\n", P2(0,0));
+                // printf("P3: %f\n", P3(0,0));
 
                 // shared write
-                sD[tid] = D + dD / static_cast<float>(N + 1);
-                sM[tid] = M + dM / static_cast<float>(N + 1);
-                sC[tid] = C + dM.multT(dD);
-                sN[tid] = N + 1;
+                // auto Cnew = P1 + P2 + P3;
+                // sC[tid] = C * N_1f / Nf + (Mi - Mnew).multT(Di - Dnew) * 1.0 / Nf
+                //     + (M - Mnew).multT(D - Dnew) * N_1f / Nf;
+                
+                auto Cnew = C * w1 + P1 * w2 + P2 * w1;
+
+                sC[tid] = Cnew;
+                sD[tid] = Dnew;
+                sM[tid] = Mnew;
+                sN[tid] = N;
+
+                printf("(%u,G) -> (%u,S) = %u, %f\n", globId + blockSize * i, tid, N, Cnew(0,0) );
             }
         }
     }
@@ -395,23 +428,172 @@ __global__ void means_covs_online_batched_kernel(
 
             // compute
             const unsigned int Ntot = N + Nnext;
-            const float w1 = static_cast<float>(N) / static_cast<float>(Ntot);
-            const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot);
 
-            // printf("Adding shared mem %u to shared mem %u\n", tid + s, tid);
+            if(Ntot > 0)
+            {
+                const float w1 = static_cast<float>(N) / static_cast<float>(Ntot);
+                const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot);
 
-            // shared write
-            sD[tid] = D * w1 + Dnext * w2;
-            sM[tid] = M * w1 + Mnext * w2;
-            sC[tid] = C + Cnext; // currently only a sum
-            sN[tid] = Ntot;
+
+
+                // auto P1 = (Mi - Mnew).multT(Di - Dnew);
+                // auto P2 = (M - Mnew).multT(D - Dnew);
+
+                const rm::Vector Dtot = D * w1 + Dnext * w2;
+
+
+
+                // printf("(%u,S) %u, (%f, %f, %f) -> (%u,S) %u, (%f, %f, %f) = %u, (%f, %f, %f)\n", 
+                //     tid + s, Nnext, Dnext.x, Dnext.y, Dnext.z,
+                //     tid, N, D.x, D.y, D.z,
+                //     Ntot, Dtot.x, Dtot.y, Dtot.z);
+                
+                // shared write
+                sD[tid] = Dtot;
+                sM[tid] = M * w1 + Mnext * w2;
+                
+
+                // TODO weighted covariance
+                auto Cnew = C * w1 + Cnext * w2;
+
+
+                sC[tid] = Cnew; // currently only a sum
+                sN[tid] = Ntot;
+            }
         }
         __syncthreads();   
     }
 
     if(tid == 0)
     {
-        const unsigned int N = sN[blockIdx.x];
+        const unsigned int N = sN[0];
+        if(N > 0)
+        {
+            dataset_center[blockIdx.x] = sD[0];
+            model_center[blockIdx.x] = sM[0];
+            Cs[blockIdx.x] = sC[0];
+            Ncorr[blockIdx.x] = N;
+        } else {
+            dataset_center[blockIdx.x].setZeros();
+            model_center[blockIdx.x].setZeros();
+            Cs[blockIdx.x].setZeros();
+            Ncorr[blockIdx.x] = 0;
+        }
+    }
+}
+
+
+template<unsigned int blockSize>
+__global__ void means_covs_online_approx_batched_kernel(
+    const rm::Vector* dataset_points, // from, dataset
+    const rm::Vector* model_points, // to, model
+    const unsigned int* mask,
+    unsigned int chunkSize,
+    rm::Vector* dataset_center,
+    rm::Vector* model_center,
+    rm::Matrix3x3* Cs,
+    unsigned int* Ncorr)
+{
+    // Online update: Covariance and means 
+    // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+    // 
+    // Comment:
+    // I dont think the Wikipedia algorithm is completely correct (Covariances).
+    // But it is used in a lot of code -> Let everything be equally incorrect
+
+    __shared__ rm::Vector sD[blockSize];
+    __shared__ rm::Vector sM[blockSize];
+    __shared__ rm::Matrix3x3 sC[blockSize];
+    __shared__ unsigned int sN[blockSize];
+    // __shared__ bool sMask[blockSize];
+    
+
+    const unsigned int tid = threadIdx.x;
+    const unsigned int globId = chunkSize * blockIdx.x + threadIdx.x;
+    const unsigned int rows = (chunkSize + blockSize - 1) / blockSize;
+
+    // if(tid == 0)
+    // {
+    //     printf("blockSize: %u, chunkSize %u\n", blockSize, chunkSize);
+    // }
+
+    sD[tid] = {0.0f, 0.0f, 0.0f};
+    sM[tid] = {0.0f, 0.0f, 0.0f};
+    sC[tid].setZeros();
+    sN[tid] = 0;
+
+    for(unsigned int i=0; i<rows; i++)
+    {
+        if(tid + blockSize * i < chunkSize)
+        {
+            if(mask[globId + blockSize * i] > 0)
+            {
+                // shared read 
+                const rm::Vector D      = sD[tid];
+                const rm::Vector M      = sM[tid];
+                const rm::Matrix3x3 C   = sC[tid];
+                const unsigned int N    = sN[tid];
+
+                // compute
+                const rm::Vector dD = dataset_points[globId + blockSize * i] - D;
+                const rm::Vector dM = model_points[globId + blockSize * i] - M;
+
+                // shared write
+                sD[tid] = D + dD / static_cast<float>(N + 1);
+                sM[tid] = M + dM / static_cast<float>(N + 1);
+                sC[tid] = C + dM.multT(dD);
+                sN[tid] = N + 1;
+
+                // printf("(%u,G) -> (%u,S) = %u\n", globId + blockSize * i, tid, N + 1);
+            }
+        }
+    }
+    __syncthreads();
+    
+    for(unsigned int s = blockSize / 2; s > 0; s >>= 1)
+    {
+        if(tid < s && tid < chunkSize / 2)
+        {
+            // if(tid < s)
+            // shared read 
+            const rm::Vector D      = sD[tid];
+            const rm::Vector M      = sM[tid];
+            const rm::Matrix3x3 C   = sC[tid];
+            const unsigned int N    = sN[tid];
+
+            const rm::Vector Dnext      = sD[tid + s];
+            const rm::Vector Mnext      = sM[tid + s];
+            const rm::Matrix3x3 Cnext   = sC[tid + s];
+            const unsigned int Nnext    = sN[tid + s];
+
+            // compute
+            const unsigned int Ntot = N + Nnext;
+
+            if(Ntot > 0)
+            {
+                const float w1 = static_cast<float>(N) / static_cast<float>(Ntot);
+                const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot);
+
+
+                const rm::Vector Dtot = D * w1 + Dnext * w2;
+                // printf("(%u,S) %u, (%f, %f, %f) -> (%u,S) %u, (%f, %f, %f) = %u, (%f, %f, %f)\n", 
+                //     tid + s, Nnext, Dnext.x, Dnext.y, Dnext.z,
+                //     tid, N, D.x, D.y, D.z,
+                //     Ntot, Dtot.x, Dtot.y, Dtot.z);
+                
+                // shared write
+                sD[tid] = Dtot;
+                sM[tid] = M * w1 + Mnext * w2;
+                sC[tid] = C + Cnext; // currently only a sum
+                sN[tid] = Ntot;
+            }
+        }
+        __syncthreads();   
+    }
+
+    if(tid == 0)
+    {
+        const unsigned int N = sN[0];
         if(N > 0)
         {
             dataset_center[blockIdx.x] = sD[0];
@@ -558,9 +740,10 @@ void means_covs_batched(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr)
 {
+    rm::sumBatched(mask, Ncorr);
+
     mean_batched(dataset_points, mask, Ncorr, dataset_center);
     mean_batched(model_points, mask, Ncorr, model_center);
-    rm::sumBatched(mask, Ncorr);
 
     cov_batched(dataset_points, dataset_center,
             model_points, model_center,
@@ -576,13 +759,31 @@ void means_covs_online_batched(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr)
 {
-    unsigned int Nchunks = Ncorr.size();
-    unsigned int batchSize = dataset_points.size() / Nchunks;
+    unsigned int Nbatches = Ncorr.size();
+    unsigned int batchSize = dataset_points.size() / Nbatches;
     constexpr unsigned int blockSize = 64; // TODO: get best value for this one
 
-    means_covs_online_batched_kernel<blockSize> <<<Nchunks, blockSize>>>(
-        dataset_points.raw(), model_points.raw(), mask.raw(), 
-        batchSize, 
+    means_covs_online_batched_kernel<blockSize> <<<Nbatches, blockSize>>>(
+        dataset_points.raw(), model_points.raw(), mask.raw(), batchSize, 
+        dataset_center.raw(), model_center.raw(), Cs.raw(), Ncorr.raw());
+}
+
+
+void means_covs_online_approx_batched(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_points, // from
+    const rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_points, // to
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& mask,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr)
+{
+    unsigned int Nbatches = Ncorr.size();
+    unsigned int batchSize = dataset_points.size() / Nbatches;
+    constexpr unsigned int blockSize = 64; // TODO: get best value for this one
+
+    means_covs_online_approx_batched_kernel<blockSize> <<<Nbatches, blockSize>>>(
+        dataset_points.raw(), model_points.raw(), mask.raw(), batchSize, 
         dataset_center.raw(), model_center.raw(), Cs.raw(), Ncorr.raw());
 }
 

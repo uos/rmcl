@@ -493,6 +493,14 @@ endif(BUILD_EXAMPLES)
 
 ### TESTS ###
 
+add_executable(rmcl_test_cov_online src/nodes/tests/cov_online.cpp)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(rmcl_test_cov_online
+    rmcl
+    rmcl_cuda
+)
+
 
 # ###### CORRECTION GPU #######
 # if(${rmagine_optix_FOUND})
