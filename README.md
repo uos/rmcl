@@ -32,6 +32,7 @@ Full Video is available on Youtube soon.
 
 - Title: "MICP-L: Fast parallel simulative Range Sensor to Mesh Registration for Robot Localization"
 - State: Submitted to ICRA 2023
+- Preprint: https://arxiv.org/abs/2210.13904
 
 ## Usage
 
