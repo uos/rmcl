@@ -3,6 +3,7 @@
 #include <rmagine/util/prints.h>
 
 using namespace rmagine;
+namespace rm = rmagine;
 
 namespace rmcl {
 
@@ -158,9 +159,16 @@ void weighted_average(
         const unsigned int Ncorr_ = Ncorr1[pid] + Ncorr2[pid];
         const float Ncorrf = static_cast<float>(Ncorr_);
 
-        ds[pid] = ds1[pid] * w1 + ds2[pid] * w2;
-        ms[pid] = ms1[pid] * w1 + ms2[pid] * w2;
-        Cs[pid] = Cs1[pid] * w1 + Cs2[pid] * w2;
+        const rm::Vector dsi = ds1[pid] * w1 + ds2[pid] * w2;
+        const rm::Vector msi = ms1[pid] * w1 + ms2[pid] * w2;
+        
+        // std::cout << "weighted_average 1 - NEW IMPL" << std::endl;
+        auto P1 = Cs1[pid] * w1 + Cs2[pid] * w2;
+        auto P2 = (ms1[pid] - msi).multT(ds1[pid] - dsi) * w1 + (ms2[pid] - msi).multT(ds2[pid] - dsi) * w2;
+
+        ds[pid] = dsi;
+        ms[pid] = msi;
+        Cs[pid] = P1 + P2;
         Ncorr[pid] = Ncorr_;
     }
 }
@@ -175,6 +183,8 @@ void weighted_average(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
 {
+    // std::cout << "weighted_average 2 - NEW IMPL" << std::endl;
+
     #pragma omp parallel for
     for(size_t pid=0; pid<ds.size(); pid++)
     {
@@ -222,33 +232,42 @@ void weighted_average(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
 {
+    // std::cout << "weighted_average 3 - NEW IMPL" << std::endl;
+
     #pragma omp parallel for if(ds.size() > 100)
     for(size_t pid=0; pid<ds.size(); pid++)
     {
-        unsigned int Ncorr_ = 0;
-        for(size_t i=0; i<dataset_means.size(); i++)
-        {
-            Ncorr_ += Ncorrs[i][pid];
-        }
-
-        // std::vector<float> weights(model_means.size());
-        // const float Ncorrf = static_cast<float>(Ncorr_);
-
-        // for(size_t i=0; i<model_means.size(); i++)
-        // {
-        //     weights[i] = static_cast<float>(Ncorrs[i][pid]) / Ncorrf;
-        // }
-
         Vector ms_ = {0.0, 0.0, 0.0};
         Vector ds_ = {0.0, 0.0, 0.0};
         Matrix3x3 C_;
         C_.setZeros();
+        unsigned int Ncorr_ = 0;
+        float w_ = 0.0;
 
         for(size_t i=0; i<dataset_means.size(); i++)
         {
-            ds_ += dataset_means[i][pid] * weights[i];
-            ms_ += model_means[i][pid] * weights[i];
-            C_ += covs[i][pid] * weights[i];
+            const float w =  weights[i];
+            const rm::Vector Di = dataset_means[i][pid];
+            const rm::Vector Mi = model_means[i][pid];
+            const rm::Matrix3x3 Ci = covs[i][pid];
+            
+            const float w_tot = w_ + w;
+            const float w1 = w_ / w_tot;
+            const float w2 = w  / w_tot;
+
+            const rm::Vector ds_old = ds_;
+            const rm::Vector ms_old = ms_;
+
+            // ds_ = w_ * ds_old + w * 
+            ds_ = ds_old * w1 + Di * w2;
+            ms_ = ms_old * w1 + Mi * w2;
+
+            auto P1 = C_ * w1 + Ci * w2;
+            auto P2 = (ms_old - ms_).multT(ds_old - ds_) * w1 + (Mi - ms_).multT(Di - ds_) * w2;
+
+            C_ = P1 + P2;
+            Ncorr_ += Ncorrs[i][pid];
+            w_ += w;
         }
 
         ds[pid] = ds_;
@@ -263,6 +282,8 @@ void weighted_average(
     const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results,
     CorrectionPreResults<rmagine::RAM>& pre_results_combined)
 {
+    // std::cout << "weighted_average 4 - NEW IMPL" << std::endl;
+
     // source: to fuse
     std::vector<MemoryView<Vector, RAM> > ds;
     std::vector<MemoryView<Vector, RAM> > ms;
@@ -305,6 +326,7 @@ void weighted_average(
     const std::vector<float>& weights,
     CorrectionPreResults<rmagine::RAM>& pre_results_combined)
 {
+    // std::cout << "weighted_average 5 - NEW IMPL" << std::endl;
     // source: to fuse
     std::vector<MemoryView<Vector, RAM> > ds;
     std::vector<MemoryView<Vector, RAM> > ms;
@@ -327,6 +349,8 @@ CorrectionPreResults<rmagine::RAM> weighted_average(
     const std::vector<CorrectionPreResults<rmagine::RAM> >& pre_results,
     const std::vector<float>& weights)
 {
+    // std::cout << "weighted_average 6 - NEW IMPL" << std::endl;
+
     CorrectionPreResults<rmagine::RAM> res;
     if(pre_results.size() > 0)
     {

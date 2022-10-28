@@ -129,18 +129,28 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                         const Vector pmesh_b = Tsb * pmesh_s;
 
                         // Online update: Covariance and means 
-                        // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+                        // - wrong: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+                        // use the following equations instead
                         {
-                            Ncorr++;
-                            const float N = static_cast<float>(Ncorr);
+                            const float N_1 = static_cast<float>(Ncorr);
+                            const float N = static_cast<float>(Ncorr + 1);
+                            const float w1 = N_1/N;
+                            const float w2 = 1.0/N;
 
-                            const Vector dD = preal_b - Dmean;
-                            const Vector dM = pmesh_b - Mmean;
+                            const rm::Vector d_mean_old = Dmean;
+                            const rm::Vector m_mean_old = Mmean;
 
-                            // reduction
-                            Dmean += dD / N;
-                            Mmean += dM / N;
-                            C += dM.multT(dD);
+                            const rm::Vector d_mean_new = d_mean_old * w1 + preal_b * w2; 
+                            const rm::Vector m_mean_new = m_mean_old * w1 + pmesh_b * w2;
+
+                            auto P1 = (pmesh_b - m_mean_new).multT(preal_b - d_mean_new);
+                            auto P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
+
+                            // write
+                            Dmean = d_mean_new;
+                            Mmean = m_mean_new;
+                            C = C * w1 + P1 * w2 + P2 * w1;
+                            Ncorr = Ncorr + 1;
                         }
                     }
                 }
@@ -151,9 +161,6 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
 
         if(Ncorr > 0)
         {
-            const float Ncorr_f = static_cast<float>(Ncorr);
-            C /= Ncorr_f;
-
             Matrix3x3 U, V, S;
 
             { // the only Eigen code left
@@ -283,39 +290,38 @@ void SphereCorrectorEmbree::computeCovs(
                         const Vector pmesh_b = Tsb * pmesh_s;
 
                         // Online update: Covariance and means 
-                        // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
-
+                        // - wrong: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+                        // use the following equations instead
                         {
-                            const Vector dD = preal_b - Dmean;
-                            const Vector dM = pmesh_b - Mmean;
-                            float N = static_cast<float>(Ncorr_ + 1);
+                            const float N_1 = static_cast<float>(Ncorr_);
+                            const float N = static_cast<float>(Ncorr_ + 1);
+                            const float w1 = N_1/N;
+                            const float w2 = 1.0/N;
 
-                            // reduction
-                            Ncorr_++;
-                            Mmean += dM / N;
-                            Dmean += dD / N;
-                            C += dM.multT(dD);
+                            const rm::Vector d_mean_old = Dmean;
+                            const rm::Vector m_mean_old = Mmean;
+
+                            const rm::Vector d_mean_new = d_mean_old * w1 + preal_b * w2; 
+                            const rm::Vector m_mean_new = m_mean_old * w1 + pmesh_b * w2;
+
+                            auto P1 = (pmesh_b - m_mean_new).multT(preal_b - d_mean_new);
+                            auto P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
+
+                            // write
+                            Dmean = d_mean_new;
+                            Mmean = m_mean_new;
+                            C = C * w1 + P1 * w2 + P2 * w1;
+                            Ncorr_ = Ncorr_ + 1;
                         }
                     }
                 }
             }
         }
 
+        ds[pid] = Dmean;
+        ms[pid] = Mmean;
+        Cs[pid] = C;
         Ncorr[pid] = Ncorr_;
-
-        if(Ncorr_ > 0)
-        {
-            const float Ncorr_f = static_cast<float>(Ncorr_);
-            C /= Ncorr_f;
-            
-            ds[pid] = Dmean;
-            ms[pid] = Mmean;
-            Cs[pid] = C;
-        } else {
-            ds[pid] = {0.0f, 0.0f, 0.0f};
-            ms[pid] = {0.0f, 0.0f, 0.0f};
-            Cs[pid].setZeros();
-        }
     }
 }
 
@@ -373,6 +379,8 @@ void SphereCorrectorEmbree::findSPC(
                 if(range_real < m_model->range.min 
                     || range_real > m_model->range.max)
                 {
+                    dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
+                    model_points[glob_id] = {0.0f, 0.0f, 0.0f};
                     corr_valid[glob_id] = 0;
                     continue;
                 }
@@ -429,19 +437,22 @@ void SphereCorrectorEmbree::findSPC(
 
                     const float distance = (pmesh_s - preal_s).l2norm();
 
+                    // convert back to base (sensor shared coordinate system)
+                    const Vector preal_b = Tsb * preal_s;
+                    const Vector pmesh_b = Tsb * pmesh_s;
+
+                    dataset_points[glob_id] = preal_b;
+                    model_points[glob_id] = pmesh_b;
+
                     if(distance < max_distance)
                     {
-                        // convert back to base (sensor shared coordinate system)
-                        const Vector preal_b = Tsb * preal_s;
-                        const Vector pmesh_b = Tsb * pmesh_s;
-
-                        dataset_points[glob_id] = preal_b;
-                        model_points[glob_id] = pmesh_b;
                         corr_valid[glob_id] = 1;
                     } else {
                         corr_valid[glob_id] = 0;
                     }
                 } else {
+                    dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
+                    model_points[glob_id] = {0.0f, 0.0f, 0.0f};
                     corr_valid[glob_id] = 0;
                 }
             }
@@ -473,5 +484,21 @@ void SphereCorrectorEmbree::findSPC(
 
     findSPC(Tbms, dataset_points(0, Nrays), model_points(0, Nrays), corr_valid(0, Nrays));
 }
+
+void SphereCorrectorEmbree::findSPC(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+    Correspondences<rmagine::RAM>& corr)
+{
+    findSPC(Tbms, corr.dataset_points, corr.model_points, corr.corr_valid);
+}
+
+Correspondences<rmagine::RAM> SphereCorrectorEmbree::findSPC(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
+{
+    Correspondences<rmagine::RAM> ret;
+    findSPC(Tbms, ret);
+    return ret;
+}
+
 
 } // namespace rmcl

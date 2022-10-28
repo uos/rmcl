@@ -41,6 +41,66 @@
 namespace rmcl {
 
 template<typename MemT>
+struct CorrespondencesView
+{
+    rmagine::MemoryView<rmagine::Vector, MemT>  dataset_points;
+    rmagine::MemoryView<rmagine::Vector, MemT>  model_points;
+    rmagine::MemoryView<unsigned int, MemT>     corr_valid;
+};
+
+
+template<typename MemT>
+struct Correspondences
+{
+    rmagine::Memory<rmagine::Vector, MemT>  dataset_points;
+    rmagine::Memory<rmagine::Vector, MemT>  model_points;
+    rmagine::Memory<unsigned int, MemT>     corr_valid;
+
+
+
+    
+    inline CorrespondencesView<MemT> slice(
+        unsigned int start, unsigned int end) const
+    {
+        return {
+            dataset_points.slice(start, end),
+            model_points.slice(start, end),
+            corr_valid.slice(start, end)
+        };
+    }
+
+    inline CorrespondencesView<MemT> view() const
+    {
+        return {
+            dataset_points,
+            model_points,
+            corr_valid
+        };
+    }
+
+    // Enable this function?
+    // inline std::vector<CorrespondencesView<MemT> > split(
+    //     unsigned int N) const
+    // {
+    //     std::vector<CorrespondencesView<MemT> > ret;
+
+    //     unsigned int batch_size = dataset_points.size() / N;
+
+    //     for(unsigned int i=0; i<N; i++)
+    //     {
+    //         ret.push_back({
+    //             dataset_points(i * batch_size, (i+1) * batch_size),
+    //             model_points(i * batch_size, (i+1) * batch_size),
+    //             corr_valid(i * batch_size, (i+1) * batch_size)
+    //         });
+    //     }
+
+    //     return ret;
+    // }
+};
+
+
+template<typename MemT>
 struct CorrectionPreResults 
 {
     // dataset means (from)

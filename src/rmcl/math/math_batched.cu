@@ -376,35 +376,25 @@ __global__ void means_covs_online_batched_kernel(
                 const rm::Vector Dnew = D + (Di - D) / Nf;
                 const rm::Vector Mnew = M + (Mi - M) / Nf;
 
-                // dD = Di - Dnew;
-                // dM = Mi - Mnew;
-
-
-                const float w1 = N_1f / Nf;
-                const float w2 = 1.0 / Nf;
-
-                auto P1 = (Mi - Mnew).multT(Di - Dnew);
-                auto P2 = (M - Mnew).multT(D - Dnew);
-
-                // printf("w1: %f\n", w1);
-                // printf("w2: %f\n", w2);
-                // printf("P1: %f\n", P1(0,0));
-                // printf("P2: %f\n", P2(0,0));
-                // printf("P3: %f\n", P3(0,0));
-
                 // shared write
                 // auto Cnew = P1 + P2 + P3;
                 // sC[tid] = C * N_1f / Nf + (Mi - Mnew).multT(Di - Dnew) * 1.0 / Nf
                 //     + (M - Mnew).multT(D - Dnew) * N_1f / Nf;
                 
+                const float w1 = N_1f / Nf;
+                const float w2 = 1.0 / Nf;
+
+                auto P1 = (Mi - Mnew).multT(Di - Dnew);
+                auto P2 = (M - Mnew).multT(D - Dnew);                
+                
                 auto Cnew = C * w1 + P1 * w2 + P2 * w1;
+
+
 
                 sC[tid] = Cnew;
                 sD[tid] = Dnew;
                 sM[tid] = Mnew;
                 sN[tid] = N;
-
-                printf("(%u,G) -> (%u,S) = %u, %f\n", globId + blockSize * i, tid, N, Cnew(0,0) );
             }
         }
     }
@@ -434,29 +424,16 @@ __global__ void means_covs_online_batched_kernel(
                 const float w1 = static_cast<float>(N) / static_cast<float>(Ntot);
                 const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot);
 
-
-
-                // auto P1 = (Mi - Mnew).multT(Di - Dnew);
-                // auto P2 = (M - Mnew).multT(D - Dnew);
-
                 const rm::Vector Dtot = D * w1 + Dnext * w2;
-
-
-
-                // printf("(%u,S) %u, (%f, %f, %f) -> (%u,S) %u, (%f, %f, %f) = %u, (%f, %f, %f)\n", 
-                //     tid + s, Nnext, Dnext.x, Dnext.y, Dnext.z,
-                //     tid, N, D.x, D.y, D.z,
-                //     Ntot, Dtot.x, Dtot.y, Dtot.z);
+                const rm::Vector Mtot = M * w1 + Mnext * w2;
                 
+                auto P1 = C * w1 + Cnext * w2;
+                auto P2 = (M - Mtot).multT(D - Dtot) * w1 + (Mnext - Mtot).multT(Dnext - Dtot) * w2;
+                auto Cnew = P1 + P2;
+
                 // shared write
                 sD[tid] = Dtot;
-                sM[tid] = M * w1 + Mnext * w2;
-                
-
-                // TODO weighted covariance
-                auto Cnew = C * w1 + Cnext * w2;
-
-
+                sM[tid] = Mtot;
                 sC[tid] = Cnew; // currently only a sum
                 sN[tid] = Ntot;
             }
@@ -573,7 +550,6 @@ __global__ void means_covs_online_approx_batched_kernel(
             {
                 const float w1 = static_cast<float>(N) / static_cast<float>(Ntot);
                 const float w2 = static_cast<float>(Nnext) / static_cast<float>(Ntot);
-
 
                 const rm::Vector Dtot = D * w1 + Dnext * w2;
                 // printf("(%u,S) %u, (%f, %f, %f) -> (%u,S) %u, (%f, %f, %f) = %u, (%f, %f, %f)\n", 

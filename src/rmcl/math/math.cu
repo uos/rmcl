@@ -174,12 +174,27 @@ __global__ void weighted_average_kernel(
     {
         const unsigned int Ncorr_ = Ncorr1[pid] + Ncorr2[pid];
         const float Ncorrf = static_cast<float>(Ncorr_);
-        float w1 = static_cast<float>(Ncorr1[pid]) / Ncorrf;
-        float w2 = static_cast<float>(Ncorr2[pid]) / Ncorrf;
+        const float w1 = static_cast<float>(Ncorr1[pid]) / Ncorrf;
+        const float w2 = static_cast<float>(Ncorr2[pid]) / Ncorrf;
 
-        ds[pid] = ds1[pid] * w1 + ds2[pid] * w2;
-        ms[pid] = ms1[pid] * w1 + ms2[pid] * w2;
-        Cs[pid] = Cs1[pid] * w1 + Cs2[pid] * w2;
+        const rm::Vector d1 = ds1[pid];
+        const rm::Vector m1 = ms1[pid];
+        const rm::Matrix3x3 C1 = Cs1[pid];
+        const rm::Vector d2 = ds2[pid];
+        const rm::Vector m2 = ms2[pid];
+        const rm::Matrix3x3 C2 = Cs2[pid];
+
+        // means
+        const rm::Vector d = d1 * w1 + d2 * w2;
+        const rm::Vector m = m1 * w1 + m2 * w2;
+
+        // covs
+        auto P1 = C1 * w1 + C2 * w2;
+        auto P2 = (m1 - m).multT(d1 - d) * w1 + (m2 - m).multT(d2 - d) * w2;
+        
+        ds[pid] = d;
+        ms[pid] = m;
+        Cs[pid] = P1 + P2;
         Ncorr[pid] = Ncorr_;
     }
 }
@@ -221,9 +236,24 @@ __global__ void weighted_average_kernel(
     {
         const unsigned int Ncorr_ = Ncorr1[pid] + Ncorr2[pid];
 
-        ds[pid] = ds1[pid] * w1 + ds2[pid] * w2;
-        ms[pid] = ms1[pid] * w1 + ms2[pid] * w2;
-        Cs[pid] = Cs1[pid] * w1 + Cs2[pid] * w2;
+        const rm::Vector d1 = ds1[pid];
+        const rm::Vector m1 = ms1[pid];
+        const rm::Matrix3x3 C1 = Cs1[pid];
+        const rm::Vector d2 = ds2[pid];
+        const rm::Vector m2 = ms2[pid];
+        const rm::Matrix3x3 C2 = Cs2[pid];
+
+        // means
+        const rm::Vector d = d1 * w1 + d2 * w2;
+        const rm::Vector m = m1 * w1 + m2 * w2;
+        
+        // covs
+        auto P1 = C1 * w1 + C2 * w2;
+        auto P2 = (m1 - m).multT(d1 - d) * w1 + (m2 - m).multT(d2 - d) * w2;
+
+        ds[pid] = d;
+        ms[pid] = m;
+        Cs[pid] = P1 + P2;
         Ncorr[pid] = Ncorr_;
     }
 }

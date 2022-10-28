@@ -111,15 +111,6 @@ public:
         rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
     );
 
-    // Next: reuse the already computed correspondences
-    // void computeCovs(
-    //     const rmagine::MemoryView<rmagine::Point> dataset_points,
-    //     const rmagine::MemoryView<rmagine::Point> model_points,
-    //     const rmagine::MemoryView<unsigned int> corr_valid,
-    //     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
-    //     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
-    // );
-
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         CorrectionPreResults<rmagine::RAM>& res
@@ -172,24 +163,6 @@ protected:
 
     // TODO: currently unused
     rmagine::SVDPtr m_svd;
-
-private:
-     // different implementations for testing
-    void computeCovsSequential(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& data_means,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_means,
-        rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
-        rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
-    );
-
-    void computeCovsOuterInnerParallel(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& data_means,
-        rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_means,
-        rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
-        rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
-    );
 };
 
 using PinholeCorrectorEmbreePtr = std::shared_ptr<PinholeCorrectorEmbree>;

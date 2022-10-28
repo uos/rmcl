@@ -101,9 +101,8 @@ void means_covs_online_batched(
             {
                 const float N_1 = static_cast<float>(n_corr);
                 const float N = static_cast<float>(n_corr + 1);
-
-                // update ncorr
-                n_corr++;
+                const float w1 = N_1/N;
+                const float w2 = 1.0/N;
 
                 const rm::Vector Di = data_batch[j]; // read
                 const rm::Vector Mi = model_batch[j]; // read
@@ -111,27 +110,20 @@ void means_covs_online_batched(
                 const rm::Vector m_mean_old = m_mean; // read
 
                 // update means
-                // rm::Vector dD = Di - d_mean;
-                // rm::Vector dM = Mi - m_mean;
                 
                 // save old means for covariance
                 
-                const rm::Vector d_mean_new = d_mean_old + (Di - d_mean) / N; 
-                const rm::Vector m_mean_new = m_mean_old + (Mi - m_mean) / N; 
-
-                const float w1 = N_1/N;
-                const float w2 = 1.0/N;
+                const rm::Vector d_mean_new = d_mean_old * w1 + Di * w2; 
+                const rm::Vector m_mean_new = m_mean_old * w1 + Mi * w2;
 
                 auto P1 = (Mi - m_mean_new).multT(Di - d_mean_new);
                 auto P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
 
+                // Write
                 C = C * w1 + P1 * w2 + P2 * w1;
-
-                // C += ((Mi - m_mean_new).multT(Di - d_mean_new) - C) * 1.0 / N 
-                //     + (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new) * N_1/N;
-
                 d_mean = d_mean_new; // write
                 m_mean = m_mean_new; // write
+                n_corr = n_corr + 1;
             }
         }
 

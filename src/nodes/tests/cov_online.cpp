@@ -41,9 +41,9 @@ void fill_ones(rm::MemoryView<unsigned int> mask)
 
 int main(int argc, char** argv)
 {
-    rm::Mem<rm::Vector> dataset(128);
-    // fill_random(dataset);
-    fill_sequence(dataset);
+    rm::Mem<rm::Vector> dataset(10000);
+    fill_random(dataset);
+    // fill_sequence(dataset);
 
     rm::Mem<rm::Vector> model(dataset.size());
 
@@ -59,7 +59,6 @@ int main(int argc, char** argv)
     {
         model[i] = T * dataset[i];
     }
-
 
     rm::StopWatchHR sw;
     double el;
@@ -113,7 +112,6 @@ int main(int argc, char** argv)
         rm::Mem<rm::Matrix3x3, rm::VRAM_CUDA> Cs_(1);
         rm::Mem<unsigned int, rm::VRAM_CUDA> Ncorr_(1);
 
-
         std::cout << "means_covs_batched" << std::endl;
         sw();
         rmcl::means_covs_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_);
@@ -147,13 +145,6 @@ int main(int argc, char** argv)
         std::cout << Cs[0] << std::endl;
         std::cout << Ncorr[0] << std::endl;
     }
-
-
-    
-
-
-
-
 
     return 0;
 }

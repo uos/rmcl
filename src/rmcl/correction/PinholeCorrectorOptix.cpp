@@ -162,8 +162,8 @@ void PinholeCorrectorOptix::computeCovs(
         if(Tbms.size() < max_poses_rw)
         {
             // std::cout << "Raywise" << std::endl;
-            rm::StopWatchHR sw;
-            double el;
+            // rm::StopWatchHR sw;
+            // double el;
 
             // sw();
             computeMeansCovsRW(Tbms, ds, ms, Cs, Ncorr);
@@ -359,15 +359,6 @@ void PinholeCorrectorOptix::computeMeansCovsRW(
             means_dataset, means_model, // outputs
             Cs, Ncorr
         );
-
-    // old: two pass
-    // mean_batched(dataset_points, corr_valid, Ncorr, means_dataset);
-    // mean_batched(model_points, corr_valid, Ncorr, means_model);
-    // rm::sumBatched(corr_valid, Ncorr);
-
-    // cov_batched(dataset_points, means_dataset,
-    //         model_points, means_model,
-    //         corr_valid, Ncorr, Cs);
 }
 
 void PinholeCorrectorOptix::computeMeansCovsSW(

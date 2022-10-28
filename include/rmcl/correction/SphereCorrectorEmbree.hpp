@@ -140,6 +140,16 @@ public:
         rmagine::Memory<unsigned int>& corr_valid
     );
 
+    // TODO: add them to other classes
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        Correspondences<rmagine::RAM>& corr
+    );
+
+    Correspondences<rmagine::RAM> findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms);
+
+
     // TODO: add properly - rmagine
     inline CorrectionParams params() const
     {

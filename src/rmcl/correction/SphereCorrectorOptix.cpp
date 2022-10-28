@@ -261,13 +261,6 @@ void SphereCorrectorOptix::computeMeansCovsRW(
         means_dataset, means_model, // outputs
         Cs, Ncorr
     );
-
-    // old: two-pass
-    // means_covs_batched(
-    //     dataset_points, model_points, corr_valid, // input
-    //     means_dataset, means_model, // outputs
-    //     Cs, Ncorr
-    // );
 }
 
 void SphereCorrectorOptix::computeMeansCovsSW(

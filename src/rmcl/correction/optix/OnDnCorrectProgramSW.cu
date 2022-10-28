@@ -93,11 +93,7 @@ extern "C" __global__ void __raygen__rg()
                 const rm::Vector pint_s = ray_orig_s + ray_dir_s * range;
 
                 rm::Vector nint_s = Rms * nint_m;
-                
-                // if(nint_s.dot(ray_dir_s) > 0.0 )
-                // {
-                //     nint_s *= -1.0;
-                // }
+
 
                 const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                 const rm::Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
@@ -109,32 +105,34 @@ extern "C" __global__ void __raygen__rg()
                     const rm::Vector preal_b = Tsb * preal_s;
                     const rm::Vector pmesh_b = Tsb * pmesh_s;
                     // Online update: Covariance and means 
-                    // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
-                    // -- The means shoud be exact (except of floating point issues)
-                    // -- Are the covariances exact? I dont think so
+                    // - wrong: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance 
+                    // use the following equations instead
                     {
-                        Ncorr++;
-                        const float N = static_cast<float>(Ncorr);
+                        const float N_1 = static_cast<float>(Ncorr);
+                        const float N = static_cast<float>(Ncorr + 1);
+                        const float w1 = N_1/N;
+                        const float w2 = 1.0/N;
 
-                        const rm::Vector dD = preal_b - Dmean;
-                        const rm::Vector dM = pmesh_b - Mmean;
+                        const rm::Vector d_mean_old = Dmean;
+                        const rm::Vector m_mean_old = Mmean;
 
-                        // reduction
-                        Dmean += dD / N;
-                        Mmean += dM / N;
-                        C += dM.multT(dD);
+                        const rm::Vector d_mean_new = d_mean_old * w1 + preal_b * w2; 
+                        const rm::Vector m_mean_new = m_mean_old * w1 + pmesh_b * w2;
+
+                        auto P1 = (pmesh_b - m_mean_new).multT(preal_b - d_mean_new);
+                        auto P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
+
+                        // write
+                        Dmean = d_mean_new;
+                        Mmean = m_mean_new;
+                        C = C * w1 + P1 * w2 + P2 * w1;
+                        Ncorr = Ncorr + 1;
                     }
                 }
             }
         }
 
         mem.Ncorr[pid] = Ncorr;
-
-        if(Ncorr > 0)
-        {
-            C /= static_cast<float>(Ncorr);
-        }
-
         mem.C[pid] = C;
         mem.m1[pid] = Dmean;
         mem.m2[pid] = Mmean;
