@@ -240,7 +240,9 @@ sensors: # list of range sensors - at least one is required
 
 ## Examples
 
-How to use RMCL functions in your Node: `src/nodes/examples`.
+To learn how to use RMCL ROS nodes in your project, visit https://github.com/aock/rmcl_example.
+
+To learn how to use RMCL library in your Node: `src/nodes/examples`.
 
 # Roadmap
 
