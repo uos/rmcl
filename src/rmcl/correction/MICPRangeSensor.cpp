@@ -357,7 +357,7 @@ void MICPRangeSensor::fetchMICPParams(bool init)
 void MICPRangeSensor::fetchTF()
 {
     geometry_msgs::TransformStamped T_sensor_base;
-    
+
     if(frame != base_frame)
     {
         try
@@ -1060,7 +1060,20 @@ void MICPRangeSensor::pclSphericalCB(
 {
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
-    
+
+    rm::Transform T = rm::Transform::Identity();
+
+    if(frame != msg->header.frame_id)
+    {
+        try {
+            auto Tros = tf_buffer->lookupTransform(frame, msg->header.frame_id,
+                               ros::Time(0));
+            convert(Tros.transform, T);
+        } catch (tf2::TransformException &ex) {
+            ROS_WARN("%s", ex.what());
+        }
+    }
+
     
     auto model_ = std::get<0>(model);
 
@@ -1101,28 +1114,30 @@ void MICPRangeSensor::pclSphericalCB(
 
         // rmagine::Vector point;
         
-        float x,y,z;
+        rm::Point p;
 
         if(field_x.datatype == sensor_msgs::PointField::FLOAT32)
         {
             // Float
-            x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
-            y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
-            z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
+            p.x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
+            p.y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
+            p.z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
         } else if(field_x.datatype == sensor_msgs::PointField::FLOAT64) {
             // Double
-            x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
-            y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
-            z = *reinterpret_cast<const double*>(data_ptr + field_z.offset);
+            p.x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
+            p.y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
+            p.z = *reinterpret_cast<const double*>(data_ptr + field_z.offset);
         } else {
             throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
         }
 
-        if(!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
+        if(!std::isnan(p.x) && !std::isnan(p.y) && !std::isnan(p.z))
         {
-            float range_est = sqrt(x*x + y*y + z*z);
-            float theta_est = atan2(y, x);
-            float phi_est = atan2(z, range_est);
+            p = T * p;
+
+            float range_est = p.l2norm();
+            float theta_est = atan2(p.y, p.x);
+            float phi_est = atan2(p.z, range_est);
             
             unsigned int phi_id = ((phi_est - model_.phi.min) / model_.phi.inc) + 0.5;
             unsigned int theta_id = ((theta_est - model_.theta.min) / model_.theta.inc) + 0.5;
@@ -1158,6 +1173,19 @@ void MICPRangeSensor::pclPinholeCB(
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
 
+    rm::Transform T = rm::Transform::Identity();
+
+    if(frame != msg->header.frame_id)
+    {
+        try {
+            auto Tros = tf_buffer->lookupTransform(frame, msg->header.frame_id,
+                               ros::Time(0));
+            convert(Tros.transform, T);
+        } catch (tf2::TransformException &ex) {
+            ROS_WARN("%s", ex.what());
+        }
+    }
+
     auto model_ = std::get<1>(model);
 
     if(ranges.size() < msg->width * msg->height)
@@ -1190,25 +1218,30 @@ void MICPRangeSensor::pclPinholeCB(
     {
         const uint8_t* data_ptr = &msg->data[i * msg->point_step];
 
-        float x,y,z;
+        rm::Vector p;
+
         if(field_x.datatype == sensor_msgs::PointField::FLOAT32)
         {
             // Float
-            x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
-            y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
-            z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
+            p.x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
+            p.y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
+            p.z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
         } else if(field_x.datatype == sensor_msgs::PointField::FLOAT64) {
             // Double
-            x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
-            y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
-            z = *reinterpret_cast<const double*>(data_ptr + field_z.offset);
+            p.x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
+            p.y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
+            p.z = *reinterpret_cast<const double*>(data_ptr + field_z.offset);
         } else {
             throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
         }
 
-        if(!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
+        
+
+        // transform point if required
+        if(!std::isnan(p.x) && !std::isnan(p.y) && !std::isnan(p.z))
         {
-            float range_est = sqrt(x*x + y*y + z*z);
+            p = T * p;
+            float range_est = p.l2norm();
             ranges[i] = range_est;
         } else {
             ranges[i] = model_.range.max + 1.0;

@@ -6,17 +6,30 @@
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
+#include <rmagine/math/types.h>
+
 #include <Eigen/Dense>
+
+#include <tf2_ros/transform_listener.h>
+#include <geometry_msgs/TransformStamped.h>
+
+
 
 using namespace rmcl;
 
+namespace rm = rmagine;
 
+std::string focal_frame = "";
 bool debug_cloud = false;
 
 ros::Publisher scan_pub;
 ros::Publisher back_conv_pub;
 
 rmcl_msgs::ScanStamped scan;
+
+std::shared_ptr<tf2_ros::Buffer> tf_buffer;
+std::shared_ptr<tf2_ros::TransformListener> tf_listener;
+
 
 void initScanArray()
 {
@@ -80,6 +93,25 @@ void convert(
     const sensor_msgs::PointCloud2::ConstPtr& pcl, 
     rmcl_msgs::ScanStamped& scan)
 {
+    rm::Transform T = rm::Transform::Identity();
+
+    if(pcl->header.frame_id != focal_frame)
+    {
+        // TODO: get transform
+
+        geometry_msgs::TransformStamped Tros;
+
+        try {
+            Tros = tf_buffer->lookupTransform(focal_frame, pcl->header.frame_id,
+                               ros::Time(0));
+            convert(Tros.transform, T);
+        } catch (tf2::TransformException &ex) {
+            ROS_WARN("%s", ex.what());
+            ros::Duration(1.0).sleep();
+        }
+    }
+    
+    
     fillEmpty(scan.scan);
 
     sensor_msgs::PointField field_x;
@@ -130,9 +162,11 @@ void convert(
 
         if(!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
         {
-            float range_est = sqrt(x*x + y*y + z*z);
-            float theta_est = atan2(y, x);
-            float phi_est = atan2(z, range_est);
+            rm::Vector ps = T * rm::Vector{x, y, z};
+
+            float range_est = ps.l2norm();
+            float theta_est = atan2(ps.y, ps.x);
+            float phi_est = atan2(ps.z, range_est);
             
             unsigned int phi_id = ((phi_est - model.phi.min) / model.phi.inc) + 0.5;
             unsigned int theta_id = ((theta_est - model.theta.min) / model.theta.inc) + 0.5;
@@ -148,8 +182,13 @@ void convert(
 
 void veloCB(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {   
+    if(focal_frame == "")
+    {
+        focal_frame = msg->header.frame_id;
+    }
+
     scan.header.stamp = msg->header.stamp;
-    scan.header.frame_id = msg->header.frame_id;
+    scan.header.frame_id = focal_frame;
     convert(msg, scan);
     
     scan_pub.publish(scan);
@@ -170,6 +209,9 @@ int main(int argc, char** argv)
     ros::NodeHandle nh_p("~");
 
     loadParameters(nh_p);
+
+    tf_buffer = std::make_shared<tf2_ros::Buffer>();
+    tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
     ROS_INFO("sensor_msgs::PointCloud2 to mamcl_msgs::ScanStamped Converter started");
 
