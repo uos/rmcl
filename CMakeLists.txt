@@ -94,13 +94,13 @@ add_library(rmcl
     # Math
     src/rmcl/math/math.cpp
     src/rmcl/math/math_batched.cpp
-    # Spatial
-    src/rmcl/spatial/KdTree.cpp
-    # Clustering
-    src/rmcl/clustering/clustering.cpp
+    # # Spatial
+    # src/rmcl/spatial/KdTree.cpp # TODO: fix nanoflann
+    # # Clustering
+    # src/rmcl/clustering/clustering.cpp # TODO: fix nanoflann
 )
 
-add_dependencies(rmcl nanoflann)
+# add_dependencies(rmcl nanoflann)
 
 target_link_libraries(rmcl
     ${rmagine_LIBRARY}
@@ -493,13 +493,13 @@ endif(BUILD_EXAMPLES)
 
 ### TESTS ###
 
-add_executable(rmcl_test_cov_online src/nodes/tests/cov_online.cpp)
+# add_executable(rmcl_test_cov_online src/nodes/tests/cov_online.cpp)
 
-## Specify libraries to link a library or executable target against
-target_link_libraries(rmcl_test_cov_online
-    rmcl
-    rmcl_cuda
-)
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(rmcl_test_cov_online
+#     rmcl
+#     rmcl_cuda
+# )
 
 
 # ###### CORRECTION GPU #######
