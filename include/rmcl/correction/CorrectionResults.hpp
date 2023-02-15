@@ -41,25 +41,40 @@
 namespace rmcl {
 
 template<typename MemT>
-struct CorrespondencesView
+struct PointToPlaneCorrespondencesView
+{
+    rmagine::MemoryView<rmagine::Vector, MemT>  dataset_points;
+    rmagine::MemoryView<rmagine::Vector, MemT>  model_points;
+    rmagine::MemoryView<rmagine::Vector, MemT>  model_normals;
+    rmagine::MemoryView<unsigned int, MemT>     corr_valid;
+};
+
+template<typename MemT>
+struct PointToPlaneCorrespondences
+{
+    rmagine::Memory<rmagine::Vector, MemT>  dataset_points;
+    rmagine::Memory<rmagine::Vector, MemT>  model_points;
+    rmagine::Memory<rmagine::Vector, MemT>  model_normals;
+    rmagine::Memory<unsigned int, MemT>     corr_valid;
+};
+
+template<typename MemT>
+struct PointToPointCorrespondencesView
 {
     rmagine::MemoryView<rmagine::Vector, MemT>  dataset_points;
     rmagine::MemoryView<rmagine::Vector, MemT>  model_points;
     rmagine::MemoryView<unsigned int, MemT>     corr_valid;
 };
 
-
 template<typename MemT>
-struct Correspondences
+struct PointToPointCorrespondences
 {
     rmagine::Memory<rmagine::Vector, MemT>  dataset_points;
     rmagine::Memory<rmagine::Vector, MemT>  model_points;
     rmagine::Memory<unsigned int, MemT>     corr_valid;
 
-
-
     
-    inline CorrespondencesView<MemT> slice(
+    inline PointToPointCorrespondencesView<MemT> slice(
         unsigned int start, unsigned int end) const
     {
         return {
@@ -69,7 +84,7 @@ struct Correspondences
         };
     }
 
-    inline CorrespondencesView<MemT> view() const
+    inline PointToPointCorrespondencesView<MemT> view() const
     {
         return {
             dataset_points,
@@ -77,6 +92,7 @@ struct Correspondences
             corr_valid
         };
     }
+
 
     // Enable this function?
     // inline std::vector<CorrespondencesView<MemT> > split(
@@ -98,6 +114,12 @@ struct Correspondences
     //     return ret;
     // }
 };
+
+template<typename MemT>
+using Correspondences = PointToPointCorrespondences<MemT>;
+
+template<typename MemT>
+using CorrespondencesView = PointToPointCorrespondencesView<MemT>;
 
 
 template<typename MemT>

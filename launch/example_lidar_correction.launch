@@ -2,13 +2,13 @@
 <launch>
 
 <arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
-<arg name="device" default="cpu" />
+<arg name="device" default="none" />
 
 <node pkg="rmcl" type="conv_pcl2_to_scan" name="conv_pcl2_to_scan" output="screen">
-    <remap from="cloud" to="velodyne_points" />
+    <remap from="cloud" to="/ouster/points" />
 
     <param name="debug_cloud" type="bool" value="true" />
-    <rosparam file="$(find rmcl)/config/sensors/VLP-16-440.yaml" />
+    <rosparam file="$(find rmcl)/config/sensors/OS0-64.yaml" />
     
     <!-- UNCOMMENT FOR REAL VELODYNE -->
     <!-- <rosparam file="$(find rmcl)/config/sensors/VLP-16.yaml" /> -->

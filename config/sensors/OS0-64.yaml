@@ -6,8 +6,8 @@ focal_frame: os_lidar
 model:
   range_min: 0.9
   range_max: 75.0
-  phi_min: -0.26
-  phi_inc: 0.006989082655372176
+  phi_min: -0.7853981 # -45
+  phi_inc: 0.024933275 # -45 -> 45, 64 scan lines
   phi_N: 64
   theta_min: -3.14159011841
   theta_inc: 0.012295861657885687 # 2*pi / 511 instead of 2*pi / 512 

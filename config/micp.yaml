@@ -1,9 +1,9 @@
 # required
-base_frame: base_footprint
+base_frame: base_link
 map_frame: map
 
 # optional
-odom_frame: odom # required, TODO: optional - recommended
+# odom_frame: world # required, TODO: optional - recommended
 
 # rate of broadcasting tf transformations
 tf_rate: 50
@@ -27,7 +27,7 @@ micp:
   viz_corr: True
   # corr = correction
   print_corr_rate: False
-  disable_corr: False
+  disable_corr: True
   
   # initial pose changes
   trans: [0.0, 0.0, 0.0]
