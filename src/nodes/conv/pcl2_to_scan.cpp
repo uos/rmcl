@@ -171,9 +171,11 @@ void convert(
             rm::Vector ps_s = rm::Vector{x, y, z};
             rm::Vector ps = T * ps_s;
 
+
+
             float range_est = ps.l2norm();
-            float theta_est = atan2(ps.y, ps.x);
-            float phi_est = atan2(ps.z, range_est);
+            float theta_est = atan2(ps.y, ps.x); // horizontal
+            float phi_est = atan2(ps.z, range_est); // vertical
             
             int phi_id = ((phi_est - model.phi.min) / model.phi.inc) + 0.5;
             int theta_id = ((theta_est - model.theta.min) / model.theta.inc) + 0.5;
@@ -193,11 +195,15 @@ void convert(
             if(phi_id >= 0 && phi_id < model.phi.size
                 && theta_id >= 0 && theta_id < model.theta.size)
             {
-                // if(model.range.inside(range_est))
-                // {
+                if(model.range.inside(range_est))
+                {
+                    // std::cout << "Polar (theta, phi, range): " << theta_est << ", " << phi_est << ", " << range_est << std::endl;
+                    // std::cout << "- matrix id (theta, phi): " << theta_id << ", " << phi_id << std::endl;
                     // std::cout << "- valid: add" << std::endl;
                     unsigned int p_id = model.getBufferId(phi_id, theta_id);
                     scan.scan.data.ranges[p_id] = range_est;
+                }
+
                 // } else {
                 //     // std::cout << "- out of range" << std::endl; 
                 // }
