@@ -44,6 +44,7 @@ bool generate_evaluation = false;
 
 rm::EmbreeMapPtr mesh;
 rmcl::OnDnCorrectorEmbreePtr corr;
+rmcl::CorrectionParams corr_params;
 rmcl::CorrectionPtr umeyama;
 
 rm::Transform T_mesh_to_map;
@@ -179,20 +180,24 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr& pcl)
         std::cout << "- Tob: " << ~Tbo << std::endl;
         std::cout << "-> Tom = " << Tom << std::endl;
 
-
         // save for evaluation
         if(generate_evaluation && gt_available)
         {
             Tbm_start = Tom * Tbo;
             Tbg_start = Tbg;
+
+            std::cout << "GT starts" << std::endl;
+            std::cout << "- Tbm: " << Tbm_start << std::endl;
+            std::cout << "- Tbg: " << Tbg_start << std::endl;
+
         } else if(generate_evaluation) {
-            std::cout << "WDFHIEFAHWDAIOJHIOWDAJIOWDA" << std::endl;
+            std::cout << "ERR: Want to evaluate, but no gt available" << std::endl;
             throw std::runtime_error("bls");
         }
 
         first_iteration = false;
     }
-
+    // 
     // std::cout << "Odom Time Error: " << Tbo_time_error << std::endl;
 
     // 1. determine Tom
@@ -208,8 +213,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr& pcl)
     ouster_model.origs.resize(pcl->width * pcl->height);
     ouster_model.width = pcl->width;
     ouster_model.height = pcl->height;
-    ouster_model.range.min = 0.3;
-    ouster_model.range.max = 80.0;
+    
 
     sensor_msgs::PointField field_x;
     sensor_msgs::PointField field_y;
@@ -287,9 +291,6 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr& pcl)
     corr->setInputData(ranges);
 
     std::cout << n_valid << " valid measurements" << std::endl;
-
-    
-
     // we need robot(base) -> mesh
     // T_b_mesh = Tm_mesh * Tbm
 
@@ -297,15 +298,12 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr& pcl)
 
     if(!disable_registration)
     {
-        // std::cout << "Start Registration Iterations (" << iterations << ")" << std::endl;
-        // std::cout << "- T mesh to map: " << T_mesh_to_map << std::endl;
-        // std::cout << "- Tom: " << Tom << std::endl;
-        // std::cout << "- Tbo: " << Tbo << std::endl;
+        std::cout << "Start Registration Iterations (" << iterations << ")" << std::endl;
+        
         for(size_t i=0; i<num_registration; i++)
         {
             rm::Transform Tbm = Tom * Tbo;
             rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
-
 
             rm::Memory<rm::Transform> Tbms(1);
             Tbms[0] = T_base_mesh;
@@ -339,15 +337,16 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr& pcl)
             // std::cout << "New Tbm: " <<  Tom * Tbo << std::endl;
         }
 
-        
-        
+        std::cout << "- Tbm Registered: " << Tom * Tbo << std::endl;
 
     } else {
         std::cout << "Registration disabled" << std::endl;
+        
+        // should not be required
+        // rm::Transform Tbm = Tom * Tbo;
+        // rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
+        // Tom = Tbm * ~Tbo;
     }
-
-    
-    
 
     { // broadcast transform from odom -> map: Tom
         static tf2_ros::TransformBroadcaster br;
@@ -436,6 +435,8 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr& pcl)
         if(!eval_file.is_open())
         {
             eval_file.open("eval.csv", std::ios::out);
+            eval_file.precision(std::numeric_limits<double>::max_digits10 + 2);
+            eval_file << std::fixed;
             eval_file << "# Tbm.t.x, Tbm.t.y, Tbm.t.z, Tbm.R.x, Tbm.R.y, Tbm.R.z, Tbm.R.w, Tbm.stamp";
             eval_file << ", Tbg.t.x, Tbg.t.y, Tbg.t.z, Tbg.R.x, Tbg.R.y, Tbg.R.z, Tbg.R.w, Tbg.stamp";
             eval_file << ", Tmg.t.x, Tmg.t.y, Tmg.t.z, Tmg.R.x, Tmg.R.y, Tmg.R.z, Tmg.R.w, Tmg.stamp";
@@ -526,9 +527,36 @@ void loadParameters(ros::NodeHandle nh_p)
     corr = std::make_shared<rmcl::OnDnCorrectorEmbree>(mesh);
     umeyama = std::make_shared<rmcl::Correction>();
 
+    // because float is not possible
+    double max_distance = 0.5;
+    double min_range = 0.3;
+    double max_range = 80.0;
+
     nh_p.param<int>("iterations", iterations, 10);
     nh_p.param<bool>("disable_registration", disable_registration, false);
     nh_p.param<bool>("generate_evaluation", generate_evaluation, false);
+    nh_p.param<double>("max_distance", max_distance, 0.5);
+    nh_p.param<double>("min_range", min_range, 0.3);
+    nh_p.param<double>("max_range", max_range, 80.0);
+
+    corr_params.max_distance = max_distance;
+    corr->setParams(corr_params);
+
+    ouster_model.range.min = min_range;
+    ouster_model.range.max = max_range;
+    
+
+    // std::string map_frame = "map";
+    // std::string odom_frame = "odom";
+    // std::string base_frame = "base_link";
+    // std::string lidar_frame = "os_lidar";
+    // std::string ground_truth_frame = "world";
+
+    nh_p.param<std::string>("map_frame", map_frame, "map");
+    nh_p.param<std::string>("odom_frame", odom_frame, "odom");
+    nh_p.param<std::string>("base_frame", base_frame, "base_link");
+    nh_p.param<std::string>("lidar_frame", lidar_frame, "os_lidar");
+    nh_p.param<std::string>("ground_truth_frame", ground_truth_frame, "world");
 }
 
 int main(int argc, char** argv)
