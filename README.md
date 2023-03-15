@@ -31,8 +31,9 @@ Full Video is available on Youtube soon.
 ## Publication
 
 - Title: "MICP-L: Fast parallel simulative Range Sensor to Mesh Registration for Robot Localization"
-- State: Submitted to ICRA 2023
+- State: Submitted to IROS 2023
 - Preprint: https://arxiv.org/abs/2210.13904
+- Hilti-Evaluation: https://github.com/aock/micp_hilti
 
 ## Usage
 
@@ -238,11 +239,13 @@ sensors: # list of range sensors - at least one is required
       backend: optix
 ```
 
+
 ## Examples
 
 To learn how to use RMCL ROS nodes in your project, visit https://github.com/aock/rmcl_example.
 
 To learn how to use RMCL library in your Node: `src/nodes/examples`.
+
 
 # Roadmap
 
