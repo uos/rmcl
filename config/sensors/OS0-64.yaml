@@ -1,0 +1,26 @@
+auto_detect_range: false
+auto_detect_phi: false
+auto_detect_theta: false
+auto_detect_width_height: false
+focal_frame: os_lidar
+model:
+  range_min: 0.5
+  range_max: 75.0
+  phi_min: -0.7904596182282319 # -45.29
+  phi_inc: 0.02501820399655622 # -45.29 -> 46.45, 64 scan lines
+  phi_N: 64
+  # phi_min: -0.5235988 # -30
+  # phi_inc: 0.01774911 # -30 -> 30 32 scan lines
+  # phi_N: 32
+  # phi_min: -0.26
+  # phi_inc: 0.013978165310744353
+  # phi_N: 32
+  # theta_min: -3.14159011841
+  # theta_inc: 0.012295861657885687 # 2*pi / 511 instead of 2*pi / 512 
+  # theta_N: 512
+  # theta_min: -3.14159011841
+  # theta_inc: 0.012295861657885687 # 2*pi / 511 instead of 2*pi / 512 
+  # theta_N: 512
+  theta_min: -3.14159011841
+  theta_inc: 0.0030982176070905258
+  theta_N: 2048

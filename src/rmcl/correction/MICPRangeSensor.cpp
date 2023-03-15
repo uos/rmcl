@@ -1107,7 +1107,6 @@ void MICPRangeSensor::pclSphericalCB(
         }
     }
 
-
     for(size_t i=0; i<msg->width * msg->height; i++)
     {
         const uint8_t* data_ptr = &msg->data[i * msg->point_step];
@@ -1139,17 +1138,18 @@ void MICPRangeSensor::pclSphericalCB(
             float theta_est = atan2(p.y, p.x);
             float phi_est = atan2(p.z, range_est);
             
-            unsigned int phi_id = ((phi_est - model_.phi.min) / model_.phi.inc) + 0.5;
-            unsigned int theta_id = ((theta_est - model_.theta.min) / model_.theta.inc) + 0.5;
-            unsigned int p_id = model_.getBufferId(phi_id, theta_id);
-
-            if(p_id >= 0 && p_id < model_.size())
+            int phi_id = ((phi_est - model_.phi.min) / model_.phi.inc) + 0.5;
+            int theta_id = ((theta_est - model_.theta.min) / model_.theta.inc) + 0.5;
+            
+            if(phi_id >= 0 && phi_id < model_.phi.size
+                && theta_id >= 0 && theta_id < model_.theta.size)
             {
+                unsigned int p_id = model_.getBufferId(phi_id, theta_id);
                 ranges[p_id] = range_est;
             }
         }
     }
-    
+
 
     // upload
     #ifdef RMCL_CUDA

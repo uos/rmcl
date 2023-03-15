@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2...10.0)
 project(rmcl)
 
-option(BUILD_EXAMPLES "Build Examples" OFF)
+option(BUILD_EXAMPLES "Build Examples" ON)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_CONV "Build Conversion Nodes" ON)
 
@@ -414,6 +414,35 @@ if(RMCL_EMBREE)
 
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_combined_corrector_embree
+        ${catkin_LIBRARIES}
+        rmcl_embree_ros
+    )
+
+
+    ### HILTI ###
+    add_executable(micp_hilti src/nodes/examples/micp_hilti.cpp)
+
+    add_dependencies(micp_hilti 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(micp_hilti
+        ${catkin_LIBRARIES}
+        rmcl_embree_ros
+    )
+
+    ### EVAL ###
+    add_executable(micp_eval src/nodes/examples/micp_eval.cpp)
+
+    add_dependencies(micp_eval 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(micp_eval
         ${catkin_LIBRARIES}
         rmcl_embree_ros
     )

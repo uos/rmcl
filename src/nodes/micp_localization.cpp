@@ -71,9 +71,8 @@ void fetchTF()
 
     if(has_odom_frame)
     {
-        try{
+        try {
             T_base_odom = tf_buffer->lookupTransform(odom_frame, base_frame, ros::Time(0));
-            // std::cout << T_base_odom.child_frame_id << " -> " << T_base_odom.header.frame_id << std::endl;
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -94,7 +93,6 @@ void fetchTF()
 
     convert(T_base_odom.transform, Tbo);
 }
-
 
 void updateTF()
 {

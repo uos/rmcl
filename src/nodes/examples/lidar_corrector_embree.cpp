@@ -189,6 +189,12 @@ void poseCB(geometry_msgs::PoseStamped msg)
     Transform Tbm;
     convert(msg.pose, Tbm);
 
+    Transform initial_pose_offset = Transform::Identity();
+    // initial_pose_offset.R = EulerAngles{M_PI, 0.0, 0.0};
+
+    Tbm = Tbm * initial_pose_offset;
+
+
     fetchTF();
 
     Tom = Tbm * ~Tbo;
@@ -254,7 +260,7 @@ void updateTF()
         T.child_frame_id = sensor_frame;
     }
 
-    T.header.stamp = ros::Time::now();
+    T.header.stamp = last_scan;
     br.sendTransform(T);
 }
 
@@ -349,7 +355,7 @@ int main(int argc, char** argv)
 
     // MAIN LOOP (TF)
     ros::Rate r(tf_rate);
-    ros::Time stamp = ros::Time::now();
+    ros::Time stamp = last_scan;
 
     while(ros::ok())
     {
@@ -358,7 +364,7 @@ int main(int argc, char** argv)
             // updateTF();
             // weird bug. new_stamp sometimes is equal to stamp. results 
             
-            ros::Time new_stamp = ros::Time::now();
+            ros::Time new_stamp = last_scan;
             if(new_stamp > stamp)
             {
                 updateTF();

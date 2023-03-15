@@ -2,6 +2,7 @@ auto_detect_range: false
 auto_detect_phi: false
 auto_detect_theta: false
 auto_detect_width_height: false
+focal_frame: os_lidar
 model:
   range_min: 0.9
   range_max: 75.0

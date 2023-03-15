@@ -1,0 +1,58 @@
+# required
+base_frame: base_link
+map_frame: map
+
+# optional
+odom_frame: odom # required, TODO: optional - recommended
+
+# rate of broadcasting tf transformations
+tf_rate: 50
+invert_tf: False
+
+micp:
+  # merging on gpu or cpu
+  combining_unit: gpu
+  # maximum number of correction steps per second
+  # lower this to decrease the correction speed but save energy 
+  corr_rate_max: 100
+  
+  # adjust max distance dependend of the state of localization
+  adaptive_max_dist: True # enable adaptive max dist
+
+  # DEBUGGING   
+  # corr = correspondences
+  viz_corr: True
+  # corr = correction
+  print_corr_rate: False
+  disable_corr: False
+
+  # initial pose changes
+  trans: [0.0, 0.0, 0.0]
+  rot: [3.14, 0.0, 0.0] # euler angles (3) or quaternion (4) 
+
+# describe your sensor setup here
+sensors: # list of range sensors - at least one is required
+  ouster:
+    topic: /ouster/points
+    type: spherical
+    frame: os_lidar
+    model:
+      range_min: 0.9
+      range_max: 75.0
+      # phi_min: -0.7853981 # -45
+      # phi_inc: 0.024933275 # -45 -> 45, 64 scan lines
+      # phi_N: 64
+      # phi_min: -0.5235988 # -30
+      # phi_inc: 0.01774911 # -30 -> 30 32 scan lines
+      # phi_N: 64
+      phi_min: -0.26
+      phi_inc: 0.013978165310744353
+      phi_N: 32
+      theta_min: -3.14159011841
+      theta_inc: 0.012295861657885687 # 2*pi / 511 instead of 2*pi / 512 
+      theta_N: 512
+    micp:
+      max_dist: 1.0
+      adaptive_max_dist_min: 0.15
+      weight: 1
+      backend: optix
