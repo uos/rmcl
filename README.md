@@ -30,9 +30,9 @@ Full Video is available on Youtube soon.
 
 ## Publication
 
-- Title: "MICP-L: Fast parallel simulative Range Sensor to Mesh Registration for Robot Localization"
+- Title: "MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Tracing"
 - State: Submitted to IROS 2023
-- Preprint: https://arxiv.org/abs/2210.13904
+- Preprint: https://arxiv.org/abs/2210.13904 (to be updated soon)
 - Hilti-Evaluation: https://github.com/aock/micp_hilti
 
 ## Usage
