@@ -432,6 +432,20 @@ if(RMCL_EMBREE)
         ${catkin_LIBRARIES}
         rmcl_embree_ros
     )
+
+    ### EVAL ###
+    add_executable(micp_eval src/nodes/examples/micp_eval.cpp)
+
+    add_dependencies(micp_eval 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(micp_eval
+        ${catkin_LIBRARIES}
+        rmcl_embree_ros
+    )
 endif(RMCL_EMBREE)
 
 if(RMCL_OPTIX)

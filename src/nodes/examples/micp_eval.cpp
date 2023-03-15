@@ -6,10 +6,8 @@
 
 #include <sensor_msgs/PointCloud2.h>
 
-#include <rmagine/math/math.h>
 #include <rmagine/math/types.h>
 #include <rmagine/util/prints.h>
-#include <rmagine/util/StopWatch.hpp>
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmcl/correction/OnDnCorrectorEmbree.hpp>
 #include <rmcl/math/math_batched.h>
@@ -30,7 +28,6 @@ std::string map_frame = "map";
 std::string odom_frame = "odom";
 std::string base_frame = "base_link";
 std::string lidar_frame = "os_lidar";
-std::string ground_truth_frame = "world";
 
 int iterations = 10;
 bool disable_registration = false;
@@ -56,6 +53,8 @@ bool first_iteration = true;
 rm::OnDnModel ouster_model;
 
 std::ofstream eval_file;
+
+double outlier_dist = 5.0;
 
 void convert(
     const geometry_msgs::Transform &Tros,
@@ -136,28 +135,6 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
         return;
     }
 
-    // ground truth
-    bool gt_available = false;
-    rm::Transform Tbg = rm::Transform::Identity(); // Transformation from base to ground truth frame
-    double Tbg_stamp;
-
-    try
-    {
-        geometry_msgs::TransformStamped T;
-        T = tf_buffer->lookupTransform(ground_truth_frame, base_frame, pcl->header.stamp);
-        gt_available = true;
-        convert(T.transform, Tbg);
-        Tbg_stamp = T.header.stamp.toSec();
-    }
-    catch (tf2::TransformException &ex)
-    {
-    }
-
-    if (!gt_available && generate_evaluation)
-    {
-        ROS_WARN("TRY TO GENERATE EVALUATION STATS BUT GROUND TRUTH IS NOT AVAILABLE!");
-    }
-
     if (first_iteration)
     {
         // For ground truth
@@ -178,19 +155,12 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
         std::cout << "-> Tom = " << Tom << std::endl;
 
         // save for evaluation
-        if (generate_evaluation && gt_available)
+        if(generate_evaluation)
         {
             Tbm_start = Tom * Tbo;
-            Tbg_start = Tbg;
 
-            std::cout << "GT starts" << std::endl;
+            std::cout << "Evaluation stores absolut poses and poses relative to:" << std::endl;
             std::cout << "- Tbm: " << Tbm_start << std::endl;
-            std::cout << "- Tbg: " << Tbg_start << std::endl;
-        }
-        else if (generate_evaluation)
-        {
-            std::cout << "ERR: Want to evaluate, but no gt available" << std::endl;
-            throw std::runtime_error("bls");
         }
 
         first_iteration = false;
@@ -307,161 +277,60 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
 
     size_t num_registration = iterations;
 
-    if(!disable_registration && num_registration > 0)
+    if (!disable_registration)
     {
         std::cout << "Start Registration Iterations (" << iterations << ")" << std::endl;
 
-        rm::Memory<rm::Point> dataset_points(ranges.size());
-        rm::Memory<rm::Point> model_points(ranges.size());
-        rm::Memory<unsigned int> corr_valid(ranges.size());
-
-        rm::StopWatchHR sw;
-        double el;
-
-        // old version
-        unsigned int version = 1;
-
-        if(version == 0)
+        for (size_t i = 0; i < num_registration; i++)
         {
-            sw();
-            for (size_t i = 0; i < num_registration; i++)
-            {
-                rm::Transform Tbm = Tom * Tbo;
-                rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
-
-                rm::Memory<rm::Transform> Tbms(1);
-                Tbms[0] = T_base_mesh;
-                
-                corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
-
-                rmcl::CorrectionPreResults<rm::RAM> res;
-                res.ds.resize(Tbms.size());
-                res.ms.resize(Tbms.size());
-                res.Cs.resize(Tbms.size());
-                res.Ncorr.resize(Tbms.size());
-
-                rmcl::means_covs_online_batched(
-                    dataset_points, model_points, corr_valid, // input
-                    res.ds, res.ms,                           // outputs
-                    res.Cs, res.Ncorr);
-
-                auto Tdeltas = umeyama->correction_from_covs(res);
-                rm::Transform Tdelta = Tdeltas[0];
-                Tom = Tbm * Tdelta * ~Tbo;
-            }
-            el = sw();
-            std::cout << "- Tbm Registered: " << Tom * Tbo << " in " << el * 1000.0 << " ms" << std::endl;
-
-        } else if(version == 1) {
-            rm::Memory<rm::Vector> model_normals(ranges.size());
-
             rm::Transform Tbm = Tom * Tbo;
             rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
+
+            // std::cout << "Pose guess: " << T_base_mesh << std::endl;
 
             rm::Memory<rm::Transform> Tbms(1);
             Tbms[0] = T_base_mesh;
 
-            sw();
+            rm::Memory<rm::Point> dataset_points;
+            rm::Memory<rm::Point> model_points;
+            rm::Memory<unsigned int> corr_valid;
+            // std::cout << "Iter " << i << std::endl;
             corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
-            el = sw();
-            std::cout << "- findSPC: " << el * 1000.0 << " ms" << std::endl;
 
-            // reconstruct normals: 
-            // problem: what to do with perfect matching points?
-            // TODO write findSPC function that returns normals
+            // size_t n_matches = 0;
+            // for(size_t j=0; j<corr_valid.size(); j++)
+            // {
+            //     if(corr_valid[j] > 0)
+            //     {
+            //         n_matches++;
+            //     }
+            // }
+            // std::cout << "Found " << n_matches << "/" << corr_valid.size() << " SPCs" << std::endl;
 
-            // #pragma omp parallel for
-            for(size_t i=0; i<model_points.size(); i++)
-            {
-                if(corr_valid[i] > 0)
-                {
-                    rm::Vector n_delta = dataset_points[i] - model_points[i];
-                    if(n_delta.l2normSquared() > 0.0001)
-                    {
-                        model_normals[i] = n_delta.normalize();
-                    } else {
-                        model_normals[i] = rm::Vector{0.0, 0.0, 1.0};
-                    }
-                }
-            }
+            // std::cout << "Found " << dataset_points.size() << " SPCs" << std::endl;
 
-            rm::Transform Tdelta_total = rm::Transform::Identity();
+            rmcl::CorrectionPreResults<rm::RAM> res;
+            res.ds.resize(Tbms.size());
+            res.ms.resize(Tbms.size());
+            res.Cs.resize(Tbms.size());
+            res.Ncorr.resize(Tbms.size());
 
-            sw();
-            for(size_t i = 0; i < num_registration; i++)
-            {
-                rmcl::CorrectionPreResults<rm::RAM> res;
-                res.ds.resize(Tbms.size());
-                res.ms.resize(Tbms.size());
-                res.Cs.resize(Tbms.size());
-                res.Ncorr.resize(Tbms.size());
-                
-                rmcl::means_covs_online_batched(
-                    dataset_points, model_points, corr_valid, // input
-                    res.ds, res.ms,                           // outputs
-                    res.Cs, res.Ncorr);
+            rmcl::means_covs_online_batched(
+                dataset_points, model_points, corr_valid, // input
+                res.ds, res.ms,                           // outputs
+                res.Cs, res.Ncorr);
 
-                auto Tdeltas = umeyama->correction_from_covs(res);
-                const rm::Transform Tdelta = Tdeltas[0];
+            auto Tdeltas = umeyama->correction_from_covs(res);
 
-                // std::cout << "Tdelta: " << Tdelta << std::endl;
+            rm::Transform Tdelta = Tdeltas[0];
+            // std::cout << "Tdelta: " << Tdelta << std::endl;
 
-                // update model points
-                #pragma omp parallel for
-                for(size_t i=0; i<model_points.size(); i++)
-                {
-                    if(corr_valid[i] > 0)
-                    {
-                        // 1. read + update dataset point
-                        const rm::Vector dataset_point = Tdelta * dataset_points[i];
-                        const rm::Vector model_point = model_points[i];
-                        const rm::Vector model_normal = model_normals[i];
+            Tom = Tbm * Tdelta * ~Tbo;
 
-                        // 2. project new dataset point on plane -> new model point
-                        const float signed_plane_dist = (model_point - dataset_point).dot(model_normal);
-                        const rm::Vector pmesh_s = dataset_point + model_normal * signed_plane_dist; 
-                        
-                        // 3. write
-                        dataset_points[i] = dataset_point;
-                        model_points[i] = pmesh_s;
-                    }
-                }
-
-                // update total delta
-                Tdelta_total = Tdelta_total * Tdelta;
-
-            }
-
-            // Update Tom
-            Tom = Tbm * Tdelta_total * ~Tbo;
-
-            el = sw();
-
-            // std::cout << "Tdelta: " << Tdelta_total << std::endl;
-
-            std::cout << "- Tbm Registered: " << Tom * Tbo << " in " << el * 1000.0 << " ms" << std::endl;
+            // std::cout << "New Tbm: " <<  Tom * Tbo << std::endl;
         }
 
-        // sw();
-        // corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
-        // el = sw();
-        
-        // for(size_t i=0; i<model_points.size(); i++)
-        // {
-        //     if(corr_valid[i] > 0)
-        //     {
-        //         model_normals[i] = (dataset_points[i] - model_points[i]).normalize();
-        //     }
-        // }
-
-        // std::cout << "- findSPC: " << el * 1000.0 << " ms" << std::endl;
-
-        // optimization loop
-        
-        
-
-
-        
+        std::cout << "- Tbm Registered: " << Tom * Tbo << std::endl;
     }
     else
     {
@@ -493,33 +362,11 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
         pub_pose.publish(micp_pose);
     }
 
-    if (gt_available && generate_evaluation)
+    if (generate_evaluation)
     {
         rm::Transform Tbm = Tom * Tbo;
-        rm::Transform Tmg = Tbg * ~Tbm; // error
-        // std::cout << "STATS - ABSOLUTE:" << std::endl;
-        // std::cout << "- Tbm: " << Tbm << std::endl;
-        // std::cout << "- Tbg: " << Tbg << std::endl;
-        // std::cout << "- Tmg: " << Tmg << std::endl;
-        // std::cout << "- TRANS ERROR: " << Tmg.t.l2norm() << std::endl;
-
         // T_b_bold = T_bold_map^-1 * T_b_map
-
         rm::Transform Tbm_rel = ~Tbm_start * Tbm;
-        rm::Transform Tbg_rel = ~Tbg_start * Tbg;
-        rm::Transform Tmg_rel = Tbg_rel * ~Tbm_rel;
-        double Tmg_stamp = pcl->header.stamp.toSec() - Tbg_stamp;
-
-        double trans_error = Tmg_rel.t.l2norm();
-        double rot_error = atan2(sqrt(Tmg_rel.R.x * Tmg_rel.R.x + Tmg_rel.R.y * Tmg_rel.R.y + Tmg_rel.R.z * Tmg_rel.R.z), Tmg_rel.R.w);
-        double time_error = abs(Tmg_stamp);
-
-        std::cout << "STATS - RELATIVE:" << std::endl;
-        std::cout << "- Tbm: " << Tbm_rel << std::endl;
-        std::cout << "- Tbg: " << Tbg_rel << std::endl;
-        std::cout << "- Tmg: " << Tmg_rel << std::endl;
-        std::cout << "- TRANS ERROR: " << trans_error << std::endl;
-        std::cout << "- ROT ERROR: " << rot_error << std::endl;
 
         // get last correspondences and determine correspondence error
         rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
@@ -530,55 +377,87 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
         rm::Memory<rm::Point> dataset_points;
         rm::Memory<rm::Point> model_points;
         rm::Memory<unsigned int> corr_valid;
-        corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
 
-        double mean_point_to_mesh_distance = 0.0;
-        size_t n_corr = 0;
+        rmcl::CorrectionParams corr_params_eval = corr_params;
+        corr_params_eval.max_distance = outlier_dist;
+
+        corr->setParams(corr_params_eval);
+        corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
+        corr->setParams(corr_params);
+
+        std::vector<double> p2ms;
+
+        double p2m_min = 0.0;
+        double p2m_max = 0.0;
+        double p2m_mean = 0.0;
+        double p2m_median = 0.0;
 
         for (size_t i = 0; i < corr_valid.size(); i++)
         {
             if (corr_valid[i] > 0)
             {
                 rm::Point diff = dataset_points[i] - model_points[i];
-                mean_point_to_mesh_distance += diff.l2norm();
-                n_corr++;
+                // mean_point_to_mesh_distance += diff.l2norm();
+                // n_corr++;
+                p2ms.push_back(diff.l2norm());
             }
         }
 
+        size_t n_corr = p2ms.size();
+
         if (n_corr > 0)
         {
-            mean_point_to_mesh_distance /= static_cast<double>(n_corr);
+            std::sort(p2ms.begin(), p2ms.end());
+
+            p2m_min = p2ms.front();
+            p2m_max = p2ms.back();
+            p2m_median = p2ms[p2ms.size() / 2];
+
+            for(auto v : p2ms)
+            {
+                p2m_mean += v;
+            }
+
+            p2m_mean /= static_cast<double>(n_corr);
         }
         else
         {
             // something wrong
         }
 
-        std::cout << "MEAN POINT TO MESH DISTANCE: " << mean_point_to_mesh_distance << std::endl;
+        { // print to command line
+            std::cout << std::endl;
+            std::cout << "---------------------------------" << std::endl;
+            std::cout << "Evalutation Statistics:" << std::endl;
+            std::cout << "- Tbm: " << Tbm << std::endl;
+            std::cout << "- Tbm_rel: " << Tbm_rel << std::endl;
+            std::cout << "- Time error: " << Tbo_time_error << " s" << std::endl;
+            std::cout << "- P2M:" << std::endl;
+            std::cout << "  - N: " << p2ms.size() << std::endl;
+            std::cout << "  - Min, max: " << p2m_min << " m, " << p2m_max << " m" << std::endl;
+            std::cout << "  - Mean: " << p2m_mean << " m" << std::endl;
+            std::cout << "  - Median: " << p2m_median << " m" << std::endl;
+            std::cout << "---------------------------------" << std::endl;
+            std::cout << std::endl;
+        }
+        
 
         // Write everything to a file
-
         if (!eval_file.is_open())
         {
-            eval_file.open("hilti_eval.csv", std::ios::out);
+            eval_file.open("micp_eval.csv", std::ios::out);
             eval_file.precision(std::numeric_limits<double>::max_digits10 + 2);
             eval_file << std::fixed;
             eval_file << "# Tbm.t.x, Tbm.t.y, Tbm.t.z, Tbm.R.x, Tbm.R.y, Tbm.R.z, Tbm.R.w, Tbm.stamp";
-            eval_file << ", Tbg.t.x, Tbg.t.y, Tbg.t.z, Tbg.R.x, Tbg.R.y, Tbg.R.z, Tbg.R.w, Tbg.stamp";
-            eval_file << ", Tmg.t.x, Tmg.t.y, Tmg.t.z, Tmg.R.x, Tmg.R.y, Tmg.R.z, Tmg.R.w, Tmg.stamp";
-            eval_file << ", Estamp";
-            eval_file << ", Epointmesh, Ncorr\n";
+            eval_file << ", Tbm_rel.t.x, Tbm_rel.t.y, Tbm_rel.t.z, Tbm_rel.R.x, Tbm_rel.R.y, Tbm_rel.R.z, Tbm_rel.R.w, Tbm_rel.stamp";
+            eval_file << ", Estamp, Ncorr, P2M_min, P2M_max, P2M_mean, P2M_median\n";
         }
 
+        eval_file << Tbm.t.x << ", " << Tbm.t.y << ", " << Tbm.t.z << ", " << Tbm.R.x << ", " << Tbm.R.y << ", " << Tbm.R.z << ", " << Tbm.R.w << ", " << pcl->header.stamp.toSec();
+        eval_file << ", ";
         eval_file << Tbm_rel.t.x << ", " << Tbm_rel.t.y << ", " << Tbm_rel.t.z << ", " << Tbm_rel.R.x << ", " << Tbm_rel.R.y << ", " << Tbm_rel.R.z << ", " << Tbm_rel.R.w << ", " << pcl->header.stamp.toSec();
         eval_file << ", ";
-        eval_file << Tbg_rel.t.x << ", " << Tbg_rel.t.y << ", " << Tbg_rel.t.z << ", " << Tbg_rel.R.x << ", " << Tbg_rel.R.y << ", " << Tbg_rel.R.z << ", " << Tbg_rel.R.w << ", " << Tbg_stamp;
-        eval_file << ", ";
-        eval_file << Tmg_rel.t.x << ", " << Tmg_rel.t.y << ", " << Tmg_rel.t.z << ", " << Tmg_rel.R.x << ", " << Tmg_rel.R.y << ", " << Tmg_rel.R.z << ", " << Tmg_rel.R.w << ", " << Tmg_stamp;
-        eval_file << ", ";
-        eval_file << trans_error << ", " << rot_error << ", " << time_error;
-        eval_file << ", ";
-        eval_file << mean_point_to_mesh_distance << ", " << n_corr;
+        eval_file << Tbo_time_error << ", " << n_corr << ", " << p2m_min << ", " << p2m_max << ", " << p2m_mean << ", " << p2m_median;
         eval_file << "\n";
     }
 }
@@ -661,6 +540,7 @@ void loadParameters(ros::NodeHandle nh_p)
     nh_p.param<double>("max_distance", max_distance, 0.5);
     nh_p.param<double>("min_range", min_range, 0.3);
     nh_p.param<double>("max_range", max_range, 80.0);
+    nh_p.param<double>("outlier_dist", outlier_dist, 5.0);
 
     corr_params.max_distance = max_distance;
     corr->setParams(corr_params);
@@ -668,17 +548,10 @@ void loadParameters(ros::NodeHandle nh_p)
     ouster_model.range.min = min_range;
     ouster_model.range.max = max_range;
 
-    // std::string map_frame = "map";
-    // std::string odom_frame = "odom";
-    // std::string base_frame = "base_link";
-    // std::string lidar_frame = "os_lidar";
-    // std::string ground_truth_frame = "world";
-
     nh_p.param<std::string>("map_frame", map_frame, "map");
     nh_p.param<std::string>("odom_frame", odom_frame, "odom");
     nh_p.param<std::string>("base_frame", base_frame, "base_link");
     nh_p.param<std::string>("lidar_frame", lidar_frame, "os_lidar");
-    nh_p.param<std::string>("ground_truth_frame", ground_truth_frame, "world");
 
     {
         rm::OnDnSimulatorEmbreePtr test_corr = std::make_shared<rm::OnDnSimulatorEmbree>(mesh);
@@ -754,7 +627,7 @@ void loadParameters(ros::NodeHandle nh_p)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "micp_hilti");
+    ros::init(argc, argv, "micp_eval");
 
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");

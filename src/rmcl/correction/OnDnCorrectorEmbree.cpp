@@ -8,7 +8,6 @@
 // DEBUG
 #include <rmagine/util/prints.h>
 
-using namespace rmagine;
 namespace rm = rmagine;
 
 namespace rmcl
@@ -29,7 +28,7 @@ void OnDnCorrectorEmbree::setInputData(
 CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
     const rm::MemoryView<rm::Transform, rm::RAM>& Tbms)
 {
-    CorrectionResults<RAM> res;
+    CorrectionResults<rm::RAM> res;
     res.Tdelta.resize(Tbms.size());
     res.Ncorr.resize(Tbms.size());
 
@@ -48,10 +47,10 @@ CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
 
         const unsigned int glob_shift = pid * m_model->size();
 
-        Vector Dmean = {0.0, 0.0, 0.0};
-        Vector Mmean = {0.0, 0.0, 0.0};
+        rm::Vector Dmean = {0.0, 0.0, 0.0};
+        rm::Vector Mmean = {0.0, 0.0, 0.0};
         unsigned int Ncorr = 0;
-        Matrix3x3 C;
+        rm::Matrix3x3 C;
         C.setZeros();
 
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
@@ -68,11 +67,11 @@ CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
                     continue;
                 }
 
-                const Vector ray_orig_s = m_model->getOrigin(vid, hid);
-                const Vector ray_orig_m = Tsm * ray_orig_s;
+                const rm::Vector ray_orig_s = m_model->getOrigin(vid, hid);
+                const rm::Vector ray_orig_m = Tsm * ray_orig_s;
 
-                const Vector ray_dir_s = m_model->getDirection(vid, hid);
-                const Vector ray_dir_m = Tsm.R * ray_dir_s;
+                const rm::Vector ray_dir_s = m_model->getDirection(vid, hid);
+                const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 RTCRayHit rayhit;
                 rayhit.ray.org_x = ray_orig_m.x;
@@ -94,14 +93,14 @@ CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
                 if(sim_valid)
                 {
                     // map space
-                    Vector nint_m;
+                    rm::Vector nint_m;
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
                     nint_m.normalizeInplace();
 
                     // Do point to plane ICP here
-                    Vector preal_s, pint_s, nint_s;
+                    rm::Vector preal_s, pint_s, nint_s;
                     preal_s = ray_orig_s + ray_dir_s * range_real;
 
                     // search point on surface that is more nearby
@@ -119,14 +118,14 @@ CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
                     // distance of real point to plane at simulated point
                     const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
-                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
+                    const rm::Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
 
                     const float distance = (pmesh_s - preal_s).l2norm();
 
                     if(distance < max_distance)
                     {
-                        const Vector preal_b = Tsb * preal_s;
-                        const Vector pmesh_b = Tsb * pmesh_s;
+                        const rm::Vector preal_b = Tsb * preal_s;
+                        const rm::Vector pmesh_b = Tsb * pmesh_s;
 
                         // Online update: Covariance and means 
                         // - wrong: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
@@ -161,7 +160,7 @@ CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
 
         if(Ncorr > 0)
         {
-            Matrix3x3 U, V, S;
+            rm::Matrix3x3 U, V, S;
 
             { // the only Eigen code left
                 const Eigen::Matrix3f* Ceig = reinterpret_cast<const Eigen::Matrix3f*>(&C);
@@ -211,10 +210,10 @@ void OnDnCorrectorEmbree::computeCovs(
 
         const unsigned int glob_shift = pid * m_model->size();
 
-        Vector Dmean = {0.0, 0.0, 0.0};
-        Vector Mmean = {0.0, 0.0, 0.0};
+        rm::Vector Dmean = {0.0, 0.0, 0.0};
+        rm::Vector Mmean = {0.0, 0.0, 0.0};
         unsigned int Ncorr_ = 0;
-        Matrix3x3 C;
+        rm::Matrix3x3 C;
         C.setZeros();
 
         for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
@@ -231,11 +230,11 @@ void OnDnCorrectorEmbree::computeCovs(
                     continue;
                 }
 
-                const Vector ray_orig_s = m_model->getOrigin(vid, hid);
-                const Vector ray_orig_m = Tsm * ray_orig_s;
+                const rm::Vector ray_orig_s = m_model->getOrigin(vid, hid);
+                const rm::Vector ray_orig_m = Tsm * ray_orig_s;
 
-                const Vector ray_dir_s = m_model->getDirection(vid, hid);
-                const Vector ray_dir_m = Tsm.R * ray_dir_s;
+                const rm::Vector ray_dir_s = m_model->getDirection(vid, hid);
+                const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 RTCRayHit rayhit;
                 rayhit.ray.org_x = ray_orig_m.x;
@@ -257,7 +256,7 @@ void OnDnCorrectorEmbree::computeCovs(
                 if(sim_valid)
                 {
                     // map space
-                    Vector nint_m;
+                    rm::Vector nint_m;
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
@@ -265,7 +264,7 @@ void OnDnCorrectorEmbree::computeCovs(
 
                     // sensor space
                     // Do point to plane ICP here
-                    Vector preal_s, pint_s, nint_s;
+                    rm::Vector preal_s, pint_s, nint_s;
                     preal_s = ray_orig_s + ray_dir_s * range_real;
 
                     // search point on surface that is more nearby
@@ -283,14 +282,14 @@ void OnDnCorrectorEmbree::computeCovs(
                     // distance of real point to plane at simulated point
                     float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
-                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
+                    const rm::Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
 
                     const float distance = (pmesh_s - preal_s).l2norm();
 
                     if(distance < max_distance)
                     {
-                        const Vector preal_b = Tsb * preal_s;
-                        const Vector pmesh_b = Tsb * pmesh_s;
+                        const rm::Vector preal_b = Tsb * preal_s;
+                        const rm::Vector pmesh_b = Tsb * pmesh_s;
 
                         // Online update: Covariance and means 
                         // - wrong: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
@@ -399,11 +398,12 @@ void OnDnCorrectorEmbree::findSPC(
                     corr_valid[glob_id] = 0;
                     continue;
                 }
-                const Vector ray_orig_s = m_model->getOrigin(vid, hid);
-                const Vector ray_dir_s = m_model->getDirection(vid, hid);
 
-                const Vector ray_orig_m = Tsm * ray_orig_s;
-                const Vector ray_dir_m = Tsm.R * ray_dir_s;
+                const rm::Vector ray_orig_s = m_model->getOrigin(vid, hid);
+                const rm::Vector ray_dir_s = m_model->getDirection(vid, hid);
+
+                const rm::Vector ray_orig_m = Tsm * ray_orig_s;
+                const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
 
                 RTCRayHit rayhit;
                 rayhit.ray.org_x = ray_orig_m.x;
@@ -425,14 +425,14 @@ void OnDnCorrectorEmbree::findSPC(
                 if(sim_valid)
                 {
                     // map space
-                    Vector nint_m;
+                    rm::Vector nint_m;
                     nint_m.x = rayhit.hit.Ng_x;
                     nint_m.y = rayhit.hit.Ng_y;
                     nint_m.z = rayhit.hit.Ng_z;
                     nint_m.normalizeInplace();
 
                     // Do point to plane ICP here
-                    Vector preal_s, pint_s, nint_s;
+                    rm::Vector preal_s, pint_s, nint_s;
                     preal_s = ray_orig_s + ray_dir_s * range_real;
 
                     // search point on surface that is more nearby
@@ -450,13 +450,13 @@ void OnDnCorrectorEmbree::findSPC(
                     // distance of real point to plane at simulated point
                     float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
                     // project point to plane results in correspondence
-                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
+                    const rm::Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
 
                     const float distance = (pmesh_s - preal_s).l2norm();
 
                     // convert back to base (sensor shared coordinate system)
-                    const Vector preal_b = Tsb * preal_s;
-                    const Vector pmesh_b = Tsb * pmesh_s;
+                    const rm::Vector preal_b = Tsb * preal_s;
+                    const rm::Vector pmesh_b = Tsb * pmesh_s;
 
                     dataset_points[glob_id] = preal_b;
                     model_points[glob_id] = pmesh_b;
