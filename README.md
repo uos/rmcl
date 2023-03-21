@@ -4,7 +4,6 @@
 
 Software Tools for Mobile Robot Localization in 3D Meshes.
 
-
 ## Installation
 
 Dependencies:
@@ -17,12 +16,15 @@ Clone this repository into your ROS workspace and build it.
 
 # MICP-L
 
-Mesh-ICP Localization. Direct Range sensor to mesh registration for localization using simulative projective correspondences (See publications).
+MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Tracing.
+An approach to directly register range sensor data to a mesh in order to localize a mobile robot using simulative projective correspondences (See publications).
 
 Requirements:
-- At least one Range Sensor equipped and running
-- Triangle Mesh as map
-- Odometry estimation of the robot given as TF-Frame
+- At least one range sensor equipped and running
+- Triangle mesh as map
+- Prior odometry estimation of the robot given as TF
+
+IMU prior is also possible as long as it is integrated as TF-Transform, e.g. with [Madgwick Filter](http://wiki.ros.org/imu_filter_madgwick).
 
 ![Teaser](dat/micp.gif)
 
@@ -32,7 +34,7 @@ Full Video is available on Youtube soon.
 
 - Title: "MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Tracing"
 - State: Submitted to IROS 2023
-- Preprint: https://arxiv.org/abs/2210.13904 (to be updated soon)
+- Preprint: https://arxiv.org/abs/2210.13904
 - Hilti-Evaluation: https://github.com/aock/micp_hilti
 
 ## Usage
@@ -146,6 +148,7 @@ micp:
   print_corr_rate: False
 
   # adjust max distance dependend of the state of localization
+  # helps to continuously disregard objects that not exist in the map
   adaptive_max_dist: True # enable adaptive max dist
 
   # offset added to inital pose guess
@@ -156,6 +159,8 @@ micp:
 sensors: # list of range sensors - at least one is required
   velodyne:
     topic: velodyne_points
+    # spherical is comparable to sensor_msgs::LaserScan 
+    # but in 3D
     type: spherical
     model:
       range_min: 0.5
@@ -164,10 +169,18 @@ sensors: # list of range sensors - at least one is required
       phi_inc: 0.03490658503988659
       phi_N: 16
       theta_min: -3.14159011841
-      theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
+      theta_inc: 0.01431249500496489 
       theta_N: 440
     micp:
       max_dist: 1.0
+      # Once adaptive_max_dist is set to true:
+      # 
+      # If the localization is perfect, the max
+      # distance for finding SPCs is reduced to 
+      # `adaptive_max_dist_min`.
+      # If the localization is bad, the max
+      # distance for finding SPCs is raised to
+      # `max_dist`
       adaptive_max_dist_min: 0.15
       backend: embree
 ```
@@ -254,6 +267,4 @@ The planned Roadmap is as follows:
 
 - [x] MICP-L
 - [ ] RMCL
-
-
 
