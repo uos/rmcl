@@ -120,10 +120,10 @@ For example, once there is no data available on the given `PointCloud2`-Topic it
 The following sections describe example configuration files.
 More example files for configuration are placed in the `config/examples`.
 
-### Params - 3D LiDaR only - CPU
+### Params - 3D LiDAR only - CPU
 
-MICP Localization using a 3D LiDaR and doing the MICP steps completely on the CPU.
-Here the 3D LiDaR is a Velodyne VLP-16 with 16 scan lines.
+MICP Localization using a 3D LiDAR and doing the MICP steps completely on the CPU.
+Here the 3D LiDAR is a Velodyne VLP-16 with 16 scan lines.
 The horizontal number of points are reduced to 440 and might be adjusted for your own Velodyne.
 
 
@@ -185,9 +185,9 @@ sensors: # list of range sensors - at least one is required
       backend: embree
 ```
 
-### Params - 2D LiDaR + Wheels - GPU
+### Params - 2D LiDAR + Wheels - GPU
 
-MICP also supports to localize a robot only equipped with a 2D LiDaR in a 3D map.
+MICP also supports to localize a robot only equipped with a 2D LiDAR in a 3D map.
 To correct the third dimension the wheels can be used to pull the robot towards the map's ground plane. 
 Thus, you should only run it on a robot that always drives on ground and e.g. cannot fly.
 In this example, all MICP steps are computed on GPU.
