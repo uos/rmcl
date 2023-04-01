@@ -644,14 +644,14 @@ int main(int argc, char **argv)
 
     pub_pose = nh.advertise<geometry_msgs::PoseStamped>("micp_pose", 1);
 
-    ros::Subscriber sub_pcl = nh.subscribe<sensor_msgs::PointCloud2>("ouster/points", 1, pclCB);
+    ros::Subscriber sub_pcl = nh.subscribe<sensor_msgs::PointCloud2>("ouster/points", 10, pclCB);
 
     ros::spin();
 
     tf_listener.reset();
     tf_buffer.reset();
 
-    if (eval_file.is_open())
+    if(eval_file.is_open())
     {
         eval_file.close();
     }
