@@ -32,6 +32,7 @@ std::string base_frame = "base_link";
 std::string lidar_frame = "os_lidar";
 std::string ground_truth_frame = "world";
 
+
 int iterations = 10;
 bool disable_registration = false;
 bool generate_evaluation = false;
@@ -760,8 +761,6 @@ int main(int argc, char **argv)
     ros::NodeHandle nh_p("~");
 
     ROS_INFO("MICP HILTI STARTED.");
-
-    // throw std::runtime_error("bla");
 
     loadParameters(nh_p);
 

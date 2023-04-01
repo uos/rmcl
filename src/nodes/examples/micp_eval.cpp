@@ -8,6 +8,7 @@
 
 #include <rmagine/math/types.h>
 #include <rmagine/util/prints.h>
+#include <rmagine/util/StopWatch.hpp>
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmcl/correction/OnDnCorrectorEmbree.hpp>
 #include <rmcl/math/math_batched.h>
@@ -29,6 +30,7 @@ std::string odom_frame = "odom";
 std::string base_frame = "base_link";
 std::string lidar_frame = "os_lidar";
 
+int correction_mode = 1;
 int iterations = 10;
 bool disable_registration = false;
 bool generate_evaluation = false;
@@ -131,7 +133,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     }
     catch (tf2::TransformException &ex)
     {
-        ROS_WARN("micp_hilti - %s", ex.what());
+        ROS_WARN("micp_eval - %s", ex.what());
         return;
     }
 
@@ -188,7 +190,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     sensor_msgs::PointField field_y;
     sensor_msgs::PointField field_z;
 
-    for (size_t i = 0; i < pcl->fields.size(); i++)
+    for(size_t i = 0; i < pcl->fields.size(); i++)
     {
         if (pcl->fields[i].name == "x")
         {
@@ -277,60 +279,138 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
 
     size_t num_registration = iterations;
 
-    if (!disable_registration)
+    if (!disable_registration && num_registration > 0)
     {
         std::cout << "Start Registration Iterations (" << iterations << ")" << std::endl;
 
-        for (size_t i = 0; i < num_registration; i++)
+        rm::Memory<rm::Point> dataset_points(ranges.size());
+        rm::Memory<rm::Point> model_points(ranges.size());
+        rm::Memory<unsigned int> corr_valid(ranges.size());
+
+        rm::StopWatchHR sw;
+        double el;
+
+
+        if(correction_mode == 0)
         {
+            sw();
+            for (size_t i = 0; i < num_registration; i++)
+            {
+                rm::Transform Tbm = Tom * Tbo;
+                rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
+
+                rm::Memory<rm::Transform> Tbms(1);
+                Tbms[0] = T_base_mesh;
+                
+                corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
+
+                rmcl::CorrectionPreResults<rm::RAM> res;
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                rmcl::means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms,                           // outputs
+                    res.Cs, res.Ncorr);
+
+                auto Tdeltas = umeyama->correction_from_covs(res);
+                rm::Transform Tdelta = Tdeltas[0];
+                Tom = Tbm * Tdelta * ~Tbo;
+            }
+            el = sw();
+            std::cout << "- Tbm Registered: " << Tom * Tbo << " in " << el * 1000.0 << " ms" << std::endl;
+
+        } else if(correction_mode == 1) {
+            rm::Memory<rm::Vector> model_normals(ranges.size());
+
             rm::Transform Tbm = Tom * Tbo;
             rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
-
-            // std::cout << "Pose guess: " << T_base_mesh << std::endl;
 
             rm::Memory<rm::Transform> Tbms(1);
             Tbms[0] = T_base_mesh;
 
-            rm::Memory<rm::Point> dataset_points;
-            rm::Memory<rm::Point> model_points;
-            rm::Memory<unsigned int> corr_valid;
-            // std::cout << "Iter " << i << std::endl;
+            sw();
             corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
+            el = sw();
+            std::cout << "- findSPC: " << el * 1000.0 << " ms" << std::endl;
 
-            // size_t n_matches = 0;
-            // for(size_t j=0; j<corr_valid.size(); j++)
-            // {
-            //     if(corr_valid[j] > 0)
-            //     {
-            //         n_matches++;
-            //     }
-            // }
-            // std::cout << "Found " << n_matches << "/" << corr_valid.size() << " SPCs" << std::endl;
+            // reconstruct normals: 
+            // problem: what to do with perfect matching points?
+            // TODO write findSPC function that returns normals
 
-            // std::cout << "Found " << dataset_points.size() << " SPCs" << std::endl;
+            // #pragma omp parallel for
+            for(size_t i=0; i<model_points.size(); i++)
+            {
+                if(corr_valid[i] > 0)
+                {
+                    rm::Vector n_delta = dataset_points[i] - model_points[i];
+                    if(n_delta.l2normSquared() > 0.0001)
+                    {
+                        model_normals[i] = n_delta.normalize();
+                    } else {
+                        model_normals[i] = rm::Vector{0.0, 0.0, 1.0};
+                    }
+                }
+            }
 
-            rmcl::CorrectionPreResults<rm::RAM> res;
-            res.ds.resize(Tbms.size());
-            res.ms.resize(Tbms.size());
-            res.Cs.resize(Tbms.size());
-            res.Ncorr.resize(Tbms.size());
+            rm::Transform Tdelta_total = rm::Transform::Identity();
 
-            rmcl::means_covs_online_batched(
-                dataset_points, model_points, corr_valid, // input
-                res.ds, res.ms,                           // outputs
-                res.Cs, res.Ncorr);
+            sw();
+            for(size_t i = 0; i < num_registration; i++)
+            {
+                rmcl::CorrectionPreResults<rm::RAM> res;
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+                
+                rmcl::means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms,                           // outputs
+                    res.Cs, res.Ncorr);
 
-            auto Tdeltas = umeyama->correction_from_covs(res);
+                auto Tdeltas = umeyama->correction_from_covs(res);
+                const rm::Transform Tdelta = Tdeltas[0];
 
-            rm::Transform Tdelta = Tdeltas[0];
-            // std::cout << "Tdelta: " << Tdelta << std::endl;
+                // std::cout << "Tdelta: " << Tdelta << std::endl;
 
-            Tom = Tbm * Tdelta * ~Tbo;
+                // update model points
+                #pragma omp parallel for
+                for(size_t i=0; i<model_points.size(); i++)
+                {
+                    if(corr_valid[i] > 0)
+                    {
+                        // 1. read + update dataset point
+                        const rm::Vector dataset_point = Tdelta * dataset_points[i];
+                        const rm::Vector model_point = model_points[i];
+                        const rm::Vector model_normal = model_normals[i];
 
-            // std::cout << "New Tbm: " <<  Tom * Tbo << std::endl;
+                        // 2. project new dataset point on plane -> new model point
+                        const float signed_plane_dist = (model_point - dataset_point).dot(model_normal);
+                        const rm::Vector pmesh_s = dataset_point + model_normal * signed_plane_dist; 
+                        
+                        // 3. write
+                        dataset_points[i] = dataset_point;
+                        model_points[i] = pmesh_s;
+                    }
+                }
+
+                // update total delta
+                Tdelta_total = Tdelta_total * Tdelta;
+
+            }
+
+            // Update Tom
+            Tom = Tbm * Tdelta_total * ~Tbo;
+
+            el = sw();
+
+            // std::cout << "Tdelta: " << Tdelta_total << std::endl;
+
+            std::cout << "- Tbm Registered: " << Tom * Tbo << " in " << el * 1000.0 << " ms" << std::endl;
         }
-
-        std::cout << "- Tbm Registered: " << Tom * Tbo << std::endl;
     }
     else
     {
@@ -534,6 +614,7 @@ void loadParameters(ros::NodeHandle nh_p)
     double min_range = 0.3;
     double max_range = 80.0;
 
+    nh_p.param<int>("correction_mode", correction_mode, 1);
     nh_p.param<int>("iterations", iterations, 10);
     nh_p.param<bool>("disable_registration", disable_registration, false);
     nh_p.param<bool>("generate_evaluation", generate_evaluation, false);
@@ -632,9 +713,8 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
-    ROS_INFO("MICP HILTI STARTED.");
+    ROS_INFO("MICP EVALUATION SCRIPT STARTED.");
 
-    // throw std::runtime_error("bla");
 
     loadParameters(nh_p);
 
