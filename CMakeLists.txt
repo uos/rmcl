@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.2...10.0)
 project(rmcl)
 
-option(BUILD_EXAMPLES "Build Examples" ON)
+option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_CONV "Build Conversion Nodes" ON)
+option(BUILD_MICP_EXPERIMENTS "Build Experiments" ON)
 
 include(GNUInstallDirs)
 
@@ -150,7 +151,7 @@ if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
     )
 
     add_definitions(-DRMCL_EMBREE)
-    set(RMCL_EMBREE True)
+    set(RMCL_EMBREE TRUE)
 endif()
 
 # CUDA
@@ -362,6 +363,43 @@ endif(BUILD_CONV)
 ################
 ### EXAMPLES ###
 ################
+if(BUILD_MICP_EXPERIMENTS)
+
+if(RMCL_EMBREE)
+
+### HILTI ###
+add_executable(micp_hilti src/nodes/examples/micp_hilti.cpp)
+
+add_dependencies(micp_hilti 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(micp_hilti
+    ${catkin_LIBRARIES}
+    rmcl_embree_ros
+)
+
+### EVAL ###
+add_executable(micp_eval src/nodes/examples/micp_eval.cpp)
+
+add_dependencies(micp_eval 
+    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    ${catkin_EXPORTED_TARGETS}
+)
+
+## Specify libraries to link a library or executable target against
+target_link_libraries(micp_eval
+    ${catkin_LIBRARIES}
+    rmcl_embree_ros
+)
+
+endif(RMCL_EMBREE)
+
+endif(BUILD_MICP_EXPERIMENTS)
+
+
 if(BUILD_EXAMPLES)
 
 if(RMCL_EMBREE)
@@ -414,35 +452,6 @@ if(RMCL_EMBREE)
 
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_combined_corrector_embree
-        ${catkin_LIBRARIES}
-        rmcl_embree_ros
-    )
-
-
-    ### HILTI ###
-    add_executable(micp_hilti src/nodes/examples/micp_hilti.cpp)
-
-    add_dependencies(micp_hilti 
-        ${${PROJECT_NAME}_EXPORTED_TARGETS}
-        ${catkin_EXPORTED_TARGETS}
-    )
-
-    ## Specify libraries to link a library or executable target against
-    target_link_libraries(micp_hilti
-        ${catkin_LIBRARIES}
-        rmcl_embree_ros
-    )
-
-    ### EVAL ###
-    add_executable(micp_eval src/nodes/examples/micp_eval.cpp)
-
-    add_dependencies(micp_eval 
-        ${${PROJECT_NAME}_EXPORTED_TARGETS}
-        ${catkin_EXPORTED_TARGETS}
-    )
-
-    ## Specify libraries to link a library or executable target against
-    target_link_libraries(micp_eval
         ${catkin_LIBRARIES}
         rmcl_embree_ros
     )
