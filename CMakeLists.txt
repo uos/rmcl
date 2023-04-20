@@ -43,8 +43,22 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
 )
 
-find_package(rmagine REQUIRED)
+
+
+# only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
+set(RMAGINE_MAX_VERSION "2.1.0")
+find_package(rmagine 2.0.0... REQUIRED)
+
+
+if(rmagine_VERSION GREATER RMAGINE_MAX_VERSION)
+    message(WARNING "Found Rmagine version: ${rmagine_VERSION} > Latest tested Rmagine version: ${RMAGINE_MAX_VERSION}. Compile at your own risk.")
+else()
+    message(STATUS "Rmagine Version: ${rmagine_VERSION_MAJOR}.${rmagine_VERSION_MINOR}.${rmagine_VERSION_PATCH}")
+endif()
+
 include_directories(${rmagine_INCLUDE_DIRS})
+
+
 
 if(rmagine_embree_FOUND)
     option(DISABLE_EMBREE "Disable Rmagine Embree backend Compilation" FALSE)
