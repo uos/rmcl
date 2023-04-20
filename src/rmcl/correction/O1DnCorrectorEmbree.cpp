@@ -8,6 +8,8 @@
 // DEBUG
 #include <rmagine/util/prints.h>
 
+#include <limits>
+
 using namespace rmagine;
 namespace rm = rmagine;
 
@@ -82,13 +84,18 @@ CorrectionResults<rm::RAM> O1DnCorrectorEmbree::correct(
                 rayhit.ray.dir_y = ray_dir_m.y;
                 rayhit.ray.dir_z = ray_dir_m.z;
                 rayhit.ray.tnear = 0;
-                rayhit.ray.tfar = INFINITY;
-                rayhit.ray.mask = 0;
+                rayhit.ray.tfar = std::numeric_limits<float>::infinity();
+                rayhit.ray.mask = -1;
                 rayhit.ray.flags = 0;
                 rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
                 rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
+                
+                #if RMAGINE_EMBREE_VERSION_MAJOR == 4
+                rtcIntersect1(scene, &rayhit);
+                #else // FALLBACK
                 rtcIntersect1(scene, &m_context, &rayhit);
+                #endif
 
                 bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
                 if(sim_valid)
@@ -245,13 +252,19 @@ void O1DnCorrectorEmbree::computeCovs(
                 rayhit.ray.dir_y = ray_dir_m.y;
                 rayhit.ray.dir_z = ray_dir_m.z;
                 rayhit.ray.tnear = 0;
-                rayhit.ray.tfar = INFINITY;
-                rayhit.ray.mask = 0;
+                rayhit.ray.tfar = std::numeric_limits<float>::infinity();
+                rayhit.ray.mask = -1;
                 rayhit.ray.flags = 0;
                 rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
                 rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
+
+                #if RMAGINE_EMBREE_VERSION_MAJOR == 4
+                rtcIntersect1(scene, &rayhit);
+                #else // FALLBACK
                 rtcIntersect1(scene, &m_context, &rayhit);
+                #endif 
+                
 
                 bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
                 if(sim_valid)
@@ -401,13 +414,18 @@ void O1DnCorrectorEmbree::findSPC(
                 rayhit.ray.dir_y = ray_dir_m.y;
                 rayhit.ray.dir_z = ray_dir_m.z;
                 rayhit.ray.tnear = 0;
-                rayhit.ray.tfar = INFINITY;
-                rayhit.ray.mask = 0;
+                rayhit.ray.tfar = std::numeric_limits<float>::infinity();
+                rayhit.ray.mask = -1;
                 rayhit.ray.flags = 0;
                 rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
                 rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
+
+                #if RMAGINE_EMBREE_VERSION_MAJOR == 4
+                rtcIntersect1(scene, &rayhit);
+                #else // FALLBACK
                 rtcIntersect1(scene, &m_context, &rayhit);
+                #endif
 
                 bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
                 if(sim_valid)
