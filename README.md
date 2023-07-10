@@ -26,9 +26,14 @@ Requirements:
 
 IMU prior is also possible as long as it is integrated as TF-Transform, e.g. with [Madgwick Filter](http://wiki.ros.org/imu_filter_madgwick).
 
-![Teaser](dat/micp.gif)
 
-Full Video is available on Youtube soon.
+[![Teaser](dat/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
+
+|    |    |
+|:--:|:--:|
+| <a href="http://www.youtube.com/watch?v=5pubwlbrpro" target="_blank" ><img src="https://i.ytimg.com/vi/5pubwlbrpro/maxresdefault.jpg" alt="MICP-L Hilti Video" width="100%" style="max-width: 500px" height="auto" /></a> | <a href="http://www.youtube.com/watch?v=8j6ZtYPnFzw" target="_blank" ><img src="https://i.ytimg.com/vi/8j6ZtYPnFzw/maxresdefault.jpg" alt="MICP-L MulRan Video" width="100%" style="max-width: 500px" height="auto" /></a> |
+| 6DoF Localization (Hilti) | Large-scale scenes (MulRan) |
+
 
 ## Publication
 
