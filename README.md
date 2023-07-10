@@ -38,7 +38,6 @@ IMU prior is also possible as long as it is integrated as TF-Transform, e.g. wit
 ## Publication
 
 - Title: "MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Tracing"
-- State: Submitted to IROS 2023
 - Preprint: https://arxiv.org/abs/2210.13904
 - Hilti-Evaluation: https://github.com/aock/micp_hilti
 
