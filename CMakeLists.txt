@@ -29,7 +29,7 @@ set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
 )
 
-find_package(catkin REQUIRED COMPONENTS
+set(RMAGINE_ROS_DEPS
     roscpp
     geometry_msgs
     sensor_msgs
@@ -39,11 +39,13 @@ find_package(catkin REQUIRED COMPONENTS
     visualization_msgs
 )
 
+find_package(catkin REQUIRED COMPONENTS
+    ${RMAGINE_ROS_DEPS}
+)
+
 include_directories(
     ${catkin_INCLUDE_DIRS}
 )
-
-
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.1.0")
@@ -57,7 +59,6 @@ else()
 endif()
 
 include_directories(${rmagine_INCLUDE_DIRS})
-
 
 
 if(rmagine_embree_FOUND)
@@ -84,19 +85,29 @@ include(ExternalProject)
 include(DownloadNanoflann)
 include_directories(${nanoflann_INCLUDE_DIR})
 
+set(RMCL_LIBRARIES rmcl rmcl_ros)
+
+if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
+    list(APPEND RMCL_LIBRARIES rmcl_embree rmcl_embree_ros)
+endif()
+
+if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
+    list(APPEND RMCL_LIBRARIES rmcl_cuda)
+endif()
+
+if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
+    list(APPEND RMCL_LIBRARIES rmcl_optix rmcl_optix_ros)
+endif()
 
 catkin_package(
     INCLUDE_DIRS 
         include
     CATKIN_DEPENDS 
-        roscpp
-        geometry_msgs
-        sensor_msgs
-        tf2_ros
-        rmcl_msgs
-        image_transport
+        ${RMAGINE_ROS_DEPS}
     DEPENDS
         rmagine
+    LIBRARIES
+        ${RMCL_LIBRARIES}
 )
 
 include_directories(
@@ -123,6 +134,12 @@ target_link_libraries(rmcl
     Eigen3::Eigen
 )
 
+install(TARGETS rmcl
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+
 # CORE LIB ROS
 add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
@@ -131,6 +148,12 @@ add_library(rmcl_ros
 target_link_libraries(rmcl_ros
     ${catkin_LIBRARIES}
     rmcl
+)
+
+install(TARGETS rmcl_ros
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
 )
 
 # EMBREE
@@ -151,6 +174,12 @@ if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
         rmcl
     )
 
+    install(TARGETS rmcl_embree
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+    )
+
     add_library(rmcl_embree_ros
         src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
         src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
@@ -162,6 +191,12 @@ if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
         ${catkin_LIBRARIES}
         rmcl_embree
         rmcl_ros
+    )
+
+    install(TARGETS rmcl_embree_ros
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
     )
 
     add_definitions(-DRMCL_EMBREE)
@@ -185,6 +220,12 @@ if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
     target_link_libraries(rmcl_cuda
         ${rmagine_cuda_LIBRARY}
         ${CUDA_LIBRARIES}
+    )
+
+    install(TARGETS rmcl_cuda
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
     )
 
     add_definitions(-DRMCL_CUDA)
@@ -252,6 +293,10 @@ if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
         src/rmcl/correction/optix/corr_pipelines.cpp
     )
 
+    add_dependencies(rmcl_optix
+        rmcl_optix_ptx
+    )
+
     target_include_directories(rmcl_optix PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     )
@@ -261,6 +306,13 @@ if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
         rmcl_cuda
         ${rmagine_optix_LIBRARY}
     )
+
+    install(TARGETS rmcl_optix
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+    )
+
 
     # ROS code
     add_library(rmcl_optix_ros
@@ -277,6 +329,12 @@ if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
     target_link_libraries(rmcl_optix_ros
         rmcl_optix
         rmcl_ros
+    )
+
+    install(TARGETS rmcl_optix_ros
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
     )
 
     add_definitions(-DRMCL_OPTIX)
@@ -538,6 +596,7 @@ if(RMCL_OPTIX)
     #     ${catkin_LIBRARIES}
     #     rmcl_optix_ros
     # )
+
 endif(RMCL_OPTIX)
 
 endif(BUILD_EXAMPLES)
@@ -619,3 +678,4 @@ endif(RMCL_OPTIX)
 # target_link_libraries(rmcl_correction_optix_benchmark
 #     rmcl_optix
 # )
+
