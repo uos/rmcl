@@ -663,13 +663,13 @@ endif(RMCL_OPTIX)
 
 
 # BENCHMARKS
-# add_executable(rmcl_correction_embree_benchmark
-#     src/nodes/lidar_corrector_embree_benchmark.cpp
-# )
+add_executable(rmcl_correction_embree_benchmark
+    src/nodes/benchmarks/lidar_corrector_embree_benchmark.cpp
+)
 
-# target_link_libraries(rmcl_correction_embree_benchmark
-#     rmcl_embree
-# )
+target_link_libraries(rmcl_correction_embree_benchmark
+    rmcl_embree
+)
 
 # add_executable(rmcl_correction_optix_benchmark
 #     src/nodes/lidar_corrector_optix_benchmark.cpp

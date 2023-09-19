@@ -122,36 +122,22 @@ int main(int argc, char** argv)
     // - 0: measure outer timings
     // - 1: measure inner timings
 
-    int timings = 0;
 
-    if(timings == 0)
+    double el_total = 0.0;
+    for(size_t i=0; i<Nruns; i++)
     {
-        double el_total = 0.0;
-        for(size_t i=0; i<Nruns; i++)
-        {
-            sw();
-            auto corr_res = correct.correct(T_curr);
-            el = sw();
-            el_total += el;
-            T_curr = multNxN(T_curr, corr_res.Tdelta);
-            // std::cout << i << ": " << T_curr[0].t.z << std::endl;
-        }
-
-        std::cout << "- runtime: " << std::endl;
-        std::cout << Nfaces << "," << Nposes << "," << el_total/static_cast<double>(Nruns) << std::endl;
-    } else if(timings == 1) {
-        auto bres = correct.benchmark(T_curr, Nruns);
-        std::cout << "Absolute:"  << std::endl;
-        std::cout << "- Sim: " << bres.sim << std::endl;
-        std::cout << "- Red: " << bres.red << std::endl;
-        std::cout << "- SVD: " << bres.svd << std::endl;
-
-        double total = bres.sim + bres.red + bres.svd;
-        std::cout << "- Total: " << total <<  std::endl;
-        std::cout << "- Relative: " << std::endl;
-        std::cout << bres.sim / total << "," << bres.red / total << "," << bres.svd / total << std::endl;
-        
+        sw();
+        auto corr_res = correct.correct(T_curr);
+        el = sw();
+        el_total += el;
+        T_curr = multNxN(T_curr, corr_res.Tdelta);
+        // std::cout << i << ": " << T_curr[0].t.z << std::endl;
     }
+
+    std::cout << "- runtime: " << std::endl;
+    std::cout << Nfaces << "," << Nposes << "," << el_total/static_cast<double>(Nruns) << std::endl;
+
+
 
     
 
