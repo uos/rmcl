@@ -1,5 +1,5 @@
 
-<div align="center">
+<div align="center" min-width=519px>
   <img src="dat/rmcl_logo_landscape_small.png" alt="RMCL" height=170 />  
 </div>
 
