@@ -1,9 +1,15 @@
-[[Code](https://github.com/uos/rmcl)] [[Wiki](https://github.com/uos/rmcl/wiki)]
+
+<p align="center">
+  <a href="https://bun.sh"><img src="dat/rmcl_logo_landscape_small.png" alt="Logo" height=170></a>
+</p>
 
 
-![Teaser](dat/rmcl_logo_landscape_small.png)
+<!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
 
 Software Tools for Mobile Robot Localization in 3D Meshes.
+
+
+[Code](https://github.com/uos/rmcl) --- [Wiki](https://github.com/uos/rmcl/wiki) --- [Youtube](https://youtube.com/playlist?list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI&si=ZY5b2W6ubh33h5BK)
 
 ## Installation
 
