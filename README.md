@@ -1,7 +1,10 @@
 
 <div align="center">
   <img src="dat/rmcl_logo_landscape_small.png" alt="RMCL" style="max-width:519px" width=100% max-width=519px />
+  
 </div>
+
+![image](dat/rmcl_logo_landscape_small.png){width=20%}
 
 <!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
 <div align="center">
