@@ -283,11 +283,11 @@ To learn how to use RMCL ROS nodes in your project, visit https://github.com/aoc
 
 To learn how to use RMCL library in your Node: `src/nodes/examples`.
 
-### Mesh Navigation
+## Mesh Navigation
 
 To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: https://github.com/naturerobots/mesh_navigation
 
-# Roadmap
+## Roadmap
 
 This package will be expanded by more functionalities to localize a robot in mesh maps.
 The planned Roadmap is as follows:
