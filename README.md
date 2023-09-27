@@ -1,6 +1,7 @@
 [[Code](https://github.com/uos/rmcl)] [[Wiki](https://github.com/uos/rmcl/wiki)]
 
-# RMCL
+
+![Teaser](dat/rmcl_logo_landscape.png)
 
 Software Tools for Mobile Robot Localization in 3D Meshes.
 
@@ -16,8 +17,8 @@ Clone this repository into your ROS workspace and build it.
 
 # MICP-L
 
-MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Tracing.
-An approach to directly register range sensor data to a mesh in order to localize a mobile robot using simulative projective correspondences (See publications).
+MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Casting.
+An approach to directly register range sensor data to a mesh in order to localize a mobile robot using hardware-accelerated ray casting correspondences (See publications).
 
 Requirements:
 - At least one range sensor equipped and running
@@ -37,7 +38,7 @@ IMU prior is also possible as long as it is integrated as TF-Transform, e.g. wit
 
 ## Publication
 
-- Title: "MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Tracing"
+- Title: "MICP-L: Mesh-based ICP for Robot Localization using Hardware-Accelerated Ray Casting"
 - Preprint: https://arxiv.org/abs/2210.13904
 - Experiments: https://github.com/aock/micp_experiments
 
