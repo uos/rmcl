@@ -1,7 +1,7 @@
 [[Code](https://github.com/uos/rmcl)] [[Wiki](https://github.com/uos/rmcl/wiki)]
 
 
-![Teaser](dat/rmcl_logo_landscape.png)
+![Teaser](dat/rmcl_logo_landscape_small.png)
 
 Software Tools for Mobile Robot Localization in 3D Meshes.
 
