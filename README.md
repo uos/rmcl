@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="dat/rmcl_logo_landscape_small.png" alt="RMCL" style="max-width:519px" width=100% />
+  <img src="dat/rmcl_logo_landscape_small.png" alt="RMCL" style="max-width:519px" width=100% max-width=519px />
 </div>
 
 <!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
