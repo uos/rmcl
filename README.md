@@ -1,15 +1,24 @@
 
 <p align="center">
-  <a href="https://bun.sh"><img src="dat/rmcl_logo_landscape_small.png" alt="Logo" height=170></a>
+  <img src="dat/rmcl_logo_landscape_small.png" alt="Logo" height=170>
 </p>
 
 
 <!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
+<h3 align="center">Software Tools for Mobile Robot Localization in 3D Meshes.</h3>
 
-Software Tools for Mobile Robot Localization in 3D Meshes.
-
-
-[Code](https://github.com/uos/rmcl) --- [Wiki](https://github.com/uos/rmcl/wiki) --- [Youtube](https://youtube.com/playlist?list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI&si=ZY5b2W6ubh33h5BK)
+<div align="center">
+  <a href="https://github.com/uos/rmcl">Code</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://github.com/uos/rmcl/wiki">Documentation</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://youtube.com/playlist?list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI">Videos</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://github.com/uos/rmcl/issues">Issues</a>
+  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+  <a href="https://github.com/aock/rmcl_example">Examples</a>
+  <br />
+</div>
 
 ## Installation
 
