@@ -1,11 +1,13 @@
 
-<p align="center">
+<div align="center">
   <img src="dat/rmcl_logo_landscape_small.png" alt="Logo" height=170>
-</p>
+</div>
 
 
 <!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
-<h3 align="center">Software Tools for Mobile Robot Localization in 3D Meshes.</h3>
+<div align="center">
+<h3 align="center">Software Tools for Mobile Robot Localization in 3D Meshes</h3>
+</div>
 
 <div align="center">
   <a href="https://github.com/uos/rmcl">Code</a>
