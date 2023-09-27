@@ -4,7 +4,7 @@
   
 </div>
 
-![image](dat/rmcl_logo_landscape_small.png){width=20%}
+![image](dat/rmcl_logo_landscape_small.png){width=100% max-width=519px}
 
 <!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
 <div align="center">
