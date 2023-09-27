@@ -22,28 +22,12 @@
   <br />
 </div>
 
-## Installation
 
-Dependencies:
-- Download and install [Rmagine](https://github.com/uos/rmagine)
-  - Recommended: Install OptiX backend if NVIDIA GPU is available
-- ROS (tested with ROS-noetic)
-- Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
 
-Clone this repository into your ROS workspace and build it.
-
-# MICP-L
+## MICP-L
 
 MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Casting.
 An approach to directly register range sensor data to a mesh in order to localize a mobile robot using hardware-accelerated ray casting correspondences (See publications).
-
-Requirements:
-- At least one range sensor equipped and running
-- Triangle mesh as map
-- Prior odometry estimation of the robot given as TF
-
-IMU prior is also possible as long as it is integrated as TF-Transform, e.g. with [Madgwick Filter](http://wiki.ros.org/imu_filter_madgwick).
-
 
 [![Teaser](dat/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
 
@@ -52,14 +36,20 @@ IMU prior is also possible as long as it is integrated as TF-Transform, e.g. wit
 |:--:|:--:|
 | <a href="http://www.youtube.com/watch?v=5pubwlbrpro" target="_blank" ><img src="https://i.ytimg.com/vi/5pubwlbrpro/maxresdefault.jpg" alt="MICP-L Hilti Video" width="100%" style="max-width: 500px" height="auto" /></a> | <a href="http://www.youtube.com/watch?v=8j6ZtYPnFzw" target="_blank" ><img src="https://i.ytimg.com/vi/8j6ZtYPnFzw/maxresdefault.jpg" alt="MICP-L MulRan Video" width="100%" style="max-width: 500px" height="auto" /></a> |
 
+Requirements:
+- At least one range sensor equipped and running
+- Triangle mesh as map
+- Prior odometry estimation of the robot given as TF
 
-## Publication
+IMU prior is also possible as long as it is integrated as TF-Transform, e.g. with [Madgwick Filter](http://wiki.ros.org/imu_filter_madgwick).
+
+### Publication
 
 - Title: "MICP-L: Mesh-based ICP for Robot Localization using Hardware-Accelerated Ray Casting"
 - Preprint: https://arxiv.org/abs/2210.13904
 - Experiments: https://github.com/aock/micp_experiments
 
-## Usage
+### Usage
 
 The `micp_localization` Node starts the process of localizing the robot in a mesh using MICP and a given pose estimate. 
 It is usually started through a Launch-File since it requires a large set of parameters.
@@ -275,11 +265,24 @@ sensors: # list of range sensors - at least one is required
 ```
 
 
+# RMCL - Project
+
+## Installation
+
+Dependencies:
+- Download and install [Rmagine](https://github.com/uos/rmagine)
+  - Recommended: Install OptiX backend if NVIDIA GPU is available
+- ROS (tested with ROS-noetic)
+- Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
+
+Clone this repository into your ROS workspace and build it.
+
 ## Examples
 
 To learn how to use RMCL ROS nodes in your project, visit https://github.com/aock/rmcl_example.
 
 To learn how to use RMCL library in your Node: `src/nodes/examples`.
+
 
 
 # Roadmap
