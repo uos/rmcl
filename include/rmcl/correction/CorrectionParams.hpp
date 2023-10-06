@@ -39,8 +39,8 @@ namespace rmcl {
 
 struct CorrectionParams {
     float max_distance = 0.5;
-    // unsigned int optimization_method = 0; // 0: umeyama reduction
-    // unsigned int iterations = 10; // optimization steps per RCC
+    unsigned int optimization_method = 0; // 0: umeyama reduction
+    unsigned int iterations = 10; // optimization steps per RCC
 };
 
 } // namespace rmcl

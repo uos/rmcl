@@ -35,10 +35,25 @@ int iterations = 10;
 bool disable_registration = false;
 bool generate_evaluation = false;
 
+double max_distance = 0.5;
+double min_range = 0.3;
+double max_range = 80.0;
+
 rm::EmbreeMapPtr mesh;
 rmcl::OnDnCorrectorEmbreePtr corr;
 rmcl::CorrectionParams corr_params;
 rmcl::CorrectionPtr umeyama;
+
+
+// GLOBAL BUFFER STORAGE
+// store valid scan points as mask
+rm::Memory<float> scan_ranges;
+rm::Memory<unsigned int, rm::RAM> scan_mask; 
+
+rm::Memory<rm::Point> dataset_points;
+rm::Memory<rm::Point> model_points;
+rm::Memory<rm::Vector> model_normals;
+rm::Memory<unsigned int> corr_valid;
 
 rm::Transform T_mesh_to_map;
 
@@ -179,10 +194,20 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
 
     // std::cout << "Building Exact Scanner Model" << std::endl;
 
+    size_t n_scan_points = pcl->width * pcl->height;
+    size_t buffer_overestimate = 100;
+
+    if(scan_ranges.size() < n_scan_points)
+    {
+        // std::cout << "RESIZE GLOBAL BUFFERS" << std::endl;
+        scan_ranges.resize(n_scan_points + buffer_overestimate);
+        scan_mask.resize(n_scan_points + buffer_overestimate);
+    }
+
     // get model
-    rm::Memory<float> ranges(pcl->width * pcl->height);
-    ouster_model.dirs.resize(pcl->width * pcl->height);
-    ouster_model.origs.resize(pcl->width * pcl->height);
+    
+    ouster_model.dirs.resize(n_scan_points);
+    ouster_model.origs.resize(n_scan_points);
     ouster_model.width = pcl->width;
     ouster_model.height = pcl->height;
 
@@ -207,7 +232,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     }
 
     size_t n_valid = 0;
-    for (size_t i = 0; i < pcl->width * pcl->height; i++)
+    for (size_t i = 0; i < n_scan_points; i++)
     {
         const uint8_t *data_ptr = &pcl->data[i * pcl->point_step];
 
@@ -250,46 +275,54 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
                     dl = (pl - ol).normalize();
                     ouster_model.origs[i] = ol;
                     ouster_model.dirs[i] = dl;
-                    ranges[i] = range_est;
+                    scan_ranges[i] = range_est;
+                    scan_mask[i] = 1;
 
                     n_valid++;
                 } else {
                     // dir too short
-                    ranges[i] = -0.1;
+                    scan_ranges[i] = -0.1;
+                    scan_mask[i] = 0;
+
                 }
             }
             else
             {
-                ranges[i] = -0.1;
+                scan_ranges[i] = -0.1;
+                scan_mask[i] = 0;
             }
         }
         else
         {
             // TODO: write appropriate things into buffers
-            ranges[i] = -0.1;
+            scan_ranges[i] = -0.1;
         }
     }
 
     corr->setModel(ouster_model);
-    corr->setInputData(ranges);
+    corr->setInputData(scan_ranges);
 
-    std::cout << n_valid << "/" << pcl->width * pcl->height << " valid measurements" << std::endl;
+    std::cout << n_valid << "/" << n_scan_points << " valid measurements" << std::endl;
     // we need robot(base) -> mesh
     // T_b_mesh = Tm_mesh * Tbm
 
     size_t num_registration = iterations;
 
-    if (!disable_registration && num_registration > 0)
+    if(!disable_registration && num_registration > 0)
     {
-        std::cout << "Start Registration Iterations (" << iterations << ")" << std::endl;
+        if(dataset_points.size() < n_scan_points)
+        {   
+            // Resize buffers!
+            dataset_points.resize(n_scan_points + buffer_overestimate);
+            corr_valid.resize(n_scan_points + buffer_overestimate);
+            model_points.resize(n_scan_points + buffer_overestimate);
+            model_normals.resize(n_scan_points + buffer_overestimate);
+        }
 
-        rm::Memory<rm::Point> dataset_points(ranges.size());
-        rm::Memory<rm::Point> model_points(ranges.size());
-        rm::Memory<unsigned int> corr_valid(ranges.size());
+        // std::cout << "Start Registration Iterations (" << iterations << ")" << std::endl;
 
         rm::StopWatchHR sw;
         double el;
-
 
         if(correction_mode == 0)
         {
@@ -320,96 +353,54 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
                 Tom = Tbm * Tdelta * ~Tbo;
             }
             el = sw();
-            std::cout << "- Tbm Registered: " << Tom * Tbo << " in " << el * 1000.0 << " ms" << std::endl;
+            // std::cout << "- Tbm Registered: " << Tom * Tbo << " in " << el * 1000.0 << " ms" << std::endl;
 
         } else if(correction_mode == 1) {
-            rm::Memory<rm::Vector> model_normals(ranges.size());
-
             rm::Transform Tbm = Tom * Tbo;
             rm::Transform T_base_mesh = ~T_mesh_to_map * Tbm;
 
             rm::Memory<rm::Transform> Tbms(1);
             Tbms[0] = T_base_mesh;
 
-            sw();
-            corr->findSPC(Tbms, dataset_points, model_points, corr_valid);
-            el = sw();
-            std::cout << "- findSPC: " << el * 1000.0 << " ms" << std::endl;
+            // sw();
+            corr->findRCC(Tbms, dataset_points, model_points, model_normals, corr_valid);
+            // el = sw();
+            // std::cout << "- findRCC: " << el * 1000.0 << " ms" << std::endl;
 
-            // reconstruct normals: 
-            // problem: what to do with perfect matching points?
-            // TODO write findSPC function that returns normals
+            rm::Memory<rm::Transform> Tdelta_total(Tbms.size()); // size=1
+            Tdelta_total[0] = rm::Transform::Identity();
 
-            // #pragma omp parallel for
-            for(size_t i=0; i<model_points.size(); i++)
-            {
-                if(corr_valid[i] > 0)
-                {
-                    rm::Vector n_delta = dataset_points[i] - model_points[i];
-                    if(n_delta.l2normSquared() > 0.0001)
-                    {
-                        model_normals[i] = n_delta.normalize();
-                    } else {
-                        model_normals[i] = rm::Vector{0.0, 0.0, 1.0};
-                    }
-                }
-            }
+            rmcl::CorrectionPreResults<rm::RAM> res;
+            res.ds.resize(Tbms.size());
+            res.ms.resize(Tbms.size());
+            res.Cs.resize(Tbms.size());
+            res.Ncorr.resize(Tbms.size());
 
-            rm::Transform Tdelta_total = rm::Transform::Identity();
-
-            sw();
+            // sw();
             for(size_t i = 0; i < num_registration; i++)
             {
-                rmcl::CorrectionPreResults<rm::RAM> res;
-                res.ds.resize(Tbms.size());
-                res.ms.resize(Tbms.size());
-                res.Cs.resize(Tbms.size());
-                res.Ncorr.resize(Tbms.size());
-                
-                rmcl::means_covs_online_batched(
-                    dataset_points, model_points, corr_valid, // input
+                rmcl::means_covs_p2l_online_batched(
+                    Tdelta_total,
+                    dataset_points, scan_mask, // from
+                    model_points, model_normals, // to
+                    corr_valid,
+                    max_distance,
                     res.ds, res.ms,                           // outputs
                     res.Cs, res.Ncorr);
 
                 auto Tdeltas = umeyama->correction_from_covs(res);
-                const rm::Transform Tdelta = Tdeltas[0];
-
-                // std::cout << "Tdelta: " << Tdelta << std::endl;
-
-                // update model points
-                #pragma omp parallel for
-                for(size_t i=0; i<model_points.size(); i++)
-                {
-                    if(corr_valid[i] > 0)
-                    {
-                        // 1. read + update dataset point
-                        const rm::Vector dataset_point = Tdelta * dataset_points[i];
-                        const rm::Vector model_point = model_points[i];
-                        const rm::Vector model_normal = model_normals[i];
-
-                        // 2. project new dataset point on plane -> new model point
-                        const float signed_plane_dist = (model_point - dataset_point).dot(model_normal);
-                        const rm::Vector pmesh_s = dataset_point + model_normal * signed_plane_dist; 
-                        
-                        // 3. write
-                        dataset_points[i] = dataset_point;
-                        model_points[i] = pmesh_s;
-                    }
-                }
 
                 // update total delta
-                Tdelta_total = Tdelta_total * Tdelta;
-
+                Tdelta_total[0] = Tdelta_total[0] * Tdeltas[0];
             }
 
+
+
             // Update Tom
-            Tom = Tbm * Tdelta_total * ~Tbo;
+            Tom = Tbm * Tdelta_total[0] * ~Tbo;
+            // el = sw();
 
-            el = sw();
-
-            // std::cout << "Tdelta: " << Tdelta_total << std::endl;
-
-            std::cout << "- Tbm Registered: " << Tom * Tbo << " in " << el * 1000.0 << " ms" << std::endl;
+            std::cout << "- Tbm Registered: " << Tom * Tbo << ", valid corr: " << res.Ncorr[0] << std::endl;
         }
     }
     else
@@ -610,9 +601,7 @@ void loadParameters(ros::NodeHandle nh_p)
     umeyama = std::make_shared<rmcl::Correction>();
 
     // because float is not possible
-    double max_distance = 0.5;
-    double min_range = 0.3;
-    double max_range = 80.0;
+    
 
     nh_p.param<int>("correction_mode", correction_mode, 1);
     nh_p.param<int>("iterations", iterations, 10);

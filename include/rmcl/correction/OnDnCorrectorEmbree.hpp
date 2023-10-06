@@ -138,11 +138,19 @@ public:
      */
     void findRCC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Point> data_points,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
         rmagine::MemoryView<rmagine::Point> model_points,
         rmagine::MemoryView<rmagine::Vector> model_normals,
         rmagine::MemoryView<unsigned int> corr_valid
-    );
+    ) const;
+
+    void findRCC(
+        const rmagine::Transform& Tbm,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<rmagine::Vector> model_normals,
+        rmagine::MemoryView<unsigned int> corr_valid
+    ) const;
 
     void findSPC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
@@ -170,11 +178,20 @@ public:
         return m_model[0];
     }
 
-
 protected:
+
+    // CorrectionResults<rmagine::RAM> correct1(
+    //     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
+    // );
+
+    // CorrectionResults<rmagine::RAM> correct2(
+    //     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
+    // );
+
     rmagine::Memory<float, rmagine::RAM> m_ranges;
 
     CorrectionParams m_params;
+
 
     // TODO: currently unused
     rmagine::SVDPtr m_svd;
