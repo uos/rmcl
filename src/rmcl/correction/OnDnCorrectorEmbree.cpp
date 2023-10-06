@@ -519,7 +519,6 @@ void OnDnCorrectorEmbree::findRCC(
     const rm::Transform Tsb = m_Tsb[0];
 
     const rmagine::Transform Tsm = Tbm * Tsb;
-    // const rmagine::Transform Tms = ~Tsm;
     const rmagine::Transform Tmb = ~Tbm;
 
     for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
