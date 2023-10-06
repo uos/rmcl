@@ -90,11 +90,7 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
                 rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
                 rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
-                #if RMAGINE_EMBREE_VERSION_MAJOR == 4
                 rtcIntersect1(scene, &rayhit);
-                #else // FALLBACK
-                rtcIntersect1(scene, &m_context, &rayhit);
-                #endif
 
                 bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
                 if(sim_valid)
@@ -255,12 +251,7 @@ void SphereCorrectorEmbree::computeCovs(
                 rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
                 rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
-
-                #if RMAGINE_EMBREE_VERSION_MAJOR == 4
                 rtcIntersect1(scene, &rayhit);
-                #else // FALLBACK
-                rtcIntersect1(scene, &m_context, &rayhit);
-                #endif
 
                 bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
                 if(sim_valid)
@@ -413,11 +404,7 @@ void SphereCorrectorEmbree::findSPC(
                 rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
                 rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
 
-                #if RMAGINE_EMBREE_VERSION_MAJOR == 4
                 rtcIntersect1(scene, &rayhit);
-                #else // FALLBACK
-                rtcIntersect1(scene, &m_context, &rayhit);
-                #endif
 
                 bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
                 if(sim_valid)
