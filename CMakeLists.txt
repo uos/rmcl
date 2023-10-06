@@ -48,8 +48,18 @@ include_directories(
 )
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
-set(RMAGINE_MAX_VERSION "2.1.0")
-find_package(rmagine 2.0.0... REQUIRED)
+# set(RMAGINE_MAX_VERSION "2.1.0")
+# find_package(rmagine 2.0.0... REQUIRED)
+
+find_package(rmagine 2.2.0... REQUIRED 
+    COMPONENTS
+        core
+    OPTIONAL_COMPONENTS
+        embree
+        cuda
+        optix
+)
+
 
 
 if(rmagine_VERSION GREATER RMAGINE_MAX_VERSION)
@@ -129,7 +139,7 @@ add_library(rmcl
 # add_dependencies(rmcl nanoflann)
 
 target_link_libraries(rmcl
-    ${rmagine_LIBRARY}
+    rmagine::core
     ${rmagine_ext_LIBRARIES}
     Eigen3::Eigen
 )
@@ -168,8 +178,8 @@ if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
     )
 
     target_link_libraries(rmcl_embree
-        ${rmagine_LIBRARY}
-        ${rmagine_embree_LIBRARY}
+        rmagine::core
+        rmagine::embree
         ${rmagine_ext_LIBRARIES}
         rmcl
     )
@@ -218,7 +228,7 @@ if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
     )
 
     target_link_libraries(rmcl_cuda
-        ${rmagine_cuda_LIBRARY}
+        rmagine::cuda
         ${CUDA_LIBRARIES}
     )
 
@@ -304,7 +314,7 @@ if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
     target_link_libraries(rmcl_optix
         rmcl
         rmcl_cuda
-        ${rmagine_optix_LIBRARY}
+        rmagine::optix
     )
 
     install(TARGETS rmcl_optix
