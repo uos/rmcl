@@ -97,15 +97,16 @@ include_directories(${nanoflann_INCLUDE_DIR})
 
 set(RMCL_LIBRARIES rmcl rmcl_ros)
 
-if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
+if(TARGET rmagine::embree AND NOT ${DISABLE_EMBREE})
     list(APPEND RMCL_LIBRARIES rmcl_embree rmcl_embree_ros)
 endif()
 
-if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
+if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
+    message(WARNING "COMPILE WITH CUDA!")
     list(APPEND RMCL_LIBRARIES rmcl_cuda)
 endif()
 
-if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
+if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     list(APPEND RMCL_LIBRARIES rmcl_optix rmcl_optix_ros)
 endif()
 
@@ -140,7 +141,6 @@ add_library(rmcl
 
 target_link_libraries(rmcl
     rmagine::core
-    ${rmagine_ext_LIBRARIES}
     Eigen3::Eigen
 )
 
@@ -167,7 +167,7 @@ install(TARGETS rmcl_ros
 )
 
 # EMBREE
-if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
+if(TARGET rmagine::embree)
 
     add_library(rmcl_embree
         # Correction
@@ -214,7 +214,7 @@ if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
 endif()
 
 # CUDA
-if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
+if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     # Build cuda related stuff
     find_package(CUDA)
 
@@ -242,7 +242,7 @@ if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
     set(RMCL_CUDA True)
 endif()
 
-if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
+if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     # Build optix related stuff
 
     set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")
