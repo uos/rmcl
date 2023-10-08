@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.2...10.0)
-project(rmcl)
+project(rmcl
+	VERSION 1.1.3
+	)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
@@ -51,7 +53,7 @@ include_directories(
 # set(RMAGINE_MAX_VERSION "2.1.0")
 # find_package(rmagine 2.0.0... REQUIRED)
 
-find_package(rmagine 2.2.0... REQUIRED 
+find_package(rmagine 2.2.1... 
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -59,8 +61,6 @@ find_package(rmagine 2.2.0... REQUIRED
         cuda
         optix
 )
-
-
 
 if(rmagine_VERSION GREATER RMAGINE_MAX_VERSION)
     message(WARNING "Found Rmagine version: ${rmagine_VERSION} > Latest tested Rmagine version: ${RMAGINE_MAX_VERSION}. Compile at your own risk.")

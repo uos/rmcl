@@ -8,12 +8,16 @@
 #include <rmcl/util/conversions.h>
 
 #include <rmcl/math/math.h>
+
+#ifdef RMCL_CUDA
 #include <rmcl/math/math.cuh>
+#include <rmagine/math/math.cuh>
+#endif // RMCL_CUDA
 
 #include <rmagine/util/StopWatch.hpp>
 
 
-#include <rmagine/math/math.cuh>
+
 
 
 
