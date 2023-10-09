@@ -50,8 +50,7 @@ include_directories(
 )
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
-# set(RMAGINE_MAX_VERSION "2.1.0")
-# find_package(rmagine 2.0.0... REQUIRED)
+set(RMAGINE_MAX_VERSION "2.3.0")
 
 find_package(rmagine 2.2.1... 
     COMPONENTS
@@ -71,15 +70,15 @@ endif()
 include_directories(${rmagine_INCLUDE_DIRS})
 
 
-if(rmagine_embree_FOUND)
+if(TARGET rmagine::embree)
     option(DISABLE_EMBREE "Disable Rmagine Embree backend Compilation" FALSE)
 endif()
 
-if(rmagine_cuda_FOUND)
+if(TARGET rmagine::cuda)
     option(DISABLE_CUDA "Disable CUDA related compilations" FALSE)
 endif()
 
-if(rmagine_optix_FOUND)
+if(TARGET rmagine::optix)
     option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
@@ -116,7 +115,7 @@ catkin_package(
     CATKIN_DEPENDS 
         ${RMAGINE_ROS_DEPS}
     DEPENDS
-        rmagine
+        rmagine::core
     LIBRARIES
         ${RMCL_LIBRARIES}
 )
