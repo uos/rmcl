@@ -285,7 +285,9 @@ To learn how to use RMCL library in your Node: `src/nodes/examples`.
 
 ## Mesh Navigation
 
-To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: https://github.com/naturerobots/mesh_navigation
+To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: https://github.com/naturerobots/mesh_navigation as we presented on [ROSCon 2023](https://vimeo.com/879000775):
+
+<a href="https://vimeo.com/879000775" target="_blank" ><img src="dat/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="100%" style="max-width: 300px" height="auto" /></a>
 
 ## Roadmap
 
