@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.2...10.0)
-project(rmcl)
+project(rmcl
+	VERSION 1.1.3
+	)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
@@ -48,10 +50,9 @@ include_directories(
 )
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
-# set(RMAGINE_MAX_VERSION "2.1.0")
-# find_package(rmagine 2.0.0... REQUIRED)
+set(RMAGINE_MAX_VERSION "2.3.0")
 
-find_package(rmagine 2.2.0... REQUIRED 
+find_package(rmagine 2.2.1... 
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -59,8 +60,6 @@ find_package(rmagine 2.2.0... REQUIRED
         cuda
         optix
 )
-
-
 
 if(rmagine_VERSION GREATER RMAGINE_MAX_VERSION)
     message(WARNING "Found Rmagine version: ${rmagine_VERSION} > Latest tested Rmagine version: ${RMAGINE_MAX_VERSION}. Compile at your own risk.")
@@ -71,15 +70,15 @@ endif()
 include_directories(${rmagine_INCLUDE_DIRS})
 
 
-if(rmagine_embree_FOUND)
+if(TARGET rmagine::embree)
     option(DISABLE_EMBREE "Disable Rmagine Embree backend Compilation" FALSE)
 endif()
 
-if(rmagine_cuda_FOUND)
+if(TARGET rmagine::cuda)
     option(DISABLE_CUDA "Disable CUDA related compilations" FALSE)
 endif()
 
-if(rmagine_optix_FOUND)
+if(TARGET rmagine::optix)
     option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
@@ -97,15 +96,16 @@ include_directories(${nanoflann_INCLUDE_DIR})
 
 set(RMCL_LIBRARIES rmcl rmcl_ros)
 
-if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
+if(TARGET rmagine::embree AND NOT ${DISABLE_EMBREE})
     list(APPEND RMCL_LIBRARIES rmcl_embree rmcl_embree_ros)
 endif()
 
-if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
+if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
+    message(WARNING "COMPILE WITH CUDA!")
     list(APPEND RMCL_LIBRARIES rmcl_cuda)
 endif()
 
-if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
+if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     list(APPEND RMCL_LIBRARIES rmcl_optix rmcl_optix_ros)
 endif()
 
@@ -115,7 +115,7 @@ catkin_package(
     CATKIN_DEPENDS 
         ${RMAGINE_ROS_DEPS}
     DEPENDS
-        rmagine
+        rmagine::core
     LIBRARIES
         ${RMCL_LIBRARIES}
 )
@@ -140,7 +140,6 @@ add_library(rmcl
 
 target_link_libraries(rmcl
     rmagine::core
-    ${rmagine_ext_LIBRARIES}
     Eigen3::Eigen
 )
 
@@ -167,7 +166,7 @@ install(TARGETS rmcl_ros
 )
 
 # EMBREE
-if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
+if(TARGET rmagine::embree)
 
     add_library(rmcl_embree
         # Correction
@@ -214,7 +213,7 @@ if(${rmagine_embree_FOUND} AND NOT ${DISABLE_EMBREE})
 endif()
 
 # CUDA
-if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
+if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     # Build cuda related stuff
     find_package(CUDA)
 
@@ -242,7 +241,7 @@ if(${rmagine_cuda_FOUND} AND NOT ${DISABLE_CUDA})
     set(RMCL_CUDA True)
 endif()
 
-if(${rmagine_optix_FOUND} AND NOT ${DISABLE_OPTIX})
+if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     # Build optix related stuff
 
     set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")

@@ -74,9 +74,9 @@ Starting the following Launch-File
 ```
 
 runs the MICP localization. After that a pose has to be given, e.g. by the RViz "2D Pose Estimate" Tool that publishes the results on the `/initialpose` topic.
-Doing that, make sure to the set the Fixed Frame to the map coordinate system.
+Doing that, make sure to set the fixed frame to the map coordinate system.
 RMCL itself doesn't provide any tools to visualize the maps (triangle meshes).
-If you want to see the map in RViz, use for example the `rviz_mesh_plugin` of the [mesh_tools](https://github.com/uos/mesh_tools).
+If you want to see the map in RViz, use for example the `rviz_mesh_plugin` of the [mesh_tools](https://github.com/aock/mesh_tools) (loading a standard mesh format is only available in the fork).
 
 Once the launch file is started, the output in Terminal should look as follows:
 
@@ -136,7 +136,7 @@ More example files for configuration are placed in the `config/examples`.
 
 MICP Localization using a 3D LiDAR and doing the MICP steps completely on the CPU.
 Here the 3D LiDAR is a Velodyne VLP-16 with 16 scan lines.
-The horizontal number of points are reduced to 440 and might be adjusted for your own Velodyne.
+The horizontal number of points is reduced to 440 and might be adjusted for your own Velodyne.
 
 
 File: `config/examples/micp_velodyne_cpu.yaml`
@@ -201,10 +201,10 @@ sensors: # list of range sensors - at least one is required
 
 MICP also supports to localize a robot only equipped with a 2D LiDAR in a 3D map.
 To correct the third dimension the wheels can be used to pull the robot towards the map's ground plane. 
-Thus, you should only run it on a robot that always drives on ground and e.g. cannot fly.
+Thus, you should only run it on a robot that always drives on the ground and e.g. cannot fly.
 In this example, all MICP steps are computed on GPU.
 The robot has four wheels of which the highest points are located relative to `base_footprint` as listed in `origs`.
-By setting a virtual scanner to this wheel positions scanning downwards with a range equals the wheel diameter it is possible to pull the robot to the mesh.
+By setting a virtual scanner to the wheel positions scanning downwards with a constant scanning range equal to the wheel diameter it is possible to pull the robot to the mesh.
 
 
 File: `config/examples/micp_sick_gpu.yaml`
@@ -285,7 +285,9 @@ To learn how to use RMCL library in your Node: `src/nodes/examples`.
 
 ## Mesh Navigation
 
-To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: https://github.com/naturerobots/mesh_navigation
+To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented on [ROSCon 2023](https://vimeo.com/879000775):
+
+<a href="https://vimeo.com/879000775" target="_blank" ><img src="dat/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
 
 ## Roadmap
 
