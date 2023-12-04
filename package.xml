@@ -32,4 +32,6 @@
     <exec_depend>rmcl_msgs</exec_depend>
     <exec_depend>image_transport</exec_depend>
     <exec_depend>visualization_msgs</exec_depend>
+    <depend>rmagine</depend>
+    
 </package>

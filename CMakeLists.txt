@@ -270,6 +270,13 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
         src/rmcl/correction/optix/OnDnCorrectProgramSW.cu
     )
 
+    # TODO: move this to rmagine
+    get_target_property(RMAGINE_OPTIX_INCLUDES rmagine::optix INTERFACE_INCLUDE_DIRECTORIES)
+
+    cuda_include_directories(
+        ${RMAGINE_OPTIX_INCLUDES}
+    )
+
     cuda_compile_ptx(RMAGINE_OPTIX_PTX_FILES
         ${OPTIX_KERNEL_FILES}
     )
@@ -687,4 +694,3 @@ target_link_libraries(rmcl_correction_embree_benchmark
 # target_link_libraries(rmcl_correction_optix_benchmark
 #     rmcl_optix
 # )
-
