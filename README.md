@@ -272,6 +272,7 @@ sensors: # list of range sensors - at least one is required
 Dependencies:
 - Download and install [Rmagine](https://github.com/uos/rmagine) (v > 2.2.0): Compile from source (not debian packages).
   - Recommended: Install OptiX backend if NVIDIA GPU is available
+  - For rmagine version >= 2.2.2 it is possible to put rmagine into your ROS workspace for easier compilation
 - ROS (tested with ROS-noetic)
 - Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
 
