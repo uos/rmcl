@@ -163,7 +163,15 @@ public:
         rmagine::MemoryView<rmagine::Point> model_points,
         rmagine::MemoryView<rmagine::Vector> model_normals,
         rmagine::MemoryView<unsigned int> corr_valid
-    );
+    ) const;
+
+    void findRCC(
+        const rmagine::Transform& Tbm,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<rmagine::Vector> model_normals,
+        rmagine::MemoryView<unsigned int> corr_valid
+    ) const;
 
     void findRCC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
@@ -171,7 +179,7 @@ public:
         rmagine::Memory<rmagine::Point>& model_points,
         rmagine::Memory<rmagine::Vector>& model_normals,
         rmagine::Memory<unsigned int>& corr_valid
-    );
+    ) const;
 
     // TODO: add properly - rmagine
     inline CorrectionParams params() const
