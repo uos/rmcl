@@ -131,13 +131,36 @@ public:
         rmagine::Memory<unsigned int>& corr_valid
     );
     
+    /**
+     * @brief Find Raycasting Correspondences (RCC)
+     * 
+     * @param Tbms 
+     * @param dataset_points 
+     * @param model_points 
+     * @param corr_valid
+     */
+    void findRCC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point> data_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<rmagine::Vector> model_normals,
+        rmagine::MemoryView<unsigned int> corr_valid
+    );
 
-    // TODO: add properly - rmagine
+    void findRCC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<rmagine::Vector>& model_normals,
+        rmagine::Memory<unsigned int>& corr_valid
+    );
+    
     inline CorrectionParams params() const
     {
         return m_params;
     }
 
+    // TODO: add properly - rmagine
     inline rmagine::O1DnModel model() const
     {
         return m_model[0];

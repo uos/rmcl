@@ -128,13 +128,21 @@ public:
         rmagine::MemoryView<unsigned int> corr_valid
     );
 
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<unsigned int>& corr_valid
+    );
+
     /**
      * @brief Find Raycasting Correspondences (RCC)
+     * Output: Fill existing MemoryView
      * 
      * @param Tbms 
      * @param dataset_points 
      * @param model_points 
-     * @param corr_valid 
+     * @param corr_valid
      */
     void findRCC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
@@ -142,13 +150,6 @@ public:
         rmagine::MemoryView<rmagine::Point> model_points,
         rmagine::MemoryView<rmagine::Vector> model_normals,
         rmagine::MemoryView<unsigned int> corr_valid
-    );
-
-    void findSPC(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::Memory<rmagine::Point>& dataset_points,
-        rmagine::Memory<rmagine::Point>& model_points,
-        rmagine::Memory<unsigned int>& corr_valid
     );
 
     void findRCC(
@@ -159,17 +160,17 @@ public:
         rmagine::Memory<unsigned int>& corr_valid
     );
 
-    // TODO: add properly - rmagine
+    
     inline CorrectionParams params() const
     {
         return m_params;
     }
 
+    // TODO: add properly - rmagine
     inline rmagine::OnDnModel model() const
     {
         return m_model[0];
     }
-
 
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;
