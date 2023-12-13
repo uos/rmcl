@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/PointCloud.h>
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
 
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
@@ -12,7 +12,7 @@
 #include <Eigen/Dense>
 
 #include <tf2_ros/transform_listener.h>
-#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 
 
@@ -26,7 +26,7 @@ bool debug_cloud = false;
 ros::Publisher scan_pub;
 ros::Publisher back_conv_pub;
 
-rmcl_msgs::ScanStamped scan;
+rmcl_msgs::msg::ScanStamped scan;
 
 std::shared_ptr<tf2_ros::Buffer> tf_buffer;
 std::shared_ptr<tf2_ros::TransformListener> tf_listener;
@@ -38,7 +38,7 @@ void initScanArray()
 
 void loadParameters(ros::NodeHandle &nh_p)
 {
-    rmcl_msgs::ScanInfo &scanner_model = scan.scan.info;
+    rmcl_msgs::msg::ScanInfo &scanner_model = scan.scan.info;
     if (!nh_p.getParam("model/phi_min", scanner_model.phi_min))
     {
         ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_min");
@@ -90,8 +90,8 @@ void loadParameters(ros::NodeHandle &nh_p)
 }
 
 void convert(
-    const sensor_msgs::PointCloud2::ConstPtr &pcl,
-    rmcl_msgs::ScanStamped &scan)
+    const sensor_msgs::msg::PointCloud2::ConstPtr &pcl,
+    rmcl_msgs::msg::ScanStamped &scan)
 {
     rm::Transform T = rm::Transform::Identity();
 
@@ -99,12 +99,12 @@ void convert(
     {
         // TODO: get transform
 
-        geometry_msgs::TransformStamped Tros;
+        geometry_msgs::msg::TransformStamped Tros;
 
         try
         {
             Tros = tf_buffer->lookupTransform(focal_frame, pcl->header.frame_id,
-                                              ros::Time(0));
+                                              tf2::TimePointZero);
             convert(Tros.transform, T);
         }
         catch (tf2::TransformException &ex)
@@ -216,7 +216,7 @@ void convert(
     }
 }
 
-void veloCB(const sensor_msgs::PointCloud2::ConstPtr &msg)
+void veloCB(const sensor_msgs::msg::PointCloud2::ConstPtr &msg)
 {
     if (focal_frame == "")
     {
@@ -231,7 +231,7 @@ void veloCB(const sensor_msgs::PointCloud2::ConstPtr &msg)
 
     if (debug_cloud)
     {
-        sensor_msgs::PointCloud cloud;
+        sensor_msgs::msg::PointCloud cloud;
         rmcl::convert(scan, cloud);
         cloud.header.stamp = msg->header.stamp;
         back_conv_pub.publish(cloud);
@@ -251,11 +251,11 @@ int main(int argc, char **argv)
     tf_buffer = std::make_shared<tf2_ros::Buffer>();
     tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
-    ROS_INFO("sensor_msgs::PointCloud2 to mamcl_msgs::ScanStamped Converter started");
+    ROS_INFO("sensor_msgs::msg::PointCloud2 to mamcl_msgs::ScanStamped Converter started");
 
-    ros::Subscriber velo_sub = nh.subscribe<sensor_msgs::PointCloud2>("cloud", 1, veloCB);
-    scan_pub = nh_p.advertise<rmcl_msgs::ScanStamped>("scan", 1);
-    back_conv_pub = nh_p.advertise<sensor_msgs::PointCloud>("cloud_back", 1);
+    ros::Subscriber velo_sub = nh.subscribe<sensor_msgs::msg::PointCloud2>("cloud", 1, veloCB);
+    scan_pub = nh_p.advertise<rmcl_msgs::msg::ScanStamped>("scan", 1);
+    back_conv_pub = nh_p.advertise<sensor_msgs::msg::PointCloud>("cloud_back", 1);
 
     ros::spin();
 

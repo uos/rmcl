@@ -8,13 +8,13 @@
 using namespace rmagine;
 using namespace rmcl;
 
-sensor_msgs::CameraInfo info;
+sensor_msgs::msg::CameraInfo info;
 ros::Publisher pub_depth;
 ros::Publisher pub_cloud;
 
 void convert(
-    const rmcl_msgs::DepthStamped& from,
-    sensor_msgs::PointCloud& to,
+    const rmcl_msgs::msg::DepthStamped& from,
+    sensor_msgs::msg::PointCloud& to,
     bool optical = true)
 {
     PinholeModel model;
@@ -35,7 +35,7 @@ void convert(
                 } else {
                     p = model.getDirection(vid, hid) * range;
                 }
-                geometry_msgs::Point32 p_ros;
+                geometry_msgs::msg::Point32 p_ros;
                 p_ros.x = p.x;
                 p_ros.y = p.y;
                 p_ros.z = p.z;
@@ -49,8 +49,8 @@ void convert(
 }
 
 void convert(
-    const sensor_msgs::PointCloud2& from,
-    rmcl_msgs::Depth& to)
+    const sensor_msgs::msg::PointCloud2& from,
+    rmcl_msgs::msg::Depth& to)
 {
     to.data.ranges.resize(from.width * from.height);
 
@@ -108,9 +108,9 @@ void convert(
 }
 
 void convert(
-    const sensor_msgs::CameraInfo& info,
-    const sensor_msgs::PointCloud2& cloud,
-    rmcl_msgs::DepthStamped& depth)
+    const sensor_msgs::msg::CameraInfo& info,
+    const sensor_msgs::msg::PointCloud2& cloud,
+    rmcl_msgs::msg::DepthStamped& depth)
 {
     if(cloud.header.frame_id != info.header.frame_id)
     {
@@ -128,18 +128,18 @@ void convert(
     convert(cloud, depth.depth);
 }
 
-void infoCB(const sensor_msgs::CameraInfo::ConstPtr& msg)
+void infoCB(const sensor_msgs::msg::CameraInfo::ConstPtr& msg)
 {
     info = *msg;
 }
 
-void cloudCB(const sensor_msgs::PointCloud2::ConstPtr& msg)
+void cloudCB(const sensor_msgs::msg::PointCloud2::ConstPtr& msg)
 {
-    rmcl_msgs::DepthStamped out;
+    rmcl_msgs::msg::DepthStamped out;
     convert(info, *msg, out);
     pub_depth.publish(out);
 
-    sensor_msgs::PointCloud out_cloud;
+    sensor_msgs::msg::PointCloud out_cloud;
     convert(out, out_cloud);
     pub_cloud.publish(out_cloud);
 }
@@ -152,11 +152,11 @@ int main(int argc, char** argv)
     ros::NodeHandle nh_p("~");
 
     // two options: either use fixed parameters from yaml or use camera info topic
-    ros::Subscriber sub_info = nh.subscribe<sensor_msgs::CameraInfo>("info", 1, infoCB);
-    ros::Subscriber sub_cloud = nh.subscribe<sensor_msgs::PointCloud2>("cloud", 1, cloudCB);
+    ros::Subscriber sub_info = nh.subscribe<sensor_msgs::msg::CameraInfo>("info", 1, infoCB);
+    ros::Subscriber sub_cloud = nh.subscribe<sensor_msgs::msg::PointCloud2>("cloud", 1, cloudCB);
 
-    pub_depth = nh_p.advertise<rmcl_msgs::DepthStamped>("depth", 1);
-    pub_cloud = nh_p.advertise<sensor_msgs::PointCloud>("depth_cloud", 1);
+    pub_depth = nh_p.advertise<rmcl_msgs::msg::DepthStamped>("depth", 1);
+    pub_cloud = nh_p.advertise<sensor_msgs::msg::PointCloud>("depth_cloud", 1);
 
     ros::spin();
 

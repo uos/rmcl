@@ -4,7 +4,7 @@
 namespace rmcl {
 
 void convert(
-    const sensor_msgs::LaserScan& from, 
+    const sensor_msgs::msg::LaserScan& from, 
     rmagine::SphericalModel& to)
 {
     to.range.min = from.range_min;
@@ -18,33 +18,33 @@ void convert(
 }
 
 void convert(
-    const rmcl_msgs::ScanInfo& from,
+    const rmcl_msgs::msg::ScanInfo& from,
     rmagine::SphericalModel& to)
 {
     to.phi.min = from.phi_min;
     to.phi.inc = from.phi_inc;
-    to.phi.size = from.phi_N;
+    to.phi.size = from.phi_n;
     to.theta.min = from.theta_min;
     to.theta.inc = from.theta_inc;
-    to.theta.size = from.theta_N;
+    to.theta.size = from.theta_n;
     to.range.min = from.range_min;
     to.range.max = from.range_max;
 }
 
 void convert(
-    const sensor_msgs::CameraInfo& from,
+    const sensor_msgs::msg::CameraInfo& from,
     rmagine::PinholeModel& to)
 {
     to.width = from.width;
     to.height = from.height;
-    to.f[0] = from.K[0];
-    to.f[1] = from.K[4];
-    to.c[0] = from.K[2];
-    to.c[1] = from.K[5];
+    to.f[0] = from.k[0];
+    to.f[1] = from.k[4];
+    to.c[0] = from.k[2];
+    to.c[1] = from.k[5];
 }
 
 void convert(
-    const rmcl_msgs::DepthInfo& from,
+    const rmcl_msgs::msg::DepthInfo& from,
     rmagine::PinholeModel& to)
 {
     to.width = from.width;
@@ -58,19 +58,19 @@ void convert(
 }
 
 void convert(
-    const sensor_msgs::CameraInfo& from,
-    rmcl_msgs::DepthInfo& to)
+    const sensor_msgs::msg::CameraInfo& from,
+    rmcl_msgs::msg::DepthInfo& to)
 {
     to.width = from.width;
     to.height = from.height;
-    to.fx = from.K[0];
-    to.fy = from.K[4];
-    to.cx = from.K[2];
-    to.cy = from.K[5];
+    to.fx = from.k[0];
+    to.fy = from.k[4];
+    to.cx = from.k[2];
+    to.cy = from.k[5];
 }
 
 void convert(
-    const rmcl_msgs::O1DnInfo& from,
+    const rmcl_msgs::msg::O1DnInfo& from,
     rmagine::O1DnModel& to)
 {
     to.range.min = from.range_min;
@@ -92,7 +92,7 @@ void convert(
 }
 
 void convert(
-    const rmcl_msgs::OnDnInfo& from,
+    const rmcl_msgs::msg::OnDnInfo& from,
     rmagine::OnDnModel& to)
 {
     to.width = from.width;
@@ -118,7 +118,7 @@ void convert(
 }
 
 void convert(
-    const geometry_msgs::Transform& Tros,
+    const geometry_msgs::msg::Transform& Tros,
     rmagine::Transform& Trm)
 {
     Trm.R.x = Tros.rotation.x;
@@ -132,7 +132,7 @@ void convert(
 
 void convert(
     const rmagine::Transform& Trm,
-    geometry_msgs::Transform& Tros)
+    geometry_msgs::msg::Transform& Tros)
 {
     Tros.rotation.x = Trm.R.x;
     Tros.rotation.y = Trm.R.y;
@@ -144,7 +144,7 @@ void convert(
 }
 
 void convert(
-    const geometry_msgs::Pose& Pros,
+    const geometry_msgs::msg::Pose& Pros,
     rmagine::Transform& Trm)
 {
     Trm.R.x = Pros.orientation.x;
@@ -158,7 +158,7 @@ void convert(
 
 void convert(
     const rmagine::Transform& Trm,
-    geometry_msgs::Pose& Pros)
+    geometry_msgs::msg::Pose& Pros)
 {
     Pros.orientation.x = Trm.R.x;
     Pros.orientation.y = Trm.R.y;
@@ -169,10 +169,10 @@ void convert(
     Pros.position.z = Trm.t.z;
 }
 
-geometry_msgs::Point32 polar2cartesian(
-    const rmcl_msgs::PolarCoord& polar)
+geometry_msgs::msg::Point32 polar2cartesian(
+    const rmcl_msgs::msg::PolarCoord& polar)
 {
-    geometry_msgs::Point32 p_cartesian;
+    geometry_msgs::msg::Point32 p_cartesian;
 
     p_cartesian.x = cos(polar.phi) * cos(polar.theta);
     p_cartesian.y = cos(polar.phi) * sin(polar.theta);
@@ -186,8 +186,8 @@ geometry_msgs::Point32 polar2cartesian(
 }
 
 void convert(
-    const rmcl_msgs::Scan& scan, 
-    std::vector<geometry_msgs::Point32>& cloud)
+    const rmcl_msgs::msg::Scan& scan, 
+    std::vector<geometry_msgs::msg::Point32>& cloud)
 {
     rmagine::SphericalModel model;
     convert(scan.info, model);
@@ -203,7 +203,7 @@ void convert(
             if(model.range.inside(range))
             {
                 rmagine::Vector p = model.getDirection(vid, hid) * range;
-                geometry_msgs::Point32 p_ros;
+                geometry_msgs::msg::Point32 p_ros;
                 p_ros.x = p.x;
                 p_ros.y = p.y;
                 p_ros.z = p.z;
@@ -214,21 +214,21 @@ void convert(
 }
 
 void convert(
-    const rmcl_msgs::ScanStamped& scan, 
-    sensor_msgs::PointCloud& cloud)
+    const rmcl_msgs::msg::ScanStamped& scan, 
+    sensor_msgs::msg::PointCloud& cloud)
 {
     cloud.header = scan.header;
     convert(scan.scan, cloud.points);
 }
 
 void convert(
-    const sensor_msgs::LaserScan& scan_in, 
-    rmcl_msgs::ScanStamped& scan_out)
+    const sensor_msgs::msg::LaserScan& scan_in, 
+    rmcl_msgs::msg::ScanStamped& scan_out)
 {
     scan_out.header = scan_in.header;
     
-    scan_out.scan.info.phi_N = 1;
-    scan_out.scan.info.theta_N = scan_in.ranges.size();
+    scan_out.scan.info.phi_n = 1;
+    scan_out.scan.info.theta_n = scan_in.ranges.size();
 
     scan_out.scan.info.range_min = scan_in.range_min;
     scan_out.scan.info.range_max = scan_in.range_max;

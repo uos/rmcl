@@ -85,7 +85,7 @@
 
 
 // supported sensor data
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
 #include <rmcl_msgs/DepthStamped.h>
 #include <rmcl_msgs/O1DnStamped.h>
 #include <rmcl_msgs/OnDnStamped.h>
@@ -243,48 +243,48 @@ protected:
     // callbacks
     // internal rmcl msgs
     void sphericalCB(
-        const rmcl_msgs::ScanStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::ScanStamped::ConstPtr& msg);
 
     void pinholeCB(
-        const rmcl_msgs::DepthStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::DepthStamped::ConstPtr& msg);
 
     void o1dnCB(
-        const rmcl_msgs::O1DnStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::O1DnStamped::ConstPtr& msg);
 
     void ondnCB(
-        const rmcl_msgs::OnDnStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::OnDnStamped::ConstPtr& msg);
 
     // external commonly used messages
     void pclSphericalCB(
-        const sensor_msgs::PointCloud2::ConstPtr& msg);
+        const sensor_msgs::msg::PointCloud2::ConstPtr& msg);
 
     void pclPinholeCB(
-        const sensor_msgs::PointCloud2::ConstPtr& msg);
+        const sensor_msgs::msg::PointCloud2::ConstPtr& msg);
 
     void laserCB(
-        const sensor_msgs::LaserScan::ConstPtr& msg);
+        const sensor_msgs::msg::LaserScan::ConstPtr& msg);
 
     void imageCB(
-        const sensor_msgs::Image::ConstPtr& msg);
+        const sensor_msgs::msg::Image::ConstPtr& msg);
     
 
     // info callbacks
     // internal
     void sphericalModelCB(
-        const rmcl_msgs::ScanInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::ScanInfo::ConstPtr& msg);
 
     void pinholeModelCB(
-        const rmcl_msgs::DepthInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::DepthInfo::ConstPtr& msg);
 
     void o1dnModelCB(
-        const rmcl_msgs::O1DnInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::O1DnInfo::ConstPtr& msg);
 
     void ondnModelCB(
-        const rmcl_msgs::OnDnInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::OnDnInfo::ConstPtr& msg);
     
     // external commonly used
     void cameraInfoCB(
-        const sensor_msgs::CameraInfo::ConstPtr& msg);
+        const sensor_msgs::msg::CameraInfo::ConstPtr& msg);
 };
 
 using MICPRangeSensorPtr = std::shared_ptr<MICPRangeSensor>;

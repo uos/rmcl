@@ -41,12 +41,14 @@
 #ifndef RMCL_PINHOLE_CORRECTOR_OPTIX_ROS_HPP
 #define RMCL_PINHOLE_CORRECTOR_OPTIX_ROS_HPP
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <tf2_ros/buffer.h>
+
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 // Rmagine deps
 #include <rmagine/map/EmbreeMap.hpp>
@@ -55,7 +57,7 @@
 #include "PinholeCorrectorOptix.hpp"
 
 // RCML msgs
-#include <rmcl_msgs/Depth.h>
+#include <rmcl_msgs/msg/depth.hpp>
 
 #include <memory>
 
@@ -71,15 +73,15 @@ public:
     using Base::setParams;
 
     using Base::setModel;
-    void setModel(const rmcl_msgs::DepthInfo& info);
+    void setModel(const rmcl_msgs::msg::DepthInfo& info);
 
     using Base::setInputData;
     void setInputData(const std::vector<float>& ranges);
 
-    void setModelAndInputData(const rmcl_msgs::Depth& depth);
+    void setModelAndInputData(const rmcl_msgs::msg::Depth& depth);
 
     using Base::setTsb;
-    void setTsb(const geometry_msgs::Transform& Tsb);
+    void setTsb(const geometry_msgs::msg::Transform& Tsb);
     void setTsb(const std::string& sensor_frame, 
         const std::string& base_frame);
 
@@ -88,27 +90,27 @@ public:
     using Base::correct;
 
     CorrectionResults<rmagine::VRAM_CUDA> correct(
-        const rmagine::Memory<geometry_msgs::Pose, rmagine::RAM>& Tbms
+        const rmagine::Memory<geometry_msgs::msg::Pose, rmagine::RAM>& Tbms
     );
 
     CorrectionResults<rmagine::VRAM_CUDA> correct(
-        const std::vector<geometry_msgs::Pose>& Tbms
+        const std::vector<geometry_msgs::msg::Pose>& Tbms
     );
 
     CorrectionResults<rmagine::VRAM_CUDA> correct(
-        const geometry_msgs::Pose& Tbm
+        const geometry_msgs::msg::Pose& Tbm
     );
 
     CorrectionResults<rmagine::VRAM_CUDA> correct(
-        const rmagine::Memory<geometry_msgs::Transform, rmagine::RAM>& Tbms
+        const rmagine::Memory<geometry_msgs::msg::Transform, rmagine::RAM>& Tbms
     );
 
     CorrectionResults<rmagine::VRAM_CUDA> correct(
-        const std::vector<geometry_msgs::Transform>& Tbms
+        const std::vector<geometry_msgs::msg::Transform>& Tbms
     );
 
     CorrectionResults<rmagine::VRAM_CUDA> correct(
-        const geometry_msgs::Transform& Tbm
+        const geometry_msgs::msg::Transform& Tbm
     );
 
 private:

@@ -13,7 +13,7 @@
 #include <rmagine/util/prints.h>
 
 // RCML msgs
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
 
 // RMCL code
 #include <rmcl/correction/OnDnCorrectorEmbreeROS.hpp>
@@ -67,14 +67,14 @@ std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
 
 // Estimate this
-geometry_msgs::TransformStamped T_odom_map;
+geometry_msgs::msg::TransformStamped T_odom_map;
 Transform                       Tom;
 std::mutex                      T_odom_map_mutex;
 // dynamic: ekf
-geometry_msgs::TransformStamped T_base_odom;
+geometry_msgs::msg::TransformStamped T_base_odom;
 Transform                       Tbo;
 // static: urdf
-geometry_msgs::TransformStamped T_sensor_base;
+geometry_msgs::msg::TransformStamped T_sensor_base;
 Transform                       Tsb;
 
 
@@ -105,7 +105,7 @@ void publish_model(const OnDnModel& model)
         Vector dir = model.getDirection(0, i);
         
         Vector end = orig + dir * scale;
-        geometry_msgs::Point orig_ros, end_ros;
+        geometry_msgs::msg::Point orig_ros, end_ros;
         orig_ros.x = orig.x;
         orig_ros.y = orig.y;
         orig_ros.z = orig.z;
@@ -132,7 +132,7 @@ bool fetchTF()
     if(has_base_frame)
     {
         try {
-            T_sensor_base = tfBuffer->lookupTransform(base_frame, sensor_frame, ros::Time(0));
+            T_sensor_base = tfBuffer->lookupTransform(base_frame, sensor_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -159,7 +159,7 @@ bool fetchTF()
     if(has_odom_frame && has_base_frame)
     {
         try{
-            T_base_odom = tfBuffer->lookupTransform(odom_frame, base_frame, ros::Time(0));
+            T_base_odom = tfBuffer->lookupTransform(odom_frame, base_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -222,7 +222,7 @@ void correct()
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame
-void poseCB(geometry_msgs::PoseStamped msg)
+void poseCB(geometry_msgs::msg::PoseStamped msg)
 {
     std::lock_guard<std::mutex> guard(T_odom_map_mutex);
 
@@ -240,7 +240,7 @@ void poseCB(geometry_msgs::PoseStamped msg)
 
 // Storing scan information globally
 // updating real data inside the global scan corrector
-void scanCB(const sensor_msgs::LaserScan::ConstPtr& msg)
+void scanCB(const sensor_msgs::msg::LaserScan::ConstPtr& msg)
 {
     sensor_frame = msg->header.frame_id;
 
@@ -264,7 +264,7 @@ void updateTF()
     // std::cout << "updateTF" << std::endl;
     static tf2_ros::TransformBroadcaster br;
     
-    geometry_msgs::TransformStamped T;
+    geometry_msgs::msg::TransformStamped T;
 
     // What is the source frame?
     if(has_odom_frame && has_base_frame)
@@ -394,8 +394,8 @@ int main(int argc, char** argv)
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
     model_pub = nh_p.advertise<visualization_msgs::Marker>("model", 1);
-    ros::Subscriber sub = nh.subscribe<sensor_msgs::LaserScan>("scan", 1, scanCB);
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
+    ros::Subscriber sub = nh.subscribe<sensor_msgs::msg::LaserScan>("scan", 1, scanCB);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::msg::PoseStamped>("pose", 1, poseCB);
 
 
     ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");

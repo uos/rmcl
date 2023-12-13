@@ -9,14 +9,14 @@
 using namespace rmagine;
 using namespace rmcl;
 
-sensor_msgs::CameraInfo info;
+sensor_msgs::msg::CameraInfo info;
 ros::Publisher pub_depth;
 ros::Publisher pub_cloud;
 image_transport::Publisher pub_image;
 
 void convert(
-    const rmcl_msgs::DepthStamped& from,
-    sensor_msgs::PointCloud& to,
+    const rmcl_msgs::msg::DepthStamped& from,
+    sensor_msgs::msg::PointCloud& to,
     bool optical = true)
 {
     PinholeModel model;
@@ -42,7 +42,7 @@ void convert(
 
                 // dir /= dir.z;
                 Vector p = dir * range;
-                geometry_msgs::Point32 p_ros;
+                geometry_msgs::msg::Point32 p_ros;
                 p_ros.x = p.x;
                 p_ros.y = p.y;
                 p_ros.z = p.z;
@@ -57,8 +57,8 @@ void convert(
 
 
 void convert(
-    const sensor_msgs::Image::ConstPtr& from,
-    rmcl_msgs::Depth& to)
+    const sensor_msgs::msg::Image::ConstPtr& from,
+    rmcl_msgs::msg::Depth& to)
 {
     
     PinholeModel model;
@@ -99,9 +99,9 @@ void convert(
 }
 
 void convert(
-    const sensor_msgs::CameraInfo& info,
-    const sensor_msgs::Image::ConstPtr& dimage,
-    rmcl_msgs::DepthStamped& depth)
+    const sensor_msgs::msg::CameraInfo& info,
+    const sensor_msgs::msg::Image::ConstPtr& dimage,
+    rmcl_msgs::msg::DepthStamped& depth)
 {
     if(dimage->header.frame_id != info.header.frame_id)
     {
@@ -119,14 +119,14 @@ void convert(
     convert(dimage, depth.depth);
 }
 
-void infoCB(const sensor_msgs::CameraInfo::ConstPtr& msg)
+void infoCB(const sensor_msgs::msg::CameraInfo::ConstPtr& msg)
 {
     info = *msg;
 }
 
-void imageCB(const sensor_msgs::Image::ConstPtr& msg)
+void imageCB(const sensor_msgs::msg::Image::ConstPtr& msg)
 {
-    rmcl_msgs::DepthStamped out;
+    rmcl_msgs::msg::DepthStamped out;
     
     convert(info, msg, out);
 
@@ -135,7 +135,7 @@ void imageCB(const sensor_msgs::Image::ConstPtr& msg)
         // std::cout << "Publish " << out.depth.ranges.size() << " points." << std::endl;
         pub_depth.publish(out);
 
-        sensor_msgs::PointCloud out_cloud;
+        sensor_msgs::msg::PointCloud out_cloud;
         convert(out, out_cloud);
         
         pub_cloud.publish(out_cloud);
@@ -153,10 +153,10 @@ int main(int argc, char** argv)
     image_transport::Subscriber sub_image = it.subscribe("image", 1, imageCB);
 
     // two options: either use fixed parameters from yaml or use camera info topic
-    ros::Subscriber sub_info = nh.subscribe<sensor_msgs::CameraInfo>("info", 1, infoCB);
+    ros::Subscriber sub_info = nh.subscribe<sensor_msgs::msg::CameraInfo>("info", 1, infoCB);
 
-    pub_depth = nh_p.advertise<rmcl_msgs::DepthStamped>("depth", 1);
-    pub_cloud = nh_p.advertise<sensor_msgs::PointCloud>("depth_cloud", 1);
+    pub_depth = nh_p.advertise<rmcl_msgs::msg::DepthStamped>("depth", 1);
+    pub_cloud = nh_p.advertise<sensor_msgs::msg::PointCloud>("depth_cloud", 1);
     pub_image = it.advertise("image_filtered", 1);
 
     ros::spin();

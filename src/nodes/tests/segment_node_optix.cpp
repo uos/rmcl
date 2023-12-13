@@ -13,7 +13,7 @@
 #include <rmagine/simulation/SimulationResults.hpp>
 
 // RCML msgs
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
 
 // RMCL code
 #include <rmcl/util/conversions.h>
@@ -51,7 +51,7 @@ std::shared_ptr<tf2_ros::TransformListener> tfListener;
 
 std::string map_frame;
 
-geometry_msgs::TransformStamped T_sensor_map;
+geometry_msgs::msg::TransformStamped T_sensor_map;
 
 ros::Publisher pub_outlier_scan;
 ros::Publisher pub_outlier_map;
@@ -59,10 +59,10 @@ ros::Publisher pub_outlier_map;
 
 void scanCB(const ScanStamped::ConstPtr& msg)
 {
-    geometry_msgs::TransformStamped T_sensor_map;
+    geometry_msgs::msg::TransformStamped T_sensor_map;
     
     try{
-        T_sensor_map = tfBuffer->lookupTransform(map_frame, msg->header.frame_id, ros::Time(0));
+        T_sensor_map = tfBuffer->lookupTransform(map_frame, msg->header.frame_id, tf2::TimePointZero);
     }
     catch (tf2::TransformException &ex) {
         // ROS_WARN("%s", ex.what());
@@ -93,11 +93,11 @@ void scanCB(const ScanStamped::ConstPtr& msg)
     // float total_error = 0.0;
     // float dev = 0.0;
 
-    sensor_msgs::PointCloud cloud_outlier_scan;
+    sensor_msgs::msg::PointCloud cloud_outlier_scan;
     cloud_outlier_scan.header.stamp = msg->header.stamp;
     cloud_outlier_scan.header.frame_id = msg->header.frame_id;
 
-    sensor_msgs::PointCloud cloud_outlier_map;
+    sensor_msgs::msg::PointCloud cloud_outlier_map;
     cloud_outlier_map.header.stamp = msg->header.stamp;
     cloud_outlier_map.header.frame_id = msg->header.frame_id;
 
@@ -135,7 +135,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
                         // something is in front of surface
                         if( plane_distance > min_dist_outlier_scan )
                         {
-                            geometry_msgs::Point32 p_ros;
+                            geometry_msgs::msg::Point32 p_ros;
                             p_ros.x = preal_s.x;
                             p_ros.y = preal_s.y;
                             p_ros.z = preal_s.z;
@@ -145,7 +145,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
                         // ray cutted the surface
                         if( plane_distance > min_dist_outlier_map )
                         {
-                            geometry_msgs::Point32 p_ros;
+                            geometry_msgs::msg::Point32 p_ros;
                             p_ros.x = pint_s.x;
                             p_ros.y = pint_s.y;
                             p_ros.z = pint_s.z;
@@ -155,7 +155,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
                     
                 } else {
                     // point in real scan but not in simulated
-                    geometry_msgs::Point32 p_ros;
+                    geometry_msgs::msg::Point32 p_ros;
                     p_ros.x = preal_s.x;
                     p_ros.y = preal_s.y;
                     p_ros.z = preal_s.z;
@@ -166,7 +166,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
                 {
                     // sim hits surface but real not: map could be wrong
                     Vector pint_s = model.getDirection(vid, hid) * range_sim;
-                    geometry_msgs::Point32 p_ros;
+                    geometry_msgs::msg::Point32 p_ros;
                     p_ros.x = pint_s.x;
                     p_ros.y = pint_s.y;
                     p_ros.z = pint_s.z;
@@ -209,8 +209,8 @@ int main(int argc, char** argv)
 
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
 
-    pub_outlier_scan = nh_p.advertise<sensor_msgs::PointCloud>("outlier_scan", 1);
-    pub_outlier_map = nh_p.advertise<sensor_msgs::PointCloud>("outlier_map", 1);
+    pub_outlier_scan = nh_p.advertise<sensor_msgs::msg::PointCloud>("outlier_scan", 1);
+    pub_outlier_map = nh_p.advertise<sensor_msgs::msg::PointCloud>("outlier_map", 1);
 
     ros::spin();
 

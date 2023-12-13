@@ -16,7 +16,7 @@
 
 
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
 using namespace rmcl;
@@ -35,12 +35,12 @@ float adaptive_max_dist_min = 0.15;
 
 
 // Estimate this
-geometry_msgs::TransformStamped T_odom_map;
+geometry_msgs::msg::TransformStamped T_odom_map;
 Transform Tom;
 std::mutex                      T_odom_map_mutex;
 
 // dynamic: ekf
-geometry_msgs::TransformStamped T_base_odom;
+geometry_msgs::msg::TransformStamped T_base_odom;
 std::mutex                      T_base_odom_mutex;
 Transform Tbo;
 
@@ -72,7 +72,7 @@ void fetchTF()
     if(has_odom_frame)
     {
         try {
-            T_base_odom = tf_buffer->lookupTransform(odom_frame, base_frame, ros::Time(0));
+            T_base_odom = tf_buffer->lookupTransform(odom_frame, base_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -98,7 +98,7 @@ void updateTF()
 {
     static tf2_ros::TransformBroadcaster br;
     
-    geometry_msgs::TransformStamped T;
+    geometry_msgs::msg::TransformStamped T;
 
     // What is the source frame?
     if(has_odom_frame)
@@ -248,7 +248,7 @@ void correctOnce()
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame
-void poseCB(geometry_msgs::PoseStamped msg)
+void poseCB(geometry_msgs::msg::PoseStamped msg)
 {
     std::lock_guard<std::mutex> guard(T_odom_map_mutex);
 
@@ -270,7 +270,7 @@ void poseCB(geometry_msgs::PoseStamped msg)
     Transform Tbm = Tpm * initial_pose_offset;
 
     // set T_base_map
-    // geometry_msgs::TransformStamped T_base_map;
+    // geometry_msgs::msg::TransformStamped T_base_map;
     // T_base_map.header.frame_id = map_frame;
     // T_base_map.child_frame_id = base_frame;
     // convert(Tbm, T_base_map.transform);
@@ -282,9 +282,9 @@ void poseCB(geometry_msgs::PoseStamped msg)
     // T_odom_map = T_base_map * ~T_base_odom;
 }
 
-void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
+void poseWcCB(geometry_msgs::msg::PoseWithCovarianceStamped msg)
 {
-    geometry_msgs::PoseStamped pose;
+    geometry_msgs::msg::PoseStamped pose;
     pose.header = msg.header;
     pose.pose = msg.pose.pose;
 
@@ -416,8 +416,8 @@ int main(int argc, char** argv)
     }
 
 
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
-    ros::Subscriber pose_wc_sub = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::msg::PoseStamped>("pose", 1, poseCB);
+    ros::Subscriber pose_wc_sub = nh.subscribe<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);
 
 
     // CORRECTION THREAD

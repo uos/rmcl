@@ -41,23 +41,23 @@
 #ifndef RMCL_CONVERSIONS_HPP
 #define RMCL_CONVERSIONS_HPP
 
-#include <rmcl_msgs/ScanStamped.h>
-#include <rmcl_msgs/ScanInfo.h>
-#include <rmcl_msgs/PolarCoord.h>
-#include <rmcl_msgs/DepthStamped.h>
-#include <rmcl_msgs/O1DnStamped.h>
-#include <rmcl_msgs/OnDnStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
+#include <rmcl_msgs/msg/scan_info.hpp>
+#include <rmcl_msgs/msg/polar_coord.hpp>
+#include <rmcl_msgs/msg/depth_stamped.hpp>
+#include <rmcl_msgs/msg/o1_dn_stamped.hpp>
+#include <rmcl_msgs/msg/on_dn_stamped.hpp>
 
 
-#include <sensor_msgs/PointCloud.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/LaserScan.h>
-#include <geometry_msgs/Point.h>
-#include <geometry_msgs/Point32.h>
-#include <geometry_msgs/Transform.h>
-#include <geometry_msgs/Pose.h>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/point32.hpp>
+#include <geometry_msgs/msg/transform.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 
 #include <rmagine/types/Memory.hpp>
 
@@ -68,64 +68,64 @@
 namespace rmcl {
 
 void convert(
-    const sensor_msgs::LaserScan& from, 
+    const sensor_msgs::msg::LaserScan& from, 
     rmagine::SphericalModel& to);
 
 void convert(
-    const rmcl_msgs::ScanInfo& from,
+    const rmcl_msgs::msg::ScanInfo& from,
     rmagine::SphericalModel& to);
 
 void convert(
-    const sensor_msgs::CameraInfo& from,
+    const sensor_msgs::msg::CameraInfo& from,
     rmagine::PinholeModel& to);
 
 void convert(
-    const rmcl_msgs::DepthInfo& from,
+    const rmcl_msgs::msg::DepthInfo& from,
     rmagine::PinholeModel& to);
 
 void convert(
-    const sensor_msgs::CameraInfo& from,
-    rmcl_msgs::DepthInfo& to);
+    const sensor_msgs::msg::CameraInfo& from,
+    rmcl_msgs::msg::DepthInfo& to);
 
 void convert(
-    const rmcl_msgs::O1DnInfo& from,
+    const rmcl_msgs::msg::O1DnInfo& from,
     rmagine::O1DnModel& to);
 
 void convert(
-    const rmcl_msgs::OnDnInfo& from,
+    const rmcl_msgs::msg::OnDnInfo& from,
     rmagine::OnDnModel& to);
 
 
 void convert(
-    const geometry_msgs::Transform& Tros,
+    const geometry_msgs::msg::Transform& Tros,
     rmagine::Transform& Trm);
 
 void convert(
     const rmagine::Transform& Trm,
-    geometry_msgs::Transform& Tros);
+    geometry_msgs::msg::Transform& Tros);
 
 void convert(
-    const geometry_msgs::Pose& Pros,
+    const geometry_msgs::msg::Pose& Pros,
     rmagine::Transform& Trm);
 
 void convert(
     const rmagine::Transform& Trm,
-    geometry_msgs::Pose& Pros);
+    geometry_msgs::msg::Pose& Pros);
 
-geometry_msgs::Point32 polar2cartesian(
-    const rmcl_msgs::PolarCoord& polar);
-
-void convert(
-    const rmcl_msgs::Scan& scan, 
-    std::vector<geometry_msgs::Point32>& cloud);
+geometry_msgs::msg::Point32 polar2cartesian(
+    const rmcl_msgs::msg::PolarCoord& polar);
 
 void convert(
-    const rmcl_msgs::ScanStamped& scan, 
-    sensor_msgs::PointCloud& cloud);
+    const rmcl_msgs::msg::Scan& scan, 
+    std::vector<geometry_msgs::msg::Point32>& cloud);
 
 void convert(
-    const sensor_msgs::LaserScan& scan_in, 
-    rmcl_msgs::ScanStamped& scan_out);
+    const rmcl_msgs::msg::ScanStamped& scan, 
+    sensor_msgs::msg::PointCloud& cloud);
+
+void convert(
+    const sensor_msgs::msg::LaserScan& scan_in, 
+    rmcl_msgs::msg::ScanStamped& scan_out);
 
 } // namespace rmcl 
 

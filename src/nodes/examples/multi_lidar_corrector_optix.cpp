@@ -13,7 +13,7 @@
 #include <rmagine/math/math.cuh>
 
 // RCML msgs
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
 
 // RMCL code
 #include <rmcl/correction/SphereCorrectorOptixROS.hpp>
@@ -65,11 +65,11 @@ std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
 
 // Estimate this
-geometry_msgs::TransformStamped T_odom_map;
+geometry_msgs::msg::TransformStamped T_odom_map;
 // dynamic: ekf
-geometry_msgs::TransformStamped T_base_odom;
+geometry_msgs::msg::TransformStamped T_base_odom;
 // static: urdf
-geometry_msgs::TransformStamped T_sensor_base;
+geometry_msgs::msg::TransformStamped T_sensor_base;
 
 
 /**
@@ -82,7 +82,7 @@ bool fetchTF()
     if(has_base_frame)
     {
         try{
-            T_sensor_base = tfBuffer->lookupTransform(base_frame, sensor_frame, ros::Time(0));
+            T_sensor_base = tfBuffer->lookupTransform(base_frame, sensor_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -107,7 +107,7 @@ bool fetchTF()
     if(has_odom_frame && has_base_frame)
     {
         try{
-            T_base_odom = tfBuffer->lookupTransform(odom_frame, base_frame, ros::Time(0));
+            T_base_odom = tfBuffer->lookupTransform(odom_frame, base_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -134,13 +134,13 @@ void vizOnce()
     Memory<Transform, RAM_CUDA> poses_ram;
     poses_ram = poses;
 
-    geometry_msgs::PoseArray P;
+    geometry_msgs::msg::PoseArray P;
     P.header.stamp = ros::Time::now();
     P.header.frame_id = map_frame;
 
     for(size_t i=0; i<poses_ram.size(); i++)
     {
-        geometry_msgs::Pose pose_ros;
+        geometry_msgs::msg::Pose pose_ros;
         convert(poses_ram[i], pose_ros);
         P.poses.push_back(pose_ros);
     }
@@ -149,14 +149,14 @@ void vizOnce()
 
     if(clusters.size() > 0)
     {
-        geometry_msgs::PoseArray P_best;
+        geometry_msgs::msg::PoseArray P_best;
         P_best.header.stamp = ros::Time::now();
         P_best.header.frame_id = map_frame;
 
         auto best_cluster = clusters[0];
         for(size_t id : best_cluster)
         {
-            geometry_msgs::Pose pose_ros;
+            geometry_msgs::msg::Pose pose_ros;
             convert(poses_ram[id], pose_ros);
             P_best.poses.push_back(pose_ros);
         }
@@ -256,7 +256,7 @@ void correctOnce()
     // T_odom_map = T_base_map * ~T_base_odom;
 }
 
-void poseCBRandom(geometry_msgs::PoseStamped msg)
+void poseCBRandom(geometry_msgs::msg::PoseStamped msg)
 {
     map_frame = msg.header.frame_id;
     pose_received = true;
@@ -302,13 +302,13 @@ void poseCBRandom(geometry_msgs::PoseStamped msg)
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame
-void poseCB(geometry_msgs::PoseStamped msg)
+void poseCB(geometry_msgs::msg::PoseStamped msg)
 {
     map_frame = msg.header.frame_id;
     pose_received = true;
 
     // set T_base_map
-    geometry_msgs::TransformStamped T_base_map;
+    geometry_msgs::msg::TransformStamped T_base_map;
     T_base_map.header.frame_id = map_frame;
     T_base_map.child_frame_id = base_frame;
     T_base_map.transform <<= msg.pose;
@@ -340,7 +340,7 @@ void updateTF()
 {
     static tf2_ros::TransformBroadcaster br;
     
-    geometry_msgs::TransformStamped T;
+    geometry_msgs::msg::TransformStamped T;
 
     // What is the source frame?
     if(has_odom_frame && has_base_frame)
@@ -410,12 +410,12 @@ int main(int argc, char** argv)
     tfBuffer.reset(new tf2_ros::Buffer);
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
-    // cloud_pub = nh_p.advertise<sensor_msgs::PointCloud>("sim_cloud", 1);
-    // pose_pub = nh_p.advertise<geometry_msgs::PoseStamped>("sim_pose", 1);
-    pub_poses = nh_p.advertise<geometry_msgs::PoseArray>("particles", 1);
-    pub_best_poses = nh_p.advertise<geometry_msgs::PoseArray>("best_particles", 1);
+    // cloud_pub = nh_p.advertise<sensor_msgs::msg::PointCloud>("sim_cloud", 1);
+    // pose_pub = nh_p.advertise<geometry_msgs::msg::PoseStamped>("sim_pose", 1);
+    pub_poses = nh_p.advertise<geometry_msgs::msg::PoseArray>("particles", 1);
+    pub_best_poses = nh_p.advertise<geometry_msgs::msg::PoseArray>("best_particles", 1);
     ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCBRandom);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::msg::PoseStamped>("pose", 1, poseCBRandom);
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 

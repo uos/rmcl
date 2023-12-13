@@ -37,12 +37,12 @@
 
 #include <rmagine/types/Memory.hpp>
 #include <rmagine/types/sensor_models.h>
-#include <rmcl_msgs/Scan.h>
+#include <rmcl_msgs/msg/scan.hpp>
 
 namespace rmcl {
 
 static void fill(
-    rmcl_msgs::Scan& scan, 
+    rmcl_msgs::msg::Scan& scan, 
     const rmagine::Memory<float, rmagine::RAM>& ranges)
 {
     rmagine::SphericalModel model;
@@ -59,7 +59,7 @@ static void fill(
     }
 }
 
-static void fillEmpty(rmcl_msgs::Scan& scan)
+static void fillEmpty(rmcl_msgs::msg::Scan& scan)
 {
     rmagine::SphericalModel model;
     convert(scan.info, model);

@@ -3,7 +3,7 @@
 #include <vector>
 
 
-#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <rmcl/util/conversions.h>
 
@@ -482,7 +482,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         {
             if(sensor->info_topic.msg == "rmcl_msgs/ScanInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::ScanInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {   
@@ -499,7 +499,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
             {
                 // std::cout << "Waiting for message on topic: " << sensor->info_topic.name << std::endl;
-                auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<sensor_msgs::msg::CameraInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
             
                 if(msg)
                 {
@@ -526,7 +526,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
             if(sensor->info_topic.msg == "rmcl_msgs/DepthInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::DepthInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {   
@@ -544,7 +544,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             
             if(sensor->info_topic.msg == "rmcl_msgs/O1DnInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::O1DnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {   
@@ -560,7 +560,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         } else if(sensor_type == "ondn") {
             if(sensor->info_topic.msg == "rmcl_msgs/OnDnInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::OnDnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {   
@@ -581,7 +581,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         {
             if(!model_loaded && sensor->data_topic.msg == "sensor_msgs/LaserScan")
             {
-                auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<sensor_msgs::msg::LaserScan>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {
@@ -596,7 +596,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             
             if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/ScanStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::ScanStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {
@@ -612,7 +612,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
             if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/DepthStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::DepthStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {
@@ -629,7 +629,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
             if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/O1DnStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::O1DnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {
@@ -646,7 +646,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
             if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/OnDnStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
+                auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::OnDnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
 
                 if(msg)
                 {
@@ -1393,7 +1393,7 @@ bool MICP::checkTF(bool prints)
         while(ros::ok() && num_tries > 0 && !odom_to_base_available )
         {
             try {
-                auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, ros::Time(0));
+                auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, tf2::TimePointZero);
                 odom_to_base_available = true;
             } catch (tf2::TransformException &ex) {
                 odom_to_base_available = false;
@@ -1454,63 +1454,63 @@ void MICP::checkTopic(
     {
         if(info.msg == "sensor_msgs/PointCloud2")
         {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<sensor_msgs::msg::PointCloud2>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "sensor_msgs/PointCloud") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<sensor_msgs::msg::PointCloud>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "sensor_msgs/LaserScan") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<sensor_msgs::msg::LaserScan>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "sensor_msgs/Image") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::Image>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<sensor_msgs::msg::Image>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "sensor_msgs/CameraInfo") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<sensor_msgs::msg::CameraInfo>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "rmcl_msgs/ScanStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::ScanStamped>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "rmcl_msgs/DepthStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::DepthStamped>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "rmcl_msgs/O1DnStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnStamped>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::O1DnStamped>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;
                 info.frame = msg->header.frame_id;
             }
         } else if(info.msg == "rmcl_msgs/OnDnStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnStamped>(info.name, *m_nh, timeout_inner);
+            auto msg = ros::topic::waitForMessage<rmcl_msgs::msg::OnDnStamped>(info.name, *m_nh, timeout_inner);
             if(msg)
             {
                 info.data = true;

@@ -9,7 +9,7 @@ using namespace rmagine;
 namespace rmcl
 {
 
-// void OnDnCorrectorEmbreeROS::setModel(const rmcl_msgs::ScanInfo& info)
+// void OnDnCorrectorEmbreeROS::setModel(const rmcl_msgs::msg::ScanInfo& info)
 // {
 //     SphericalModel model;
 //     convert(info, model);
@@ -28,13 +28,13 @@ void OnDnCorrectorEmbreeROS::setInputData(
 }
 
 // void OnDnCorrectorEmbreeROS::setModelAndInputData(
-//     const rmcl_msgs::Scan& scan)
+//     const rmcl_msgs::msg::Scan& scan)
 // {
 //     setModel(scan.info);
 //     setInputData(scan.ranges);
 // }
 
-void OnDnCorrectorEmbreeROS::setTsb(const geometry_msgs::Transform& Tsb)
+void OnDnCorrectorEmbreeROS::setTsb(const geometry_msgs::msg::Transform& Tsb)
 {
     rmagine::Transform Tsb_rm;
     convert(Tsb, Tsb_rm);
@@ -47,19 +47,24 @@ void OnDnCorrectorEmbreeROS::setTsb(
 {
     if(!m_tf_buffer)
     {
-        m_tf_buffer.reset(new tf2_ros::Buffer);
-        m_tf_listener.reset(new tf2_ros::TransformListener(*m_tf_buffer));
+        // TODO: if m_tf_buffer is required and we cannot construct it
+        // -> put it to constructor
+        auto log = rclcpp::get_logger("rmcl::OnDnCorrectorEmbreeROS");
+        RCLCPP_WARN(log, "NO TF BUFFER");
+        return;
     }
 
     rmagine::Transform Tsb;
-    geometry_msgs::TransformStamped Tsb_ros;
+    geometry_msgs::msg::TransformStamped Tsb_ros;
     try {
-        Tsb_ros = m_tf_buffer->lookupTransform(base_frame, sensor_frame, ros::Time(0));
+        Tsb_ros = m_tf_buffer->lookupTransform(base_frame, sensor_frame, tf2::TimePointZero);
     }
     catch (tf2::TransformException &ex) {
-        ROS_WARN("%s", ex.what());
-        ROS_WARN_STREAM("Source: " << sensor_frame << ", Target: " << base_frame);
-        ROS_WARN_STREAM("Setting Tsb to identity");
+        auto log = rclcpp::get_logger("rmcl::OnDnCorrectorEmbreeROS");
+
+        RCLCPP_WARN(log, "%s", ex.what());
+        RCLCPP_WARN_STREAM(log, "Source: " << sensor_frame << ", Target: " << base_frame);
+        RCLCPP_WARN_STREAM(log, "Setting Tsb to identity");
         
         Tsb.setIdentity();
         Base::setTsb(Tsb);
@@ -77,7 +82,7 @@ void OnDnCorrectorEmbreeROS::setTFBuffer(std::shared_ptr<tf2_ros::Buffer> tf_buf
 }
 
 CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
-    const rmagine::Memory<geometry_msgs::Pose, rmagine::RAM>& Tbms)
+    const rmagine::Memory<geometry_msgs::msg::Pose, rmagine::RAM>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
 
@@ -90,7 +95,7 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
 }
 
 CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
-    const std::vector<geometry_msgs::Pose>& Tbms)
+    const std::vector<geometry_msgs::msg::Pose>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
 
@@ -103,7 +108,7 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
 }
 
 CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
-        const geometry_msgs::Pose& Tbm)
+        const geometry_msgs::msg::Pose& Tbm)
 {
     Memory<Transform, RAM> Tbms_rm(1);
     convert(Tbm, Tbms_rm[0]);
@@ -111,7 +116,7 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
 }
 
 CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
-    const rmagine::Memory<geometry_msgs::Transform, rmagine::RAM>& Tbms)
+    const rmagine::Memory<geometry_msgs::msg::Transform, rmagine::RAM>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
 
@@ -124,7 +129,7 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
 }
 
 CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
-    const std::vector<geometry_msgs::Transform>& Tbms)
+    const std::vector<geometry_msgs::msg::Transform>& Tbms)
 {
     Memory<Transform, RAM> Tbms_rm(Tbms.size());
 
@@ -137,7 +142,7 @@ CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
 }
 
 CorrectionResults<rmagine::RAM> OnDnCorrectorEmbreeROS::correct(
-        const geometry_msgs::Transform& Tbm)
+        const geometry_msgs::msg::Transform& Tbm)
 {
     Memory<Transform, RAM> Tbms_rm(1);
     convert(Tbm, Tbms_rm[0]);

@@ -4,7 +4,7 @@
 #include <vector>
 
 
-#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <rmcl/util/conversions.h>
 
@@ -59,8 +59,8 @@ visualization_msgs::Marker make_marker(
             rm::Point d = Tbm * dataset_points[j];
             rm::Point m = Tbm * model_points[j];
             
-            geometry_msgs::Point dros;
-            geometry_msgs::Point mros;
+            geometry_msgs::msg::Point dros;
+            geometry_msgs::msg::Point mros;
 
             dros.x = d.x;
             dros.y = d.y;
@@ -107,21 +107,21 @@ void MICPRangeSensor::connect()
     if(type == 0) { // Spherical
         if(data_topic.msg == "rmcl_msgs/ScanStamped") {
             data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::ScanStamped>(
+                    nh->subscribe<rmcl_msgs::msg::ScanStamped>(
                         data_topic.name, 1, 
                         &MICPRangeSensor::sphericalCB, this
                     )
                 );
         } else if(data_topic.msg == "sensor_msgs/PointCloud2") {
             data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::PointCloud2>(
+                    nh->subscribe<sensor_msgs::msg::PointCloud2>(
                         data_topic.name, 1, 
                         &MICPRangeSensor::pclSphericalCB, this
                     )
                 );
         } else if(data_topic.msg == "sensor_msgs/LaserScan") {
             data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::LaserScan>(
+                    nh->subscribe<sensor_msgs::msg::LaserScan>(
                         data_topic.name, 1, 
                         &MICPRangeSensor::laserCB, this
                     )
@@ -134,14 +134,14 @@ void MICPRangeSensor::connect()
         
         if(data_topic.msg == "rmcl_msgs/DepthStamped") {
             data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::DepthStamped>(
+                    nh->subscribe<rmcl_msgs::msg::DepthStamped>(
                         data_topic.name, 1, 
                         &MICPRangeSensor::pinholeCB, this
                     )
                 );
         } else if(data_topic.msg == "sensor_msgs/PointCloud2") {
             data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::PointCloud2>(
+                    nh->subscribe<sensor_msgs::msg::PointCloud2>(
                         data_topic.name, 1, 
                         &MICPRangeSensor::pclPinholeCB, this
                     )
@@ -165,7 +165,7 @@ void MICPRangeSensor::connect()
     } else if(type == 2) { // O1Dn
         if(data_topic.msg == "rmcl_msgs/O1DnStamped") {
             data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::O1DnStamped>(
+                    nh->subscribe<rmcl_msgs::msg::O1DnStamped>(
                         data_topic.name, 1, 
                         &MICPRangeSensor::o1dnCB, this
                     )
@@ -174,7 +174,7 @@ void MICPRangeSensor::connect()
     } else if(type == 3) { // OnDn
         if(data_topic.msg == "rmcl_msgs/OnDnStamped") {
             data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::OnDnStamped>(
+                    nh->subscribe<rmcl_msgs::msg::OnDnStamped>(
                         data_topic.name, 1, 
                         &MICPRangeSensor::ondnCB, this
                     )
@@ -188,35 +188,35 @@ void MICPRangeSensor::connect()
         if(info_topic.msg == "sensor_msgs/CameraInfo")
         {
             info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::CameraInfo>(
+                    nh->subscribe<sensor_msgs::msg::CameraInfo>(
                         info_topic.name, 1, 
                         &MICPRangeSensor::cameraInfoCB, this
                     )
                 );
         } else if(info_topic.msg == "rmcl_msgs/ScanInfo") {
             info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::ScanInfo>(
+                    nh->subscribe<rmcl_msgs::msg::ScanInfo>(
                         info_topic.name, 1, 
                         &MICPRangeSensor::sphericalModelCB, this
                     )
                 );
         } else if(info_topic.msg == "rmcl_msgs/DepthInfo") {
             info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::DepthInfo>(
+                    nh->subscribe<rmcl_msgs::msg::DepthInfo>(
                         info_topic.name, 1, 
                         &MICPRangeSensor::pinholeModelCB, this
                     )
                 );
         } else if(info_topic.msg == "rmcl_msgs/O1DnInfo") {
             info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::O1DnInfo>(
+                    nh->subscribe<rmcl_msgs::msg::O1DnInfo>(
                         info_topic.name, 1, 
                         &MICPRangeSensor::o1dnModelCB, this
                     )
                 );
         } else if(info_topic.msg == "rmcl_msgs/OnDnInfo") {
             info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::OnDnInfo>(
+                    nh->subscribe<rmcl_msgs::msg::OnDnInfo>(
                         info_topic.name, 1, 
                         &MICPRangeSensor::ondnModelCB, this
                     )
@@ -356,13 +356,13 @@ void MICPRangeSensor::fetchMICPParams(bool init)
 
 void MICPRangeSensor::fetchTF()
 {
-    geometry_msgs::TransformStamped T_sensor_base;
+    geometry_msgs::msg::TransformStamped T_sensor_base;
 
     if(frame != base_frame)
     {
         try
         {
-            T_sensor_base = tf_buffer->lookupTransform(base_frame, frame, ros::Time(0));
+            T_sensor_base = tf_buffer->lookupTransform(base_frame, frame, tf2::TimePointZero);
         } catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
             ROS_WARN_STREAM("Source: " << frame << ", Target: " << base_frame);
@@ -930,7 +930,7 @@ void MICPRangeSensor::enableVizCorrespondences(bool enable)
 }
 
 void MICPRangeSensor::sphericalCB(
-    const rmcl_msgs::ScanStamped::ConstPtr& msg)
+    const rmcl_msgs::msg::ScanStamped::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
@@ -959,7 +959,7 @@ void MICPRangeSensor::sphericalCB(
 }
 
 void MICPRangeSensor::pinholeCB(
-    const rmcl_msgs::DepthStamped::ConstPtr& msg)
+    const rmcl_msgs::msg::DepthStamped::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
@@ -992,7 +992,7 @@ void MICPRangeSensor::pinholeCB(
 }
 
 void MICPRangeSensor::o1dnCB(
-    const rmcl_msgs::O1DnStamped::ConstPtr& msg)
+    const rmcl_msgs::msg::O1DnStamped::ConstPtr& msg)
 {
     fetchTF();
 
@@ -1024,7 +1024,7 @@ void MICPRangeSensor::o1dnCB(
 }
 
 void MICPRangeSensor::ondnCB(
-    const rmcl_msgs::OnDnStamped::ConstPtr& msg)
+    const rmcl_msgs::msg::OnDnStamped::ConstPtr& msg)
 {
     fetchTF();
 
@@ -1056,7 +1056,7 @@ void MICPRangeSensor::ondnCB(
 }
 
 void MICPRangeSensor::pclSphericalCB(
-    const sensor_msgs::PointCloud2::ConstPtr& msg)
+    const sensor_msgs::msg::PointCloud2::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
@@ -1067,7 +1067,7 @@ void MICPRangeSensor::pclSphericalCB(
     {
         try {
             auto Tros = tf_buffer->lookupTransform(frame, msg->header.frame_id,
-                               ros::Time(0));
+                               tf2::TimePointZero);
             convert(Tros.transform, T);
         } catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -1168,7 +1168,7 @@ void MICPRangeSensor::pclSphericalCB(
 }
 
 void MICPRangeSensor::pclPinholeCB(
-    const sensor_msgs::PointCloud2::ConstPtr& msg)
+    const sensor_msgs::msg::PointCloud2::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
@@ -1179,7 +1179,7 @@ void MICPRangeSensor::pclPinholeCB(
     {
         try {
             auto Tros = tf_buffer->lookupTransform(frame, msg->header.frame_id,
-                               ros::Time(0));
+                               tf2::TimePointZero);
             convert(Tros.transform, T);
         } catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -1267,7 +1267,7 @@ void MICPRangeSensor::pclPinholeCB(
 }
 
 void MICPRangeSensor::laserCB(
-    const sensor_msgs::LaserScan::ConstPtr& msg)
+    const sensor_msgs::msg::LaserScan::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
@@ -1300,7 +1300,7 @@ void MICPRangeSensor::laserCB(
 }
 
 void MICPRangeSensor::imageCB(
-    const sensor_msgs::Image::ConstPtr& msg)
+    const sensor_msgs::msg::Image::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
@@ -1375,7 +1375,7 @@ void MICPRangeSensor::imageCB(
 // info callbacks
 
 void MICPRangeSensor::sphericalModelCB(
-    const rmcl_msgs::ScanInfo::ConstPtr& msg)
+    const rmcl_msgs::msg::ScanInfo::ConstPtr& msg)
 {
     rm::SphericalModel model_ = std::get<0>(model);
     convert(*msg, model_);
@@ -1383,7 +1383,7 @@ void MICPRangeSensor::sphericalModelCB(
 }
 
 void MICPRangeSensor::pinholeModelCB(
-    const rmcl_msgs::DepthInfo::ConstPtr& msg)
+    const rmcl_msgs::msg::DepthInfo::ConstPtr& msg)
 {
     rm::PinholeModel model_ = std::get<1>(model);
     convert(*msg, model_);
@@ -1391,7 +1391,7 @@ void MICPRangeSensor::pinholeModelCB(
 }
 
 void MICPRangeSensor::o1dnModelCB(
-    const rmcl_msgs::O1DnInfo::ConstPtr& msg)
+    const rmcl_msgs::msg::O1DnInfo::ConstPtr& msg)
 {
     rm::O1DnModel model_ = std::get<2>(model);
     convert(*msg, model_);
@@ -1399,7 +1399,7 @@ void MICPRangeSensor::o1dnModelCB(
 }
 
 void MICPRangeSensor::ondnModelCB(
-    const rmcl_msgs::OnDnInfo::ConstPtr& msg)
+    const rmcl_msgs::msg::OnDnInfo::ConstPtr& msg)
 {
     rm::OnDnModel model_ = std::get<3>(model);
     convert(*msg, model_);
@@ -1407,7 +1407,7 @@ void MICPRangeSensor::ondnModelCB(
 }
 
 void MICPRangeSensor::cameraInfoCB(
-    const sensor_msgs::CameraInfo::ConstPtr& msg)
+    const sensor_msgs::msg::CameraInfo::ConstPtr& msg)
 {
     // ROS_INFO_STREAM("sensor - info: " << name << " received " << data_topic.msg << " message");
 

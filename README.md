@@ -171,7 +171,7 @@ micp:
 sensors: # list of range sensors - at least one is required
   velodyne:
     topic: velodyne_points
-    # spherical is comparable to sensor_msgs::LaserScan 
+    # spherical is comparable to sensor_msgs::msg::LaserScan 
     # but in 3D
     type: spherical
     model:

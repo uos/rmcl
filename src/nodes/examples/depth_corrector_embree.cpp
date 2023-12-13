@@ -47,13 +47,13 @@ std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
 
 // Estimate this
-geometry_msgs::TransformStamped T_odom_map;
+geometry_msgs::msg::TransformStamped T_odom_map;
 Transform                       Tom;
 // dynamic: ekf
-geometry_msgs::TransformStamped T_base_odom;
+geometry_msgs::msg::TransformStamped T_base_odom;
 Transform                       Tbo;
 // static: urdf
-geometry_msgs::TransformStamped T_sensor_base;
+geometry_msgs::msg::TransformStamped T_sensor_base;
 Transform                       Tsb;
 
 /**
@@ -66,7 +66,7 @@ bool fetchTF()
     if(has_base_frame)
     {
         try{
-            T_sensor_base = tfBuffer->lookupTransform(base_frame, sensor_frame, ros::Time(0));
+            T_sensor_base = tfBuffer->lookupTransform(base_frame, sensor_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -91,7 +91,7 @@ bool fetchTF()
     if(has_odom_frame && has_base_frame)
     {
         try{
-            T_base_odom = tfBuffer->lookupTransform(odom_frame, base_frame, ros::Time(0));
+            T_base_odom = tfBuffer->lookupTransform(odom_frame, base_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
             ROS_WARN("%s", ex.what());
@@ -143,7 +143,7 @@ void correctOnce()
 
 // Storing Pose information globally
 // Calculate transformation from map to odom from pose in map frame
-void poseCB(geometry_msgs::PoseStamped msg)
+void poseCB(geometry_msgs::msg::PoseStamped msg)
 {
     // std::cout << "poseCB" << std::endl;
     map_frame = msg.header.frame_id;
@@ -158,9 +158,9 @@ void poseCB(geometry_msgs::PoseStamped msg)
     Tom = Tbm * ~Tbo;
 }
 
-void poseWcCB(geometry_msgs::PoseWithCovarianceStamped msg)
+void poseWcCB(geometry_msgs::msg::PoseWithCovarianceStamped msg)
 {
-    geometry_msgs::PoseStamped pose;
+    geometry_msgs::msg::PoseStamped pose;
     pose.header = msg.header;
     pose.pose = msg.pose.pose;
     poseCB(pose);
@@ -190,7 +190,7 @@ void updateTF()
     // std::cout << "updateTF" << std::endl;
     static tf2_ros::TransformBroadcaster br;
     
-    geometry_msgs::TransformStamped T;
+    geometry_msgs::msg::TransformStamped T;
 
     // What is the source frame?
     if(has_odom_frame && has_base_frame)
@@ -259,10 +259,10 @@ int main(int argc, char** argv)
     tfBuffer.reset(new tf2_ros::Buffer);
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
-    cloud_pub = nh_p.advertise<sensor_msgs::PointCloud>("sim_cloud", 1);
-    pose_pub = nh_p.advertise<geometry_msgs::PoseStamped>("sim_pose", 1);
+    cloud_pub = nh_p.advertise<sensor_msgs::msg::PointCloud>("sim_cloud", 1);
+    pose_pub = nh_p.advertise<geometry_msgs::msg::PoseStamped>("sim_pose", 1);
     ros::Subscriber sub = nh.subscribe<DepthStamped>("depth", 1, depthCB);
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("pose", 1, poseCB);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::msg::PoseStamped>("pose", 1, poseCB);
 
     ROS_INFO_STREAM(ros::this_node::getName() << ": Open RViz. Set fixed frame to map frame. Set goal. ICP to Mesh");
 

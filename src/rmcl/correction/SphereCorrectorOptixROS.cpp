@@ -9,7 +9,7 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-void SphereCorrectorOptixROS::setModel(const rmcl_msgs::ScanInfo& info)
+void SphereCorrectorOptixROS::setModel(const rmcl_msgs::msg::ScanInfo& info)
 {
     rm::SphericalModel model_rm;
     convert(info, model_rm);
@@ -29,13 +29,13 @@ void SphereCorrectorOptixROS::setInputData(const std::vector<float>& ranges)
     Base::setInputData(ranges_rm_vram);
 }
 
-void SphereCorrectorOptixROS::setModelAndInputData(const rmcl_msgs::Scan& scan)
+void SphereCorrectorOptixROS::setModelAndInputData(const rmcl_msgs::msg::Scan& scan)
 {
     setModel(scan.info);
     setInputData(scan.data.ranges);
 }
 
-void SphereCorrectorOptixROS::setTsb(const geometry_msgs::Transform& Tsb)
+void SphereCorrectorOptixROS::setTsb(const geometry_msgs::msg::Transform& Tsb)
 {
     rmagine::Transform Tsb_rm;
     convert(Tsb, Tsb_rm);
@@ -48,19 +48,24 @@ void SphereCorrectorOptixROS::setTsb(
 {
     if(!m_tf_buffer)
     {
-        m_tf_buffer.reset(new tf2_ros::Buffer);
-        m_tf_listener.reset(new tf2_ros::TransformListener(*m_tf_buffer));
+        // TODO: if m_tf_buffer is required and we cannot construct it
+        // -> put it to constructor
+        auto log = rclcpp::get_logger("rmcl::SphereCorrectorOptixROS");
+        RCLCPP_WARN(log, "NO TF BUFFER");
+        return;
     }
 
     rmagine::Transform Tsb;
-    geometry_msgs::TransformStamped Tsb_ros;
+    geometry_msgs::msg::TransformStamped Tsb_ros;
     try {
-        Tsb_ros = m_tf_buffer->lookupTransform(base_frame, sensor_frame, ros::Time(0));
+        Tsb_ros = m_tf_buffer->lookupTransform(base_frame, sensor_frame, tf2::TimePointZero);
     }
     catch (tf2::TransformException &ex) {
-        ROS_WARN("%s", ex.what());
-        ROS_WARN_STREAM("Source: " << sensor_frame << ", Target: " << base_frame);
-        ROS_WARN_STREAM("Setting Tsb to identity");
+        auto log = rclcpp::get_logger("rmcl::SphereCorrectorOptixROS");
+
+        RCLCPP_WARN(log, "%s", ex.what());
+        RCLCPP_WARN_STREAM(log, "Source: " << sensor_frame << ", Target: " << base_frame);
+        RCLCPP_WARN_STREAM(log, "Setting Tsb to identity");
         
         Tsb.setIdentity();
         Base::setTsb(Tsb);
@@ -79,7 +84,7 @@ void SphereCorrectorOptixROS::setTFBuffer(
 }
 
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
-    const rmagine::Memory<geometry_msgs::Pose, rm::RAM>& Tbms)
+    const rmagine::Memory<geometry_msgs::msg::Pose, rm::RAM>& Tbms)
 {
     rm::Memory<rm::Transform, rm::RAM_CUDA> Tbms_rm(Tbms.size());
 
@@ -96,7 +101,7 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
 }
 
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
-    const std::vector<geometry_msgs::Pose>& Tbms)
+    const std::vector<geometry_msgs::msg::Pose>& Tbms)
 {
     rm::Memory<rm::Transform, rm::RAM_CUDA> Tbms_rm(Tbms.size());
 
@@ -113,7 +118,7 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
 }
 
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
-    const geometry_msgs::Pose& Tbm)
+    const geometry_msgs::msg::Pose& Tbm)
 {
     rm::Memory<rm::Transform, rm::RAM> Tbms_rm(1);
     convert(Tbm, Tbms_rm[0]);
@@ -126,7 +131,7 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
 }
 
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
-    const rmagine::Memory<geometry_msgs::Transform, rm::RAM>& Tbms)
+    const rmagine::Memory<geometry_msgs::msg::Transform, rm::RAM>& Tbms)
 {
     rm::Memory<rm::Transform, rm::RAM_CUDA> Tbms_rm(Tbms.size());
 
@@ -143,7 +148,7 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
 }
 
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
-    const std::vector<geometry_msgs::Transform>& Tbms)
+    const std::vector<geometry_msgs::msg::Transform>& Tbms)
 {
     rm::Memory<rm::Transform, rm::RAM_CUDA> Tbms_rm(Tbms.size());
 
@@ -160,7 +165,7 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
 }
 
 CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptixROS::correct(
-    const geometry_msgs::Transform& Tbm)
+    const geometry_msgs::msg::Transform& Tbm)
 {
     rm::Memory<rm::Transform, rm::RAM> Tbms_rm(1);
     convert(Tbm, Tbms_rm[0]);

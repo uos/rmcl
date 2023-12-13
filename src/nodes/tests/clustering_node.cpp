@@ -45,9 +45,9 @@ Memory<Vector, RAM> random_normal_sample(Vector mean, Matrix3x3 cov, size_t N)
     return samples;
 }
 
-sensor_msgs::PointCloud make_cloud(const MemoryView<Vector, RAM>& points)
+sensor_msgs::msg::PointCloud make_cloud(const MemoryView<Vector, RAM>& points)
 {
-    sensor_msgs::PointCloud cloud;
+    sensor_msgs::msg::PointCloud cloud;
 
     cloud.header.frame_id = "base_footprint";
     cloud.points.resize(points.size());
@@ -173,7 +173,7 @@ int main(int argc, char** argv)
 
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
-    ros::Publisher pub_cloud = nh_p.advertise<sensor_msgs::PointCloud>("cloud", 1);
+    ros::Publisher pub_cloud = nh_p.advertise<sensor_msgs::msg::PointCloud>("cloud", 1);
     ros::Publisher pub_clusters = nh_p.advertise<visualization_msgs::Marker>("clusters", 1);
 
 

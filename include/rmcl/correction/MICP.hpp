@@ -79,7 +79,7 @@
 
 
 // supported sensor data
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
 #include <rmcl_msgs/DepthStamped.h>
 #include <rmcl_msgs/O1DnStamped.h>
 #include <rmcl_msgs/OnDnStamped.h>

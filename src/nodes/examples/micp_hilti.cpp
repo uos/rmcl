@@ -1,8 +1,8 @@
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <sensor_msgs/PointCloud2.h>
 
@@ -59,7 +59,7 @@ rm::OnDnModel ouster_model;
 std::ofstream eval_file;
 
 void convert(
-    const geometry_msgs::Transform &Tros,
+    const geometry_msgs::msg::Transform &Tros,
     rm::Transform &Trm)
 {
     Trm.R.x = Tros.rotation.x;
@@ -73,7 +73,7 @@ void convert(
 
 void convert(
     const rm::Transform &Trm,
-    geometry_msgs::Transform &Tros)
+    geometry_msgs::msg::Transform &Tros)
 {
     Tros.rotation.x = Trm.R.x;
     Tros.rotation.y = Trm.R.y;
@@ -86,7 +86,7 @@ void convert(
 
 void convert(
     const rm::Transform &Trm,
-    geometry_msgs::Pose &Pros)
+    geometry_msgs::msg::Pose &Pros)
 {
     Pros.orientation.x = Trm.R.x;
     Pros.orientation.y = Trm.R.y;
@@ -97,7 +97,7 @@ void convert(
     Pros.position.z = Trm.t.z;
 }
 
-void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
+void pclCB(const sensor_msgs::msg::PointCloud2ConstPtr &pcl)
 {
     ROS_INFO("Got Cloud");
 
@@ -109,7 +109,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
 
     try
     {
-        geometry_msgs::TransformStamped T;
+        geometry_msgs::msg::TransformStamped T;
 
         // static
         T = tf_buffer->lookupTransform(base_frame, pcl->header.frame_id, pcl->header.stamp);
@@ -144,7 +144,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
 
     try
     {
-        geometry_msgs::TransformStamped T;
+        geometry_msgs::msg::TransformStamped T;
         T = tf_buffer->lookupTransform(ground_truth_frame, base_frame, pcl->header.stamp);
         gt_available = true;
         convert(T.transform, Tbg);
@@ -477,7 +477,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     { // broadcast transform from odom -> map: Tom
         static tf2_ros::TransformBroadcaster br;
 
-        geometry_msgs::TransformStamped Tom_ros;
+        geometry_msgs::msg::TransformStamped Tom_ros;
         Tom_ros.header.stamp = pcl->header.stamp;
         Tom_ros.header.frame_id = map_frame;
         Tom_ros.child_frame_id = odom_frame;
@@ -487,7 +487,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     }
 
     { // publish pose in map frame
-        geometry_msgs::PoseStamped micp_pose;
+        geometry_msgs::msg::PoseStamped micp_pose;
         micp_pose.header.stamp = pcl->header.stamp;
         micp_pose.header.frame_id = map_frame;
         convert(Tom * Tbo, micp_pose.pose);
@@ -768,9 +768,9 @@ int main(int argc, char **argv)
     tf_buffer = std::make_shared<tf2_ros::Buffer>();
     tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
-    pub_pose = nh.advertise<geometry_msgs::PoseStamped>("micp_pose", 1);
+    pub_pose = nh.advertise<geometry_msgs::msg::PoseStamped>("micp_pose", 1);
 
-    ros::Subscriber sub_pcl = nh.subscribe<sensor_msgs::PointCloud2>("ouster/points", 1, pclCB);
+    ros::Subscriber sub_pcl = nh.subscribe<sensor_msgs::msg::PointCloud2>("ouster/points", 1, pclCB);
 
     ros::spin();
 

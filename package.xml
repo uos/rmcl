@@ -1,37 +1,28 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
     <name>rmcl</name>
-    <version>1.0.0</version>
+    <version>1.2.0</version>
     <description>The rmcl package</description>
 
     <maintainer email="amock@uos.de">Alexander Mock</maintainer>
 
     <license>BSD</license>
     <author email="amock@uos.de">Alexander Mock</author>
-    
-    <buildtool_depend>catkin</buildtool_depend>
-    
-    <build_depend>roscpp</build_depend>
-    <build_depend>geometry_msgs</build_depend>
-    <build_depend>sensor_msgs</build_depend>
-    <build_depend>tf2_ros</build_depend>
-    <build_depend>rmcl_msgs</build_depend>
-    <build_depend>image_transport</build_depend>
-    <build_depend>visualization_msgs</build_depend>
-    <build_export_depend>roscpp</build_export_depend>
-    <build_export_depend>geometry_msgs</build_export_depend>
-    <build_export_depend>sensor_msgs</build_export_depend>
-    <build_export_depend>tf2_ros</build_export_depend>
-    <build_export_depend>rmcl_msgs</build_export_depend>
-    <build_export_depend>image_transport</build_export_depend>
-    <build_export_depend>visualization_msgs</build_export_depend>
-    <exec_depend>roscpp</exec_depend>
-    <exec_depend>geometry_msgs</exec_depend>
-    <exec_depend>sensor_msgs</exec_depend>
-    <exec_depend>tf2_ros</exec_depend>
-    <exec_depend>rmcl_msgs</exec_depend>
-    <exec_depend>image_transport</exec_depend>
-    <exec_depend>visualization_msgs</exec_depend>
+
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
+    <depend>roscpp</depend>
+    <depend>geometry_msgs</depend>
+    <depend>sensor_msgs</depend>
+    <depend>tf2_ros</depend>
+    <depend>rmcl_msgs</depend>
+    <depend>image_transport</depend>
+    <depend>visualization_msgs</depend>
     <depend>rmagine</depend>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
     
 </package>
