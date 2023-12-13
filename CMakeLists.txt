@@ -107,17 +107,6 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     list(APPEND RMCL_LIBRARIES rmcl_optix rmcl_optix_ros)
 endif()
 
-# catkin_package(
-#     INCLUDE_DIRS 
-#         include
-#     CATKIN_DEPENDS 
-#         ${RMAGINE_ROS_DEPS}
-#     DEPENDS
-#         rmagine::core
-#     LIBRARIES
-#         ${RMCL_LIBRARIES}
-# )
-
 include_directories(
     include
 )
@@ -212,7 +201,7 @@ if(TARGET rmagine::embree)
         rmcl_ros
     )
 
-    ament_target_dependencies(rmcl_ros
+    ament_target_dependencies(rmcl_embree_ros
         rclcpp
         sensor_msgs
         rmcl_msgs
@@ -346,29 +335,35 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
         RUNTIME DESTINATION bin/${PROJECT_NAME}
     )
 
-
     # ROS code
-    # add_library(rmcl_optix_ros
-    #     # Sphere
-    #     src/rmcl/correction/SphereCorrectorOptixROS.cpp
-    #     # Pinhole
-    #     src/rmcl/correction/PinholeCorrectorOptixROS.cpp
-    #     # O1Dn
-    #     src/rmcl/correction/O1DnCorrectorOptixROS.cpp
-    #     # OnDn
-    #     src/rmcl/correction/OnDnCorrectorOptixROS.cpp
-    # )
+    add_library(rmcl_optix_ros
+        # Sphere
+        src/rmcl/correction/SphereCorrectorOptixROS.cpp
+        # Pinhole
+        src/rmcl/correction/PinholeCorrectorOptixROS.cpp
+        # O1Dn
+        src/rmcl/correction/O1DnCorrectorOptixROS.cpp
+        # OnDn
+        src/rmcl/correction/OnDnCorrectorOptixROS.cpp
+    )
 
-    # target_link_libraries(rmcl_optix_ros
-    #     rmcl_optix
-    #     rmcl_ros
-    # )
+    target_link_libraries(rmcl_optix_ros
+        rmcl_optix
+        rmcl_ros
+    )
 
-    # install(TARGETS rmcl_optix_ros
-    #     ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    #     LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    #     RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-    # )
+    ament_target_dependencies(rmcl_optix_ros
+        rclcpp
+        sensor_msgs
+        rmcl_msgs
+        tf2_ros
+    )
+
+    install(TARGETS rmcl_optix_ros
+        ARCHIVE DESTINATION lib/${PROJECT_NAME}
+        LIBRARY DESTINATION lib/${PROJECT_NAME}
+        RUNTIME DESTINATION bin/${PROJECT_NAME}
+    )
 
     add_definitions(-DRMCL_OPTIX)
     set(RMCL_OPTIX True)
@@ -376,9 +371,10 @@ endif(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 
 ## Nodes 
 
-# ##############
-# #### MICP ####
-# ##############
+##############
+#### MICP ####
+##############
+
 # add_executable(micp_localization 
 #     src/nodes/micp_localization.cpp
 #     # MICP
@@ -386,14 +382,7 @@ endif(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 #     src/rmcl/correction/MICPRangeSensor.cpp
 # )
 
-# add_dependencies(micp_localization 
-#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#     ${catkin_EXPORTED_TARGETS}
-# )
-
-# ## Specify libraries to link a library or executable target against
 # target_link_libraries(micp_localization
-#     ${catkin_LIBRARIES}
 #     rmcl_ros
 # )
 
@@ -414,6 +403,16 @@ endif(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 #         rmcl_optix_ros
 #     )
 # endif(RMCL_OPTIX)
+
+# ament_target_dependencies(micp_localization
+#     rclcpp
+#     geometry_msgs
+#     sensor_msgs
+#     tf2_ros
+#     rmcl_msgs
+#     image_transport
+#     visualization_msgs
+# )
 
 # ########################
 # ### CONVERSION NODES ###

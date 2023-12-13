@@ -47,7 +47,7 @@
 #ifndef RMCL_CORRECTION_MICP_RANGE_SENSOR_HPP
 #define RMCL_CORRECTION_MICP_RANGE_SENSOR_HPP
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <memory>
 #include <variant>
 #include <rmcl/util/ros_defines.h>
@@ -56,7 +56,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <image_transport/image_transport.h>
 
-#include <std_msgs/ColorRGBA.h>
+#include <std_msgs/msg/color_rgba.hpp>
 
 #include <rmcl/correction/CorrectionParams.hpp>
 #include <rmcl/correction/CorrectionResults.hpp>
@@ -86,15 +86,15 @@
 
 // supported sensor data
 #include <rmcl_msgs/msg/scan_stamped.hpp>
-#include <rmcl_msgs/DepthStamped.h>
-#include <rmcl_msgs/O1DnStamped.h>
-#include <rmcl_msgs/OnDnStamped.h>
+#include <rmcl_msgs/msg/depth_stamped.hpp>
+#include <rmcl_msgs/msg/o1_dn_stamped.hpp>
+#include <rmcl_msgs/msg/on_dn_stamped.hpp>
 
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/PointCloud.h>
-#include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 
 namespace rmcl
 {
@@ -161,11 +161,11 @@ public: // TODO: dont have everything public
     
     
     // subscriber to data
-    NodeHandlePtr nh;
-    NodeHandlePtr nh_p; // micp
-    NodeHandlePtr nh_sensor;
-    SubscriberPtr data_sub;
-    SubscriberPtr info_sub;
+    rclcpp::Node::SharedPtr nh;
+    rclcpp::Node::SharedPtr nh_p; // micp
+    rclcpp::Node::SharedPtr nh_sensor;
+    rclcpp::SubscriptionBase::SharedPtr data_sub;
+    rclcpp::SubscriptionBase::SharedPtr info_sub;
     
 
     ImageTransportPtr it;
@@ -186,7 +186,7 @@ public: // TODO: dont have everything public
     float viz_corr_scale = 0.005;
     int viz_corr_skip = 0;
 
-    PublisherPtr    pub_corr;
+    rclcpp::PublisherBase::SharedPtr    pub_corr;
 
     // correction: TODO better
     #ifdef RMCL_EMBREE

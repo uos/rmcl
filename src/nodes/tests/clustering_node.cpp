@@ -1,4 +1,4 @@
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <rmagine/math/types.h>
 #include <rmagine/types/Memory.hpp>
 #include <rmcl/clustering/clustering.h>
@@ -7,8 +7,8 @@
 
 #include <rosmath/eigen/stats.h>
 
-#include <visualization_msgs/Marker.h>
-#include <sensor_msgs/PointCloud.h>
+#include <visualization_msgs/msg/marker.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
 
 #include <rmagine/util/StopWatch.hpp>
 
@@ -91,15 +91,15 @@ std_msgs::ColorRGBA color_from_id(size_t id)
     return color;
 }
 
-visualization_msgs::Marker make_marker(
+visualization_msgs::msg::Marker make_marker(
     const MemoryView<Vector, RAM>& points,
     const std::vector<size_t>& cluster,
     size_t id)
 {
-    visualization_msgs::Marker marker;
+    visualization_msgs::msg::Marker marker;
     marker.header.frame_id = "base_footprint";
-    marker.type = visualization_msgs::Marker::POINTS;
-    marker.action = visualization_msgs::Marker::ADD;
+    marker.type = visualization_msgs::msg::Marker::POINTS;
+    marker.action = visualization_msgs::msg::Marker::ADD;
     std::stringstream ss;
     ss << id;
     marker.ns = ss.str();
@@ -122,11 +122,11 @@ visualization_msgs::Marker make_marker(
     return marker;
 }
 
-std::vector<visualization_msgs::Marker> make_markers(
+std::vector<visualization_msgs::msg::Marker> make_markers(
     const MemoryView<Vector, RAM>& points,
     const std::vector<std::vector<size_t> >& clusters)
 {
-    std::vector<visualization_msgs::Marker> markers;
+    std::vector<visualization_msgs::msg::Marker> markers;
 
     for(size_t i=0; i<clusters.size(); i++)
     {
@@ -174,7 +174,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
     ros::Publisher pub_cloud = nh_p.advertise<sensor_msgs::msg::PointCloud>("cloud", 1);
-    ros::Publisher pub_clusters = nh_p.advertise<visualization_msgs::Marker>("clusters", 1);
+    ros::Publisher pub_clusters = nh_p.advertise<visualization_msgs::msg::Marker>("clusters", 1);
 
 
     double search_dist;

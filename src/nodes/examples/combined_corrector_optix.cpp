@@ -1,9 +1,9 @@
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/PointCloud.h>
-#include <visualization_msgs/Marker.h>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -67,12 +67,12 @@ size_t Nposes = 1;
 
 void publish_model(const OnDnModel& model)
 {
-    visualization_msgs::Marker marker;
+    visualization_msgs::msg::Marker marker;
 
     marker.header.stamp = ros::Time::now();
     marker.header.frame_id = base_frame;
-    marker.type = visualization_msgs::Marker::LINE_LIST;
-    marker.action = visualization_msgs::Marker::ADD;
+    marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+    marker.action = visualization_msgs::msg::Marker::ADD;
     marker.pose.orientation.w = 1.0;
     marker.id = 0;
     marker.ns = "";
@@ -378,7 +378,7 @@ int main(int argc, char** argv)
     tfBuffer.reset(new tf2_ros::Buffer);
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
-    model_pub = nh_p.advertise<visualization_msgs::Marker>("model", 1);
+    model_pub = nh_p.advertise<visualization_msgs::msg::Marker>("model", 1);
     ros::Subscriber sub = nh.subscribe<sensor_msgs::msg::LaserScan>("scan", 1, scanCB);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::msg::PoseStamped>("pose", 1, poseCB);
 

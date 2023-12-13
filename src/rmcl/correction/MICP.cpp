@@ -16,21 +16,15 @@
 
 #include <rmagine/util/StopWatch.hpp>
 
-
-
-
-
-
-
 namespace rm = rmagine;
 
 namespace rmcl
 {
 
 MICP::MICP()
-:m_nh(new ros::NodeHandle())
-,m_nh_p(new ros::NodeHandle("~"))
-,m_tf_buffer(new tf2_ros::Buffer)
+:m_nh(new rclcpp::Node())
+,m_nh_p(new rclcpp::Node("~"))
+,m_tf_buffer(new tf2_ros::Buffer(m_nh->get_clock()))
 ,m_tf_listener(new tf2_ros::TransformListener(*m_tf_buffer))
 {
     std::cout << "MICP initiailized" << std::endl;
@@ -83,17 +77,18 @@ void MICP::loadParams()
 
 
     // loading frames
-    m_nh_p->param<std::string>("base_frame", m_base_frame, "base_link");
-    m_nh_p->param<std::string>("map_frame", m_map_frame, "map");
+    m_base_frame = m_nh_p->declare_parameter("base_frame", "base_link");
+    m_map_frame = m_nh_p->declare_parameter("map_frame", "map");
 
-    m_use_odom_frame = m_nh_p->getParam("odom_frame", m_odom_frame);
-
+    m_odom_frame = m_nh_p->declare_parameter("odom_frame", "");
+    m_use_odom_frame = (m_odom_frame != "");
     // check frames
 
-
-    if(!m_nh_p->getParam("map_file", m_map_filename))
+    m_map_filename = m_nh_p->declare_parameter("map_file", "");
+    if(m_map_filename == "")
     {
-        ROS_ERROR("User must provide ~map_file");
+        RCLCPP_ERROR(m_nh_p->get_logger(), "User must provide ~map_file");
+        throw std::runtime_error("User must provide ~map_file");
     }
 
     checkTF(true);

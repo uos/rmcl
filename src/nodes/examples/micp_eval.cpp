@@ -1,10 +1,10 @@
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
-#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <rmagine/math/types.h>
 #include <rmagine/util/prints.h>
@@ -211,9 +211,9 @@ void pclCB(const sensor_msgs::msg::PointCloud2ConstPtr &pcl)
     ouster_model.width = pcl->width;
     ouster_model.height = pcl->height;
 
-    sensor_msgs::PointField field_x;
-    sensor_msgs::PointField field_y;
-    sensor_msgs::PointField field_z;
+    sensor_msgs::msg::PointField field_x;
+    sensor_msgs::msg::PointField field_y;
+    sensor_msgs::msg::PointField field_z;
 
     for(size_t i = 0; i < pcl->fields.size(); i++)
     {
@@ -238,14 +238,14 @@ void pclCB(const sensor_msgs::msg::PointCloud2ConstPtr &pcl)
 
         rm::Vector ps;
 
-        if (field_x.datatype == sensor_msgs::PointField::FLOAT32)
+        if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
         {
             // Float
             ps.x = *reinterpret_cast<const float *>(data_ptr + field_x.offset);
             ps.y = *reinterpret_cast<const float *>(data_ptr + field_y.offset);
             ps.z = *reinterpret_cast<const float *>(data_ptr + field_z.offset);
         }
-        else if (field_x.datatype == sensor_msgs::PointField::FLOAT64)
+        else if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT64)
         {
             // Double
             ps.x = *reinterpret_cast<const double *>(data_ptr + field_x.offset);

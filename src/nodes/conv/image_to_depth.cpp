@@ -1,9 +1,9 @@
-#include <ros/ros.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud.h>
-#include <sensor_msgs/CameraInfo.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <rmcl/util/conversions.h>
-#include <rmcl_msgs/DepthStamped.h>
+#include <rmcl_msgs/msg/depth_stamped.hpp>
 #include <image_transport/image_transport.h>
 
 using namespace rmagine;

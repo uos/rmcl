@@ -1,6 +1,7 @@
 #include "rmcl/correction/MICPRangeSensor.hpp"
 
-#include <ros/master.h>
+// how to port this?
+// #include <ros/master.h>
 #include <vector>
 
 
@@ -21,7 +22,7 @@
 
 #include <rmagine/util/prints.h>
 
-#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/msg/marker.hpp>
 
 
 
@@ -30,7 +31,7 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-visualization_msgs::Marker make_marker(
+visualization_msgs::msg::Marker make_marker(
     rm::MemoryView<rm::Point, rm::RAM> dataset_points,
     rm::MemoryView<rm::Point, rm::RAM> model_points,
     rm::MemoryView<unsigned int, rm::RAM> corr_valid,
@@ -40,11 +41,11 @@ visualization_msgs::Marker make_marker(
     float scale,
     unsigned int step)
 {
-    visualization_msgs::Marker marker;
+    visualization_msgs::msg::Marker marker;
     marker.header.frame_id = "map";
     marker.id = 0;
-    marker.type = visualization_msgs::Marker::LINE_LIST;
-    marker.action = visualization_msgs::Marker::ADD;
+    marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+    marker.action = visualization_msgs::msg::Marker::ADD;
     marker.pose.orientation.w = 1.0;
     marker.scale.x = scale;
     marker.scale.y = scale;
@@ -82,7 +83,7 @@ visualization_msgs::Marker make_marker(
 }
 
 #ifdef RMCL_CUDA
-visualization_msgs::Marker make_marker(
+visualization_msgs::msg::Marker make_marker(
     rm::MemoryView<rm::Point, rm::VRAM_CUDA> dataset_points,
     rm::MemoryView<rm::Point, rm::VRAM_CUDA> model_points,
     rm::MemoryView<unsigned int, rm::VRAM_CUDA> corr_valid,
@@ -106,25 +107,20 @@ void MICPRangeSensor::connect()
 {
     if(type == 0) { // Spherical
         if(data_topic.msg == "rmcl_msgs/ScanStamped") {
-            data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::ScanStamped>(
-                        data_topic.name, 1, 
-                        &MICPRangeSensor::sphericalCB, this
-                    )
+            data_sub = nh->create_subscription<rmcl_msgs::msg::ScanStamped>(
+                    data_topic.name, 1, 
+                    std::bind(&MICPRangeSensor::sphericalCB, this)
                 );
+
         } else if(data_topic.msg == "sensor_msgs/PointCloud2") {
-            data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::msg::PointCloud2>(
-                        data_topic.name, 1, 
-                        &MICPRangeSensor::pclSphericalCB, this
-                    )
+            data_sub = nh->create_subscription<sensor_msgs::msg::PointCloud2>(
+                    data_topic.name, 1, 
+                    std::bind(&MICPRangeSensor::pclSphericalCB, this)
                 );
         } else if(data_topic.msg == "sensor_msgs/LaserScan") {
-            data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::msg::LaserScan>(
-                        data_topic.name, 1, 
-                        &MICPRangeSensor::laserCB, this
-                    )
+            data_sub = nh->create_subscription<sensor_msgs::msg::LaserScan>(
+                    data_topic.name, 1, 
+                    std::bind(&MICPRangeSensor::laserCB, this)
                 );
         } else {
             // TODO proper error msg
@@ -133,18 +129,14 @@ void MICPRangeSensor::connect()
     } else if(type == 1) { // Pinhole
         
         if(data_topic.msg == "rmcl_msgs/DepthStamped") {
-            data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::DepthStamped>(
-                        data_topic.name, 1, 
-                        &MICPRangeSensor::pinholeCB, this
-                    )
+            data_sub = nh->create_subscription<rmcl_msgs::msg::DepthStamped>(
+                    data_topic.name, 1,
+                    std::bind(&MICPRangeSensor::pinholeCB, this)
                 );
         } else if(data_topic.msg == "sensor_msgs/PointCloud2") {
-            data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::msg::PointCloud2>(
-                        data_topic.name, 1, 
-                        &MICPRangeSensor::pclPinholeCB, this
-                    )
+            data_sub = nh->create_subscription<sensor_msgs::msg::PointCloud2>(
+                    data_topic.name, 1, 
+                    &MICPRangeSensor::pclPinholeCB, this
                 );
         } else if(data_topic.msg == "sensor_msgs/Image") {
             // std::cout << "Connecting to depth image" << std::endl;
@@ -164,20 +156,16 @@ void MICPRangeSensor::connect()
 
     } else if(type == 2) { // O1Dn
         if(data_topic.msg == "rmcl_msgs/O1DnStamped") {
-            data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::O1DnStamped>(
-                        data_topic.name, 1, 
-                        &MICPRangeSensor::o1dnCB, this
-                    )
+            data_sub = nh->create_subscription<rmcl_msgs::msg::O1DnStamped>(
+                    data_topic.name, 1, 
+                    std::bind(&MICPRangeSensor::o1dnCB, this)
                 );
         }
     } else if(type == 3) { // OnDn
         if(data_topic.msg == "rmcl_msgs/OnDnStamped") {
-            data_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::OnDnStamped>(
+            data_sub = nh->create_subscription<rmcl_msgs::msg::OnDnStamped>(
                         data_topic.name, 1, 
-                        &MICPRangeSensor::ondnCB, this
-                    )
+                        std::bind(&MICPRangeSensor::ondnCB, this)
                 );
         }
     }
@@ -187,39 +175,29 @@ void MICPRangeSensor::connect()
         // connect to info topic
         if(info_topic.msg == "sensor_msgs/CameraInfo")
         {
-            info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<sensor_msgs::msg::CameraInfo>(
+            info_sub = nh->create_subscription<sensor_msgs::msg::CameraInfo>(
                         info_topic.name, 1, 
-                        &MICPRangeSensor::cameraInfoCB, this
-                    )
+                        std::bind(&MICPRangeSensor::cameraInfoCB, this)
                 );
         } else if(info_topic.msg == "rmcl_msgs/ScanInfo") {
-            info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::ScanInfo>(
+            info_sub = nh->create_subscription<rmcl_msgs::msg::ScanInfo>(
                         info_topic.name, 1, 
-                        &MICPRangeSensor::sphericalModelCB, this
-                    )
+                        std::bind(&MICPRangeSensor::sphericalModelCB, this)
                 );
         } else if(info_topic.msg == "rmcl_msgs/DepthInfo") {
-            info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::DepthInfo>(
+            info_sub = nh->create_subscription<rmcl_msgs::msg::DepthInfo>(
                         info_topic.name, 1, 
-                        &MICPRangeSensor::pinholeModelCB, this
-                    )
+                        std::bind(&MICPRangeSensor::pinholeModelCB, this)
                 );
         } else if(info_topic.msg == "rmcl_msgs/O1DnInfo") {
-            info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::O1DnInfo>(
+            info_sub = nh->create_subscription<rmcl_msgs::msg::O1DnInfo>(
                         info_topic.name, 1, 
-                        &MICPRangeSensor::o1dnModelCB, this
-                    )
+                        std::bind(&MICPRangeSensor::o1dnModelCB, this)
                 );
         } else if(info_topic.msg == "rmcl_msgs/OnDnInfo") {
-            info_sub = std::make_shared<ros::Subscriber>(
-                    nh->subscribe<rmcl_msgs::msg::OnDnInfo>(
+            info_sub = nh->create_subscription<rmcl_msgs::msg::OnDnInfo>(
                         info_topic.name, 1, 
-                        &MICPRangeSensor::ondnModelCB, this
-                    )
+                        std::bind(&MICPRangeSensor::ondnModelCB, this)
                 );
         } else {
             std::cout << "info topic message " << info_topic.msg << " not supported" << std::endl; 
@@ -233,7 +211,7 @@ void MICPRangeSensor::fetchMICPParams(bool init)
     {
         std::stringstream ss;
         ss << "sensors/" << name;
-        nh_sensor = std::make_shared<ros::NodeHandle>(
+        nh_sensor = std::make_shared<rclcpp::Node>(
             *nh_p, ss.str()
         );
     }
@@ -364,8 +342,8 @@ void MICPRangeSensor::fetchTF()
         {
             T_sensor_base = tf_buffer->lookupTransform(base_frame, frame, tf2::TimePointZero);
         } catch (tf2::TransformException &ex) {
-            ROS_WARN("%s", ex.what());
-            ROS_WARN_STREAM("Source: " << frame << ", Target: " << base_frame);
+            RCLCPP_WARN(nh_sensor->get_logger(), "%s", ex.what());
+            RCLCPP_WARN_STREAM(nh_sensor->get_logger(), "Source: " << frame << ", Target: " << base_frame);
             return;
         }
     } else {
@@ -918,14 +896,12 @@ void MICPRangeSensor::enableVizCorrespondences(bool enable)
         {
             std::stringstream ss;
             ss << "sensors/" << name;
-            nh_sensor = std::make_shared<ros::NodeHandle>(
+            nh_sensor = std::make_shared<rclcpp::Node>(
                 *nh_p, ss.str()
             );
         }
 
-        pub_corr = std::make_shared<ros::Publisher>(
-            nh_sensor->advertise<visualization_msgs::Marker>("correspondences", 1)
-        );
+        pub_corr = nh_sensor->create_publisher<visualization_msgs::msg::Marker>("correspondences", 1);
     }
 }
 
@@ -1070,7 +1046,7 @@ void MICPRangeSensor::pclSphericalCB(
                                tf2::TimePointZero);
             convert(Tros.transform, T);
         } catch (tf2::TransformException &ex) {
-            ROS_WARN("%s", ex.what());
+            RCLCPP_WARN(nh_sensor->get_logger(), "%s", ex.what());
         }
     }
 
@@ -1087,9 +1063,9 @@ void MICPRangeSensor::pclSphericalCB(
         }
     }
 
-    sensor_msgs::PointField field_x;
-    sensor_msgs::PointField field_y;
-    sensor_msgs::PointField field_z;
+    sensor_msgs::msg::PointField field_x;
+    sensor_msgs::msg::PointField field_y;
+    sensor_msgs::msg::PointField field_z;
 
     for(size_t i=0; i<msg->fields.size(); i++)
     {
@@ -1115,13 +1091,13 @@ void MICPRangeSensor::pclSphericalCB(
         
         rm::Point p;
 
-        if(field_x.datatype == sensor_msgs::PointField::FLOAT32)
+        if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
         {
             // Float
             p.x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
             p.y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
             p.z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
-        } else if(field_x.datatype == sensor_msgs::PointField::FLOAT64) {
+        } else if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT64) {
             // Double
             p.x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
             p.y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
@@ -1182,7 +1158,7 @@ void MICPRangeSensor::pclPinholeCB(
                                tf2::TimePointZero);
             convert(Tros.transform, T);
         } catch (tf2::TransformException &ex) {
-            ROS_WARN("%s", ex.what());
+            RCLCPP_WARN(nh_sensor->get_logger(), "%s", ex.what());
         }
     }
 
@@ -1193,9 +1169,9 @@ void MICPRangeSensor::pclPinholeCB(
         ranges.resize(msg->width * msg->height);
     }
 
-    sensor_msgs::PointField field_x;
-    sensor_msgs::PointField field_y;
-    sensor_msgs::PointField field_z;
+    sensor_msgs::msg::PointField field_x;
+    sensor_msgs::msg::PointField field_y;
+    sensor_msgs::msg::PointField field_z;
 
     for(size_t i=0; i<msg->fields.size(); i++)
     {
@@ -1220,13 +1196,13 @@ void MICPRangeSensor::pclPinholeCB(
 
         rm::Vector p;
 
-        if(field_x.datatype == sensor_msgs::PointField::FLOAT32)
+        if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
         {
             // Float
             p.x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
             p.y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
             p.z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
-        } else if(field_x.datatype == sensor_msgs::PointField::FLOAT64) {
+        } else if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT64) {
             // Double
             p.x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
             p.y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
@@ -1353,7 +1329,7 @@ void MICPRangeSensor::imageCB(
         }
         
     } else {
-        ROS_WARN_STREAM("Could not convert image of encoding " << msg->encoding);
+        RCLCPP_WARN_STREAM(nh_sensor->get_logger(), "Could not convert image of encoding " << msg->encoding);
     }
 
     #ifdef RMCL_CUDA

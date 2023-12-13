@@ -1,9 +1,9 @@
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/PointCloud.h>
-#include <sensor_msgs/CameraInfo.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <rmcl/util/conversions.h>
-#include <rmcl_msgs/DepthStamped.h>
+#include <rmcl_msgs/msg/depth_stamped.hpp>
 
 using namespace rmagine;
 using namespace rmcl;
@@ -54,9 +54,9 @@ void convert(
 {
     to.data.ranges.resize(from.width * from.height);
 
-    sensor_msgs::PointField field_x;
-    sensor_msgs::PointField field_y;
-    sensor_msgs::PointField field_z;
+    sensor_msgs::msg::PointField field_x;
+    sensor_msgs::msg::PointField field_y;
+    sensor_msgs::msg::PointField field_z;
 
     for(size_t i=0; i<from.fields.size(); i++)
     {
@@ -80,13 +80,13 @@ void convert(
         const uint8_t* data_ptr = &from.data[i * from.point_step];
 
         float x,y,z;
-        if(field_x.datatype == sensor_msgs::PointField::FLOAT32)
+        if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
         {
             // Float
             x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
             y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
             z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
-        } else if(field_x.datatype == sensor_msgs::PointField::FLOAT64) {
+        } else if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT64) {
             // Double
             x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
             y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
