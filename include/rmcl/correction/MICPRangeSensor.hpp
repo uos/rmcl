@@ -54,7 +54,7 @@
 #include <rmagine/types/sensor_models.h>
 
 #include <tf2_ros/transform_listener.h>
-#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.hpp>
 
 #include <std_msgs/msg/color_rgba.hpp>
 
@@ -83,6 +83,7 @@
 #include <rmcl/correction/OnDnCorrectorOptix.hpp>
 #endif // RMCL_OPTIX
 
+#include <visualization_msgs/msg/marker.hpp>
 
 // supported sensor data
 #include <rmcl_msgs/msg/scan_stamped.hpp>
@@ -95,6 +96,8 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+
+
 
 namespace rmcl
 {
@@ -139,7 +142,7 @@ public: // TODO: dont have everything public
     SensorModelV         model;
     // model meta
     bool                 model_received_once = false;
-    ros::Time            model_last_update;
+    rclcpp::Time            model_last_update;
     float                model_frequency_est; // currently unused
     
 
@@ -151,18 +154,17 @@ public: // TODO: dont have everything public
     #endif // RMCL_CUDA
 
     // data meta
-    bool        data_received_once = false;
-    ros::Time   data_last_update;
-    float       data_frequency_est; // currently unused
-    bool        count_valid_ranges = false;
-    bool        adaptive_max_dist = false;
-    size_t      n_ranges_valid = 0;
+    bool            data_received_once = false;
+    rclcpp::Time    data_last_update;
+    float           data_frequency_est; // currently unused
+    bool            count_valid_ranges = false;
+    bool            adaptive_max_dist = false;
+    size_t          n_ranges_valid = 0;
 
     
     
     // subscriber to data
-    rclcpp::Node::SharedPtr nh;
-    rclcpp::Node::SharedPtr nh_p; // micp
+    rclcpp::Node::SharedPtr nh; // micp
     rclcpp::Node::SharedPtr nh_sensor;
     rclcpp::SubscriptionBase::SharedPtr data_sub;
     rclcpp::SubscriptionBase::SharedPtr info_sub;
@@ -181,12 +183,12 @@ public: // TODO: dont have everything public
 
     // DEBUGGING
     bool            viz_corr = false;
-    std_msgs::ColorRGBA viz_corr_data_color;
-    std_msgs::ColorRGBA viz_corr_model_color;
+    std_msgs::msg::ColorRGBA viz_corr_data_color;
+    std_msgs::msg::ColorRGBA viz_corr_model_color;
     float viz_corr_scale = 0.005;
     int viz_corr_skip = 0;
 
-    rclcpp::PublisherBase::SharedPtr    pub_corr;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr   pub_corr;
 
     // correction: TODO better
     #ifdef RMCL_EMBREE
@@ -243,48 +245,47 @@ protected:
     // callbacks
     // internal rmcl msgs
     void sphericalCB(
-        const rmcl_msgs::msg::ScanStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::ScanStamped::SharedPtr msg);
 
     void pinholeCB(
-        const rmcl_msgs::msg::DepthStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::DepthStamped::SharedPtr msg);
 
     void o1dnCB(
-        const rmcl_msgs::msg::O1DnStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
 
     void ondnCB(
-        const rmcl_msgs::msg::OnDnStamped::ConstPtr& msg);
+        const rmcl_msgs::msg::OnDnStamped::SharedPtr msg);
 
     // external commonly used messages
     void pclSphericalCB(
-        const sensor_msgs::msg::PointCloud2::ConstPtr& msg);
+        const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     void pclPinholeCB(
-        const sensor_msgs::msg::PointCloud2::ConstPtr& msg);
+        const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
     void laserCB(
-        const sensor_msgs::msg::LaserScan::ConstPtr& msg);
+        const sensor_msgs::msg::LaserScan::SharedPtr msg);
 
     void imageCB(
-        const sensor_msgs::msg::Image::ConstPtr& msg);
-    
+        const sensor_msgs::msg::Image::ConstSharedPtr& msg);
 
     // info callbacks
     // internal
     void sphericalModelCB(
-        const rmcl_msgs::msg::ScanInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::ScanInfo::SharedPtr msg);
 
     void pinholeModelCB(
-        const rmcl_msgs::msg::DepthInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::DepthInfo::SharedPtr msg);
 
     void o1dnModelCB(
-        const rmcl_msgs::msg::O1DnInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::O1DnInfo::SharedPtr msg);
 
     void ondnModelCB(
-        const rmcl_msgs::msg::OnDnInfo::ConstPtr& msg);
+        const rmcl_msgs::msg::OnDnInfo::SharedPtr msg);
     
     // external commonly used
     void cameraInfoCB(
-        const sensor_msgs::msg::CameraInfo::ConstPtr& msg);
+        const sensor_msgs::msg::CameraInfo::SharedPtr msg);
 };
 
 using MICPRangeSensorPtr = std::shared_ptr<MICPRangeSensor>;

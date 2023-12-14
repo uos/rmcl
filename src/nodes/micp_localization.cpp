@@ -64,6 +64,8 @@ TFListenerPtr tf_listener;
 
 bool pose_received = false;
 
+rclcpp::Node::SharedPtr nh;
+std::unique_ptr<tf2_ros::TransformBroadcaster> br;
 
 void fetchTF()
 {
@@ -75,8 +77,8 @@ void fetchTF()
             T_base_odom = tf_buffer->lookupTransform(odom_frame, base_frame, tf2::TimePointZero);
         }
         catch (tf2::TransformException &ex) {
-            ROS_WARN("%s", ex.what());
-            ROS_WARN_STREAM("Source (Base): " << base_frame << ", Target (Odom): " << odom_frame);
+            RCLCPP_WARN(nh->get_logger(), "%s", ex.what());
+            RCLCPP_WARN_STREAM(nh->get_logger(), "Source (Base): " << base_frame << ", Target (Odom): " << odom_frame);
             return;
         }
     } else {
@@ -95,9 +97,7 @@ void fetchTF()
 }
 
 void updateTF()
-{
-    static tf2_ros::TransformBroadcaster br;
-    
+{   
     geometry_msgs::msg::TransformStamped T;
 
     // What is the source frame?
@@ -129,8 +129,8 @@ void updateTF()
         }
     }
 
-    T.header.stamp = ros::Time::now();
-    br.sendTransform(T);
+    T.header.stamp = nh->now();
+    br->sendTransform(T);
 }
 
 void correctOnce()
@@ -252,7 +252,7 @@ void poseCB(geometry_msgs::msg::PoseStamped msg)
 {
     std::lock_guard<std::mutex> guard(T_odom_map_mutex);
 
-    ROS_INFO_STREAM_NAMED(ros::this_node::getName(), ros::this_node::getName() << " Received new pose guess");
+    RCLCPP_INFO_STREAM(nh->get_logger(), " Received new pose guess");
 
     // rest max distance
     // corr_params.max_distance = max_distance;
@@ -329,10 +329,13 @@ void init()
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "micp_localization");
+    rclcpp::init(argc, argv);
 
-    ros::NodeHandle nh;
-    ros::NodeHandle nh_p("~");
+    rclcpp::NodeOptions options = rclcpp::NodeOptions()
+        .allow_undeclared_parameters(true)
+        .automatically_declare_parameters_from_overrides(true);
+
+    nh = rclcpp::Node::make_shared("micp_localization", options);
 
     double tf_rate = 50.0;
     double corr_rate_max = 200.0;
@@ -344,37 +347,37 @@ int main(int argc, char** argv)
     adaptive_max_dist = true;
 
 
+    base_frame = nh->declare_parameter("base_frame", "base_link");
+    odom_frame = nh->declare_parameter("odom_frame", "odom");
+    map_frame = nh->declare_parameter("map_frame", "map");
 
-    nh_p.param<std::string>("base_frame", base_frame, "base_link");
-    nh_p.param<std::string>("odom_frame", odom_frame, "odom");
-    nh_p.param<std::string>("map_frame",  map_frame,  "map");
+    tf_rate = nh->declare_parameter("tf_rate", 50.0);
+    invert_tf = nh->declare_parameter("invert_tf", false);
 
-    nh_p.param<double>("tf_rate", tf_rate, 50.0);
-    nh_p.param<bool>("invert_tf", invert_tf, false);
+    corr_rate_max = nh->declare_parameter("micp/corr_rate_max", 10000.0);
+    print_corr_rate = nh->declare_parameter("micp/print_corr_rate", false);
 
-    nh_p.param<double>("micp/corr_rate_max", corr_rate_max, 10000.0);
-    nh_p.param<bool>("micp/print_corr_rate", print_corr_rate, false);
+    adaptive_max_dist = nh->declare_parameter("micp/adaptive_max_dist", true);
 
-    nh_p.param<bool>("micp/adaptive_max_dist", adaptive_max_dist, true);
-
-    nh_p.param<bool>("micp/viz_corr", draw_correspondences, false);
-    nh_p.param<bool>("micp/disable_corr", correction_disabled, false);
+    draw_correspondences = nh->declare_parameter("micp/viz_corr", false);
+    correction_disabled = nh->declare_parameter("micp/disable_corr", false);
 
     initial_pose_offset = Transform::Identity();
     std::vector<double> trans, rot;
     
-    if(nh_p.getParam("micp/trans", trans))
+    // rclcpp::Parameter trans_param;
+    if(nh->get_parameter("micp/trans", trans))
     {
         if(trans.size() != 3)
         {
-            // error
+            // error?
         }
         initial_pose_offset.t.x = trans[0];
         initial_pose_offset.t.y = trans[1];
         initial_pose_offset.t.z = trans[2];
     }
 
-    if(nh_p.getParam("micp/rot", rot))
+    if(nh->get_parameter("micp/rot", rot))
     {
         if(rot.size() == 3)
         {
@@ -393,15 +396,14 @@ int main(int argc, char** argv)
 
     init();
 
-    tf_buffer.reset(new tf2_ros::Buffer);
-    tf_listener.reset(new tf2_ros::TransformListener(*tf_buffer));
+    tf_buffer = std::make_shared<tf2_ros::Buffer>(nh->get_clock());
+    tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
+    br = std::make_unique<tf2_ros::TransformBroadcaster>(nh);
 
-    micp = std::make_shared<MICP>();
+    micp = std::make_shared<MICP>(nh);
     micp->loadParams();
 
-
-    std::string combining_unit_str;
-    nh_p.param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
+    std::string combining_unit_str = nh->declare_parameter("micp/combining_unit", "cpu");
 
     if(combining_unit_str == "cpu")
     {
@@ -416,10 +418,8 @@ int main(int argc, char** argv)
         return 0;
     }
 
-
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::msg::PoseStamped>("pose", 1, poseCB);
-    ros::Subscriber pose_wc_sub = nh.subscribe<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);
-
+    auto pose_sub = nh->create_subscription<geometry_msgs::msg::PoseStamped>("pose", 1, poseCB);
+    auto pose_wc_sub = nh->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);
 
     // CORRECTION THREAD
     stop_correction_thread = false;
@@ -461,14 +461,19 @@ int main(int argc, char** argv)
     });
 
     // MAIN LOOP TF
-    ros::Rate r(tf_rate);
-    ros::Time stamp = ros::Time::now();
+    rclcpp::Rate r(tf_rate);
+    rclcpp::Time stamp = nh->now();
 
     std::cout << "TF Rate: " << tf_rate << std::endl;
 
     std::cout << "Waiting for pose guess..." << std::endl;
 
-    while(ros::ok())
+    rclcpp::ExecutorOptions opts;
+    rclcpp::executors::MultiThreadedExecutor executor(opts, 4);
+    executor.add_node(nh);
+    
+
+    while(rclcpp::ok())
     {
         if(pose_received)
         {
@@ -480,8 +485,7 @@ int main(int argc, char** argv)
             //     std::cout << "- update tf" << std::endl;
             // }
             
-
-            ros::Time new_stamp = ros::Time::now();
+            rclcpp::Time new_stamp = nh->now();
             if(new_stamp > stamp)
             {
                 updateTF();
@@ -490,7 +494,7 @@ int main(int argc, char** argv)
         }
         
         r.sleep();
-        ros::spinOnce();
+        executor.spin_once();
     }
 
     stop_correction_thread = true;

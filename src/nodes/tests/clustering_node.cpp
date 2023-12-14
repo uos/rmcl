@@ -62,9 +62,9 @@ sensor_msgs::msg::PointCloud make_cloud(const MemoryView<Vector, RAM>& points)
     return cloud;
 }
 
-std_msgs::ColorRGBA color_from_id(size_t id)
+std_msgs::msg::ColorRGBA color_from_id(size_t id)
 {
-    std_msgs::ColorRGBA color;
+    std_msgs::msg::ColorRGBA color;
 
     color.r = 0.0;
     color.g = 0.0;

@@ -4,7 +4,7 @@
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl_msgs/msg/depth_stamped.hpp>
-#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.hpp>
 
 using namespace rmagine;
 using namespace rmcl;

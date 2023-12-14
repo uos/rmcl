@@ -391,44 +391,44 @@ endif(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 #### MICP ####
 ##############
 
-# add_executable(micp_localization 
-#     src/nodes/micp_localization.cpp
-#     # MICP
-#     src/rmcl/correction/MICP.cpp
-#     src/rmcl/correction/MICPRangeSensor.cpp
-# )
+add_executable(micp_localization 
+    src/nodes/micp_localization.cpp
+    # MICP
+    src/rmcl/correction/MICP.cpp
+    src/rmcl/correction/MICPRangeSensor.cpp
+)
 
-# target_link_libraries(micp_localization
-#     rmcl_ros
-# )
+target_link_libraries(micp_localization
+    rmcl_ros
+)
 
-# if(RMCL_EMBREE)
-#     target_link_libraries(micp_localization
-#         rmcl_embree_ros
-#     )
-# endif(RMCL_EMBREE)
+if(RMCL_EMBREE)
+    target_link_libraries(micp_localization
+        rmcl_embree_ros
+    )
+endif(RMCL_EMBREE)
     
-# if(RMCL_CUDA)
-#     target_link_libraries(micp_localization
-#         rmcl_cuda
-#     )
-# endif(RMCL_CUDA)
+if(RMCL_CUDA)
+    target_link_libraries(micp_localization
+        rmcl_cuda
+    )
+endif(RMCL_CUDA)
 
-# if(RMCL_OPTIX)
-#     target_link_libraries(micp_localization
-#         rmcl_optix_ros
-#     )
-# endif(RMCL_OPTIX)
+if(RMCL_OPTIX)
+    target_link_libraries(micp_localization
+        rmcl_optix_ros
+    )
+endif(RMCL_OPTIX)
 
-# ament_target_dependencies(micp_localization
-#     rclcpp
-#     geometry_msgs
-#     sensor_msgs
-#     tf2_ros
-#     rmcl_msgs
-#     image_transport
-#     visualization_msgs
-# )
+ament_target_dependencies(micp_localization
+    rclcpp
+    geometry_msgs
+    sensor_msgs
+    tf2_ros
+    rmcl_msgs
+    image_transport
+    visualization_msgs
+)
 
 # ########################
 # ### CONVERSION NODES ###

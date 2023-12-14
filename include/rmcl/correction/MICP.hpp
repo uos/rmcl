@@ -93,7 +93,7 @@
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
-#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.hpp>
 
 #include "MICPRangeSensor.hpp"
 
@@ -107,13 +107,13 @@ namespace rmcl
 class MICP
 {
 public:
-    MICP();
+    MICP(rclcpp::Node::SharedPtr node);
     ~MICP();
 
     void loadParams();
 
     bool loadSensor(std::string sensor_name, 
-        XmlRpc::XmlRpcValue sensor_params);
+        rclcpp::Parameter sensor_params);
 
     void loadMap(std::string filename);
     
@@ -179,7 +179,7 @@ protected:
 
     void checkTopic(
         TopicInfo& info, 
-        rclcpp::Duration timeout = rclcpp::Duration(5.0));
+        rclcpp::Duration timeout);
 
     void initCorrectors();
 private:
