@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 project(rmcl
 	VERSION 1.2.0
 	)
@@ -7,6 +7,7 @@ option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_CONV "Build Conversion Nodes" ON)
 option(BUILD_MICP_EXPERIMENTS "Build Experiments" ON)
+
 
 include(GNUInstallDirs)
 
@@ -99,7 +100,6 @@ if(TARGET rmagine::embree AND NOT ${DISABLE_EMBREE})
 endif()
 
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
-    message(WARNING "COMPILE WITH CUDA!")
     list(APPEND RMCL_LIBRARIES rmcl_cuda)
 endif()
 
@@ -226,10 +226,22 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     enable_language(CUDA)
     include_directories(${CUDA_INCLUDE_DIRS})
 
+    # include(FindCUDA/select_compute_arch)
+    cuda_detect_installed_gpus(INSTALLED_GPU_CCS_1)
+    string(STRIP "${INSTALLED_GPU_CCS_1}" INSTALLED_GPU_CCS_2)
+    string(REPLACE " " ";" INSTALLED_GPU_CCS_3 "${INSTALLED_GPU_CCS_2}")
+    string(REPLACE "." "" CUDA_ARCH_LIST "${INSTALLED_GPU_CCS_3}")
+    # message(WARNING "CUDA_ARCH_LIST: ${CUDA_ARCH_LIST}")
+    # SET(CMAKE_CUDA_ARCHITECTURES ${CUDA_ARCH_LIST})
+
     add_library(rmcl_cuda
         # math
         src/rmcl/math/math_batched.cu
         src/rmcl/math/math.cu
+    )
+
+    set_property(TARGET rmcl_cuda
+        PROPERTY "${CUDA_ARCH_LIST}"
     )
 
     target_link_libraries(rmcl_cuda
@@ -249,6 +261,10 @@ endif(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
 
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     # Build optix related stuff
+
+    # message(WARNING "CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
     set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")
     set(RMCL_OPTIX_PTX_GLOB_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/rmcl_optix_ptx")
