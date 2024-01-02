@@ -7,6 +7,7 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <rmcl/util/conversions.h>
+#include <rmcl/util/ros_helper.h>
 
 #include <rmcl/math/math.h>
 
@@ -48,7 +49,7 @@ MICP::MICP(rclcpp::Node::SharedPtr node)
     std::cout << "- " << TC_BACKENDS << "GPU" << TC_END << std::endl; 
     #endif // RMCL_CUDA
 
-    std::string combining_unit_str = m_nh->declare_parameter("micp/combining_unit", "cpu");
+    std::string combining_unit_str = get_parameter(m_nh, "micp.combining_unit", "cpu");
 
     if(combining_unit_str == "cpu")
     {
@@ -82,16 +83,15 @@ void MICP::loadParams()
 {
     std::cout << "MICP load params" << std::endl;
 
-
     // loading frames
-    m_base_frame = m_nh->declare_parameter("base_frame", "base_link");
-    m_map_frame = m_nh->declare_parameter("map_frame", "map");
+    m_base_frame = get_parameter(m_nh, "base_frame", "base_link");
+    m_map_frame = get_parameter(m_nh, "map_frame", "map");
 
-    m_odom_frame = m_nh->declare_parameter("odom_frame", "");
+    m_odom_frame = get_parameter(m_nh, "odom_frame", "");
     m_use_odom_frame = (m_odom_frame != "");
     // check frames
 
-    m_map_filename = m_nh->declare_parameter("map_file", "");
+    m_map_filename = get_parameter(m_nh, "map_file", "");
     if(m_map_filename == "")
     {
         RCLCPP_ERROR(m_nh->get_logger(), "User must provide ~map_file");
@@ -106,6 +106,19 @@ void MICP::loadParams()
     // rclcpp::Parameter sensors_param;
     // std::vector<rclcpp::Parameter> sensors_param;
 
+
+    // FROM MESH TOOLS TESTS:
+    // std::cout << "Searching parameters for: " << node->get_fully_qualified_name() << std::endl;
+
+    // std::map<std::string, rclcpp::Parameter> plugin_params;
+    // node->get_parameters("rviz_mesh_tools_plugins", plugin_params);
+
+    // std::cout << "PLUGIN PARAMS:" << std::endl;
+    // for(auto elem : plugin_params)
+    // {
+    //   std::cout << "- " << elem.first << std::endl;
+    // }
+
     std::map<std::string, rclcpp::Parameter> sensors_param;
 
     if(m_nh->get_parameters("sensors", sensors_param))
@@ -114,6 +127,8 @@ void MICP::loadParams()
         std::cout << "-------------------------" << std::endl;
         std::cout << "     --- SENSORS ---     " << std::endl;
         std::cout << "-------------------------" << std::endl;
+
+        // std::set<std::string> 
 
         for(auto sensor_param : sensors_param)
         {

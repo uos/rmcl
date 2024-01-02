@@ -430,6 +430,10 @@ ament_target_dependencies(micp_localization
     visualization_msgs
 )
 
+install(TARGETS 
+    micp_localization
+  DESTINATION lib/${PROJECT_NAME})
+
 # ########################
 # ### CONVERSION NODES ###
 # ########################

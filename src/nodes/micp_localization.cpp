@@ -9,7 +9,7 @@
 
 #include <rmcl/correction/MICP.hpp>
 #include <rmcl/util/conversions.h>
-
+#include <rmcl/util/ros_helper.h>
 
 #include <thread>
 #include <mutex>
@@ -346,21 +346,20 @@ int main(int argc, char** argv)
 
     adaptive_max_dist = true;
 
+    base_frame = get_parameter(nh, "base_frame", "base_link");
+    odom_frame = get_parameter(nh, "odom_frame", "odom");
+    map_frame = get_parameter(nh, "map_frame", "map");
 
-    base_frame = nh->declare_parameter("base_frame", "base_link");
-    odom_frame = nh->declare_parameter("odom_frame", "odom");
-    map_frame = nh->declare_parameter("map_frame", "map");
+    tf_rate = get_parameter(nh, "tf_rate", 50.0);
+    invert_tf = get_parameter(nh, "invert_tf", false);
 
-    tf_rate = nh->declare_parameter("tf_rate", 50.0);
-    invert_tf = nh->declare_parameter("invert_tf", false);
+    corr_rate_max = get_parameter(nh, "micp.corr_rate_max", 10000.0);
+    print_corr_rate = get_parameter(nh, "micp.print_corr_rate", false);
 
-    corr_rate_max = nh->declare_parameter("micp/corr_rate_max", 10000.0);
-    print_corr_rate = nh->declare_parameter("micp/print_corr_rate", false);
+    adaptive_max_dist = get_parameter(nh, "micp.adaptive_max_dist", true);
 
-    adaptive_max_dist = nh->declare_parameter("micp/adaptive_max_dist", true);
-
-    draw_correspondences = nh->declare_parameter("micp/viz_corr", false);
-    correction_disabled = nh->declare_parameter("micp/disable_corr", false);
+    draw_correspondences = get_parameter(nh, "micp.viz_corr", false);
+    correction_disabled = get_parameter(nh, "micp.disable_corr", false);
 
     initial_pose_offset = Transform::Identity();
     std::vector<double> trans, rot;
@@ -403,8 +402,8 @@ int main(int argc, char** argv)
     micp = std::make_shared<MICP>(nh);
     micp->loadParams();
 
-    std::string combining_unit_str = nh->declare_parameter("micp/combining_unit", "cpu");
-
+    std::string combining_unit_str = get_parameter(nh, "micp.combining_unit", "cpu");
+    
     if(combining_unit_str == "cpu")
     {
         // std::cout << "Combining Unit: CPU" << std::endl; 
