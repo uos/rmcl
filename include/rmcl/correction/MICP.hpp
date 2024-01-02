@@ -113,7 +113,7 @@ public:
     void loadParams();
 
     bool loadSensor(std::string sensor_name, 
-        rclcpp::Parameter sensor_params);
+        std::vector<std::string> sensor_params);
 
     void loadMap(std::string filename);
     

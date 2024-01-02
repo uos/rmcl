@@ -128,11 +128,25 @@ void MICP::loadParams()
         std::cout << "     --- SENSORS ---     " << std::endl;
         std::cout << "-------------------------" << std::endl;
 
-        // std::set<std::string> 
+        std::map<std::string, std::vector<std::string> > processed_sensors;
 
         for(auto sensor_param : sensors_param)
         {
-            std::cout << sensor_param.first << std::endl;
+            int pos = sensor_param.first.find(".");
+            std::string sensor_name = sensor_param.first.substr(0, pos);
+            std::string param_name = sensor_param.first.substr(pos+1);
+
+            if(processed_sensors.find(sensor_name) == processed_sensors.end())
+            {
+                processed_sensors[sensor_name] = {param_name};
+            } else {
+                processed_sensors[sensor_name].push_back(param_name);
+            }
+        }
+
+        for(auto elem : processed_sensors)
+        {
+            loadSensor(elem.first, elem.second);
         }
 
         throw std::runtime_error("TODO: parse new param");
@@ -145,12 +159,11 @@ void MICP::loadParams()
     }
 
     std::cout << "MICP load params - done. Valid Sensors: " << m_sensors.size() << std::endl;
-    
 }
 
 bool MICP::loadSensor(
     std::string sensor_name,
-    rclcpp::Parameter sensor_params)
+    std::vector<std::string> sensor_params)
 {
     // MICPRangeSensorPtr sensor = std::make_shared<MICPRangeSensor>();
 
