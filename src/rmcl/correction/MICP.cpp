@@ -131,11 +131,11 @@ void MICP::loadParams()
         ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree = get_parameter_tree(m_nh, "sensors");
         for(auto elem : *sensors_param_tree)
         {
-            std::cout << "LOAD SENSOR " << elem.first << std::endl;
+            // std::cout << "LOAD SENSOR " << elem.first << std::endl;
             loadSensor(elem.second);
         }
 
-        throw std::runtime_error("TODO: parse new param");
+        // throw std::runtime_error("TODO: parse new param");
         // for(auto sensor_xml : sensors_xml)
         // {
         //     loadSensor(sensor_xml.first, sensor_xml.second);
@@ -804,57 +804,57 @@ bool MICP::loadSensor(
     // std::cout << "POSTPROCESS" << std::endl;
 
 
-    // ////////////////////////
-    // //// 2. POSTPROCESS ////
-    // ////////////////////////
+    ////////////////////////
+    //// 2. POSTPROCESS ////
+    ////////////////////////
 
-    // // postcheck
-    // // check if optical: _optical suffix
-    // // std::cout << "Searching for '_optical' in " << sensor->data_topic.frame << std::endl;
+    // postcheck
+    // check if optical: _optical suffix
+    // std::cout << "Searching for '_optical' in " << sensor->data_topic.frame << std::endl;
     
-    // // connect sensor to ROS
-    // sensor->nh = m_nh;
-    // sensor->tf_buffer = m_tf_buffer; 
+    // connect sensor to ROS
+    sensor->nh = m_nh;
+    sensor->tf_buffer = m_tf_buffer; 
 
-    // // load additional params: duplicated from above
-    // sensor->fetchMICPParams();
-    // // connect to sensor topics
-    // sensor->connect();
+    // load additional params: duplicated from above
+    sensor->fetchMICPParams();
+    // connect to sensor topics
+    sensor->connect();
 
-    // // add sensor to class
-    // m_sensors[sensor->name] = sensor;
+    // add sensor to class
+    m_sensors[sensor->name] = sensor;
 
-    // #ifdef RMCL_EMBREE
-    // if(sensor->type == 0) // spherical
-    // {
-    //     sensor->corr_sphere_embree = std::make_shared<SphereCorrectorEmbree>(m_map_embree);
-    // } else if(sensor->type == 1) {
-    //     sensor->corr_pinhole_embree = std::make_shared<PinholeCorrectorEmbree>(m_map_embree);;
-    // } else if(sensor->type == 2) {
-    //     sensor->corr_o1dn_embree = std::make_shared<O1DnCorrectorEmbree>(m_map_embree);
-    // } else if(sensor->type == 3) {
-    //     sensor->corr_ondn_embree = std::make_shared<OnDnCorrectorEmbree>(m_map_embree);
-    // }
-    // #endif // RMCL_EMBREE
+    #ifdef RMCL_EMBREE
+    if(sensor->type == 0) // spherical
+    {
+        sensor->corr_sphere_embree = std::make_shared<SphereCorrectorEmbree>(m_map_embree);
+    } else if(sensor->type == 1) {
+        sensor->corr_pinhole_embree = std::make_shared<PinholeCorrectorEmbree>(m_map_embree);;
+    } else if(sensor->type == 2) {
+        sensor->corr_o1dn_embree = std::make_shared<O1DnCorrectorEmbree>(m_map_embree);
+    } else if(sensor->type == 3) {
+        sensor->corr_ondn_embree = std::make_shared<OnDnCorrectorEmbree>(m_map_embree);
+    }
+    #endif // RMCL_EMBREE
 
-    // #ifdef RMCL_OPTIX
-    // if(sensor->type == 0) // spherical
-    // {
-    //     sensor->corr_sphere_optix = std::make_shared<SphereCorrectorOptix>(m_map_optix);
-    // } else if(sensor->type == 1) {
-    //     sensor->corr_pinhole_optix = std::make_shared<PinholeCorrectorOptix>(m_map_optix);
-    // } else if(sensor->type == 2) {
-    //     sensor->corr_o1dn_optix = std::make_shared<O1DnCorrectorOptix>(m_map_optix);
-    // } else if(sensor->type == 3) {
-    //     sensor->corr_ondn_optix = std::make_shared<OnDnCorrectorOptix>(m_map_optix);
-    // }
-    // #endif // RMCL_OPTIX
+    #ifdef RMCL_OPTIX
+    if(sensor->type == 0) // spherical
+    {
+        sensor->corr_sphere_optix = std::make_shared<SphereCorrectorOptix>(m_map_optix);
+    } else if(sensor->type == 1) {
+        sensor->corr_pinhole_optix = std::make_shared<PinholeCorrectorOptix>(m_map_optix);
+    } else if(sensor->type == 2) {
+        sensor->corr_o1dn_optix = std::make_shared<O1DnCorrectorOptix>(m_map_optix);
+    } else if(sensor->type == 3) {
+        sensor->corr_ondn_optix = std::make_shared<OnDnCorrectorOptix>(m_map_optix);
+    }
+    #endif // RMCL_OPTIX
 
     
-    // sensor->fetchTF();
-    // sensor->updateCorrectors();
+    sensor->fetchTF();
+    sensor->updateCorrectors();
     
-    throw std::runtime_error("TODO");
+    // throw std::runtime_error("TODO");
 
     return true;
 }
