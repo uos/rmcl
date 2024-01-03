@@ -46,9 +46,11 @@
 #define RMCL_CORRECTION_MICP_HPP
 
 #include <rclcpp/rclcpp.hpp>
+#include <rmcl/util/ros_helper.h>
 #include <rmagine/types/sensor_models.h>
 #include <memory>
 #include <unordered_map>
+
 
 // rmcl core
 #include <rmcl/math/math.h>
@@ -112,8 +114,8 @@ public:
 
     void loadParams();
 
-    bool loadSensor(std::string sensor_name, 
-        std::unordered_set<std::string> sensor_params);
+    bool loadSensor(
+        ParamTree<rclcpp::Parameter>::SharedPtr sensor_params);
 
     void loadMap(std::string filename);
     

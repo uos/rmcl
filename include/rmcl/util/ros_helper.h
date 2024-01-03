@@ -1,3 +1,6 @@
+#ifndef RMCL_UTIL_ROS_HELPER_H
+#define RMCL_UTIL_ROS_HELPER_H
+
 #include <rclcpp/rclcpp.hpp>
 
 
@@ -5,7 +8,7 @@ namespace rmcl
 {
 
 // special case for char arrays to be converted properly
-inline std::string get_parameter(
+static std::string get_parameter(
     rclcpp::Node::SharedPtr node,
     const std::string param_name,
     const std::string default_value)
@@ -21,7 +24,7 @@ inline std::string get_parameter(
 }
 
 template<typename T> 
-T get_parameter(
+static T get_parameter(
     rclcpp::Node::SharedPtr node, 
     const std::string& param_name,
     const T& default_value)
@@ -36,12 +39,6 @@ T get_parameter(
     return param_out;
 }
 
-// Forward declarations
-template<typename ParamT>
-class ParamTree;
-
-template<typename ParamT>
-using ParamTreePtr = std::shared_ptr<ParamTree<ParamT> >;
 
 
 // class ParamTree : public std::unordered_map<std::string, std::string >
@@ -50,9 +47,16 @@ using ParamTreePtr = std::shared_ptr<ParamTree<ParamT> >;
 // };
 
 
-// using ParamTree = 
+// Forward declarations
+template<typename ParamT>
+class ParamTree;
 
-inline std::vector<std::string> split_param_name(const std::string& s)
+template<typename ParamT>
+using ParamTreePtr = std::shared_ptr<ParamTree<ParamT> >;
+
+
+
+static std::vector<std::string> split_param_name(const std::string& s)
 {
     std::vector<std::string> result;
     std::stringstream ss (s);
@@ -74,7 +78,7 @@ public:
     using ThisType = ParamTree<ParamT>;
     using SharedPtr = std::shared_ptr<ParamTree<ParamT> >;
 
-    std::unique_ptr<ParamT> data;
+    std::shared_ptr<ParamT> data;
     std::string name; // uid
 
     inline void insert(ParamTree<ParamT>::SharedPtr subtree)
@@ -107,7 +111,7 @@ public:
             // leaf
             ParamTree<ParamT>::SharedPtr child = std::make_shared<ParamTree>();
             child->name = param_name;
-            child->data = std::make_unique<ParamT>(param);
+            child->data = std::make_shared<ParamT>(param);
             this->insert(child);
         }
     }
@@ -156,7 +160,7 @@ inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
 
 
 // THANKS TO NAV2
-// std::vector<std::vector<float> > parseVVF(const std::string & input, std::string & error_return)
+// static std::vector<std::vector<float> > parseVVF(const std::string & input, std::string & error_return)
 // {
 //   std::vector<std::vector<float>> result;
 
@@ -219,3 +223,7 @@ inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
 
 
 } // namespace rmcl
+
+
+
+#endif // RMCL_UTIL_ROS_HELPER_H
