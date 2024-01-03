@@ -106,18 +106,18 @@ visualization_msgs::msg::Marker make_marker(
 void MICPRangeSensor::connect()
 {
     if(type == 0) { // Spherical
-        if(data_topic.msg == "rmcl_msgs/ScanStamped") {
+        if(data_topic.msg == "rmcl_msgs/msg/ScanStamped") {
             data_sub = nh->create_subscription<rmcl_msgs::msg::ScanStamped>(
                     data_topic.name, 1, 
                     std::bind(&MICPRangeSensor::sphericalCB, this, std::placeholders::_1)
                 );
 
-        } else if(data_topic.msg == "sensor_msgs/PointCloud2") {
+        } else if(data_topic.msg == "sensor_msgs/msg/PointCloud2") {
             data_sub = nh->create_subscription<sensor_msgs::msg::PointCloud2>(
                     data_topic.name, 1, 
                     std::bind(&MICPRangeSensor::pclSphericalCB, this, std::placeholders::_1)
                 );
-        } else if(data_topic.msg == "sensor_msgs/LaserScan") {
+        } else if(data_topic.msg == "sensor_msgs/msg/LaserScan") {
             data_sub = nh->create_subscription<sensor_msgs::msg::LaserScan>(
                     data_topic.name, 1, 
                     std::bind(&MICPRangeSensor::laserCB, this, std::placeholders::_1)
@@ -128,17 +128,17 @@ void MICPRangeSensor::connect()
         }
     } else if(type == 1) { // Pinhole
         
-        if(data_topic.msg == "rmcl_msgs/DepthStamped") {
+        if(data_topic.msg == "rmcl_msgs/msg/DepthStamped") {
             data_sub = nh->create_subscription<rmcl_msgs::msg::DepthStamped>(
                     data_topic.name, 1,
                     std::bind(&MICPRangeSensor::pinholeCB, this, std::placeholders::_1)
                 );
-        } else if(data_topic.msg == "sensor_msgs/PointCloud2") {
+        } else if(data_topic.msg == "sensor_msgs/msg/PointCloud2") {
             data_sub = nh->create_subscription<sensor_msgs::msg::PointCloud2>(
                     data_topic.name, 1, 
                     std::bind(&MICPRangeSensor::pclPinholeCB, this, std::placeholders::_1)
                 );
-        } else if(data_topic.msg == "sensor_msgs/Image") {
+        } else if(data_topic.msg == "sensor_msgs/msg/Image") {
             // std::cout << "Connecting to depth image" << std::endl;
             // create image transport if not yet done
 
@@ -157,14 +157,14 @@ void MICPRangeSensor::connect()
         }
 
     } else if(type == 2) { // O1Dn
-        if(data_topic.msg == "rmcl_msgs/O1DnStamped") {
+        if(data_topic.msg == "rmcl_msgs/msg/O1DnStamped") {
             data_sub = nh->create_subscription<rmcl_msgs::msg::O1DnStamped>(
                     data_topic.name, 1, 
                     std::bind(&MICPRangeSensor::o1dnCB, this, std::placeholders::_1)
                 );
         }
     } else if(type == 3) { // OnDn
-        if(data_topic.msg == "rmcl_msgs/OnDnStamped") {
+        if(data_topic.msg == "rmcl_msgs/msg/OnDnStamped") {
             data_sub = nh->create_subscription<rmcl_msgs::msg::OnDnStamped>(
                     data_topic.name, 1, 
                     std::bind(&MICPRangeSensor::ondnCB, this, std::placeholders::_1)
@@ -175,28 +175,28 @@ void MICPRangeSensor::connect()
     if(has_info_topic)
     {
         // connect to info topic
-        if(info_topic.msg == "sensor_msgs/CameraInfo")
+        if(info_topic.msg == "sensor_msgs/msg/CameraInfo")
         {
             info_sub = nh->create_subscription<sensor_msgs::msg::CameraInfo>(
                     info_topic.name, 1, 
                     std::bind(&MICPRangeSensor::cameraInfoCB, this, std::placeholders::_1)
                 );
-        } else if(info_topic.msg == "rmcl_msgs/ScanInfo") {
+        } else if(info_topic.msg == "rmcl_msgs/msg/ScanInfo") {
             info_sub = nh->create_subscription<rmcl_msgs::msg::ScanInfo>(
                     info_topic.name, 1, 
                     std::bind(&MICPRangeSensor::sphericalModelCB, this, std::placeholders::_1)
                 );
-        } else if(info_topic.msg == "rmcl_msgs/DepthInfo") {
+        } else if(info_topic.msg == "rmcl_msgs/msg/DepthInfo") {
             info_sub = nh->create_subscription<rmcl_msgs::msg::DepthInfo>(
                     info_topic.name, 1, 
                     std::bind(&MICPRangeSensor::pinholeModelCB, this, std::placeholders::_1)
                 );
-        } else if(info_topic.msg == "rmcl_msgs/O1DnInfo") {
+        } else if(info_topic.msg == "rmcl_msgs/msg/O1DnInfo") {
             info_sub = nh->create_subscription<rmcl_msgs::msg::O1DnInfo>(
                     info_topic.name, 1, 
                     std::bind(&MICPRangeSensor::o1dnModelCB, this, std::placeholders::_1)
                 );
-        } else if(info_topic.msg == "rmcl_msgs/OnDnInfo") {
+        } else if(info_topic.msg == "rmcl_msgs/msg/OnDnInfo") {
             info_sub = nh->create_subscription<rmcl_msgs::msg::OnDnInfo>(
                     info_topic.name, 1, 
                     std::bind(&MICPRangeSensor::ondnModelCB, this, std::placeholders::_1)
@@ -211,12 +211,17 @@ void MICPRangeSensor::fetchMICPParams(bool init)
 {
     if(!nh_sensor)
     {
-        std::stringstream ss;
-        ss << "sensors/" << name;
+        std::string node_ns;
+        {
+            std::stringstream ss;
+            ss << "sensors/" << name;
+            node_ns = ss.str();
+        }
 
         if(nh)
         {
-            nh_sensor = nh->create_sub_node(ss.str());
+            nh_sensor = nh->create_sub_node(node_ns);
+
         } else {
             // ERROR
             std::cerr << "ERROR: MICPRangeSensor has no MICP node." << std::endl;
@@ -224,13 +229,28 @@ void MICPRangeSensor::fetchMICPParams(bool init)
         }
     }
 
-    // local settings
-    if(!nh_sensor->get_parameter("micp/max_dist", corr_params_init.max_distance))
+    std::string micp_prefix_local;
     {
-        if(!nh->get_parameter("micp/max_dist", corr_params_init.max_distance))
-        {
-            corr_params_init.max_distance = 1.0;
-        }
+        std::stringstream ss;
+        ss << "sensors." << name << ".micp";
+        micp_prefix_local = ss.str();
+    }
+    std::string micp_prefix_global = "micp";
+
+    std::map<std::string, rclcpp::Parameter> micp_params_local;
+    nh_sensor->get_parameters(micp_prefix_local, micp_params_local);
+
+    std::map<std::string, rclcpp::Parameter> micp_params_global;
+    nh->get_parameters(micp_prefix_global, micp_params_global);
+
+    // local settings
+    if(micp_params_local.find("max_dist") != micp_params_local.end())
+    {
+        corr_params_init.max_distance = micp_params_local.at("max_dist").as_double();
+    } else if(micp_params_global.find("max_dist") != micp_params_global.end()) {
+        corr_params_init.max_distance = micp_params_global.at("max_dist").as_double();
+    } else {
+        corr_params_init.max_distance = 1.0;
     }
 
     if(init)
@@ -239,12 +259,14 @@ void MICPRangeSensor::fetchMICPParams(bool init)
     }
 
     bool adaptive_max_dist;
-    if(!nh_sensor->get_parameter("micp/adaptive_max_dist", adaptive_max_dist))
+    
+    if(micp_params_local.find("adaptive_max_dist") != micp_params_local.end())
     {
-        if(!nh->get_parameter("micp/adaptive_max_dist", adaptive_max_dist))
-        {
-            adaptive_max_dist = false;
-        }
+        adaptive_max_dist = micp_params_local.at("adaptive_max_dist").as_bool();
+    } else if(micp_params_global.find("adaptive_max_dist") != micp_params_global.end()) {
+        adaptive_max_dist = micp_params_global.at("adaptive_max_dist").as_bool();
+    } else {
+        adaptive_max_dist = false;
     }
 
     if(adaptive_max_dist)
@@ -254,8 +276,10 @@ void MICPRangeSensor::fetchMICPParams(bool init)
     
 
     std::string backend_str;
-    if(!nh_sensor->get_parameter("micp/backend", backend_str))
+    if(micp_params_local.find("backend") != micp_params_local.end())
     {
+        backend_str = micp_params_local.at("backend").as_string();
+    } else {
         backend_str = "embree";
     }
 
@@ -266,30 +290,34 @@ void MICPRangeSensor::fetchMICPParams(bool init)
         backend = 1;
     }
 
-    if(!nh_sensor->get_parameter("micp/weight", corr_weight))
+    if(micp_params_local.find("weight") != micp_params_local.end())
     {
+        corr_weight = micp_params_local.at("weight").as_double();
+    } else {
         corr_weight = 1.0;
     }
 
     // VIZ
-    if(!nh_sensor->get_parameter("micp/viz_corr", viz_corr))
+    if(micp_params_local.find("viz_corr") != micp_params_local.end())
     {
-        if(!nh->get_parameter("micp/viz_corr", viz_corr))
-        {
-            viz_corr = false;
-        }
+        viz_corr = micp_params_local.at("viz_corr").as_bool();
+    } else if(micp_params_global.find("viz_corr") != micp_params_global.end()) {
+        viz_corr = micp_params_global.at("viz_corr").as_bool();
+    } else {
+        viz_corr = false;
     }
 
     enableVizCorrespondences(viz_corr);
 
     { // viz cor dataset color
         std::vector<double> colors;
-        if(!nh_sensor->get_parameter("micp/viz_corr_data_color", colors))
+        if(micp_params_local.find("viz_corr_data_color") != micp_params_local.end())
         {
-            if(!nh->get_parameter("micp/viz_corr_data_color", colors))
-            {
-                colors = {1.0, 1.0, 1.0, 0.5};
-            }
+            colors = micp_params_local.at("viz_corr_data_color").as_double_array();
+        } else if(micp_params_global.find("viz_corr_data_color") != micp_params_global.end()) {
+            colors = micp_params_global.at("viz_corr_data_color").as_double_array();
+        } else {
+            colors = {1.0, 1.0, 1.0, 0.5};
         }
 
         viz_corr_data_color.r = colors[0];
@@ -300,12 +328,13 @@ void MICPRangeSensor::fetchMICPParams(bool init)
 
     { // viz cor model color
         std::vector<double> colors;
-        if(!nh_sensor->get_parameter("micp/viz_corr_model_color", colors))
+        if(micp_params_local.find("viz_corr_model_color") != micp_params_local.end())
         {
-            if(!nh->get_parameter("micp/viz_corr_model_color", colors))
-            {
-                colors = {0.2, 0.2, 0.2, 1.0};
-            }
+            colors = micp_params_local.at("viz_corr_model_color").as_double_array();
+        } else if(micp_params_global.find("viz_corr_model_color") != micp_params_global.end()) {
+            colors = micp_params_global.at("viz_corr_model_color").as_double_array();
+        } else {
+            colors = {0.2, 0.2, 0.2, 1.0};
         }
 
         viz_corr_model_color.r = colors[0];
@@ -314,30 +343,25 @@ void MICPRangeSensor::fetchMICPParams(bool init)
         viz_corr_model_color.a = colors[3];
     }
     
-    if(!nh_sensor->get_parameter("micp/viz_corr_scale", viz_corr_scale))
+    if(micp_params_local.find("viz_corr_scale") != micp_params_local.end())
     {
-        if(!nh->get_parameter("micp/viz_corr_scale", viz_corr_scale))
-        {
-            viz_corr_scale = 0.008;
-        }
+        viz_corr_scale = micp_params_local.at("viz_corr_scale").as_double();
+    } else if(micp_params_global.find("viz_corr_scale") != micp_params_global.end())
+    {
+        viz_corr_scale = micp_params_global.at("viz_corr_scale").as_double();
+    } else {
+        viz_corr_scale = 0.008;
     }
 
-    if(!nh_sensor->get_parameter("micp/viz_corr_skip", viz_corr_scale))
+    if(micp_params_local.find("viz_corr_skip") != micp_params_local.end())
     {
-        if(!nh->get_parameter("micp/viz_corr_scale", viz_corr_scale))
-        {
-            viz_corr_scale = 0.008;
-        }
-    }
-
-    if(!nh_sensor->get_parameter("micp/viz_corr_skip", viz_corr_skip))
+        viz_corr_skip = micp_params_local.at("viz_corr_skip").as_int();
+    } else if(micp_params_global.find("viz_corr_skip") != micp_params_global.end())
     {
-        if(!nh->get_parameter("micp/viz_corr_skip", viz_corr_skip))
-        {
-            viz_corr_skip = 0;
-        }
+        viz_corr_skip = micp_params_global.at("viz_corr_skip").as_int();
+    } else {
+        viz_corr_skip = 0;
     }
-
 }
 
 void MICPRangeSensor::fetchTF()

@@ -102,23 +102,6 @@ void MICP::loadParams()
 
     loadMap(m_map_filename);
 
-    // XmlRpc::XmlRpcValue sensors_xml;
-    // rclcpp::Parameter sensors_param;
-    // std::vector<rclcpp::Parameter> sensors_param;
-
-
-    // FROM MESH TOOLS TESTS:
-    // std::cout << "Searching parameters for: " << node->get_fully_qualified_name() << std::endl;
-
-    // std::map<std::string, rclcpp::Parameter> plugin_params;
-    // node->get_parameters("rviz_mesh_tools_plugins", plugin_params);
-
-    // std::cout << "PLUGIN PARAMS:" << std::endl;
-    // for(auto elem : plugin_params)
-    // {
-    //   std::cout << "- " << elem.first << std::endl;
-    // }
-
     std::map<std::string, rclcpp::Parameter> sensors_param;
 
     if(m_nh->get_parameters("sensors", sensors_param))
@@ -131,15 +114,8 @@ void MICP::loadParams()
         ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree = get_parameter_tree(m_nh, "sensors");
         for(auto elem : *sensors_param_tree)
         {
-            // std::cout << "LOAD SENSOR " << elem.first << std::endl;
             loadSensor(elem.second);
         }
-
-        // throw std::runtime_error("TODO: parse new param");
-        // for(auto sensor_xml : sensors_xml)
-        // {
-        //     loadSensor(sensor_xml.first, sensor_xml.second);
-        // }
     } else {
         std::cout << "ERROR: NO SENSORS" << std::endl;
     }
@@ -164,12 +140,6 @@ bool MICP::loadSensor(
 
     sensor->name = sensor_name;
     sensor->base_frame = m_base_frame;
-
-    // std::cout << "PARAMS: " << std::endl;
-    // for(auto param : *sensor_params)
-    // {
-    //     std::cout << param.first << std::endl;
-    // }
 
     if(sensor_params->find("type") != sensor_params->end())
     {
@@ -228,15 +198,6 @@ bool MICP::loadSensor(
         
 
         std::map<std::string, std::vector<std::string> > topic_map = m_nh->get_topic_names_and_types();
-        
-        // for(auto elem : topic_map)
-        // {
-        //     std::cout << elem.first << ": "  << std::endl;
-        //     for(auto topic_type : elem.second)
-        //     {
-        //         std::cout << "-- " << topic_type << std::endl; 
-        //     }
-        // }
 
         if(topic_map.find(sensor->data_topic.name) != topic_map.end())
         {
@@ -504,22 +465,6 @@ bool MICP::loadSensor(
             sensor->info_topic.msg = topic_type;
         }
 
-        
-
-
-
-        // // std::vector<ros::master::TopicInfo> topic_infos;
-        // // ros::master::getTopics(topic_infos);
-        // for(auto topic_info : topic_infos)
-        // {
-        //     if(topic_info.name == info_topic_name)
-        //     {
-        //         sensor->info_topic.msg = topic_info.datatype;
-        //         break;
-        //     }
-        // }
-        // throw std::runtime_error("TODO");
-
         if(sensor->info_topic.msg != "")
         {
             std::cout << "    - msg:\t\t" << TC_MSG << sensor->info_topic.msg << TC_END << std::endl;
@@ -530,7 +475,7 @@ bool MICP::loadSensor(
 
         if(!sensor_type_found)
         {
-            if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
+            if(sensor->info_topic.msg == "sensor_msgs/msg/CameraInfo")
             {
                 sensor_type = "pinhole";
                 sensor_type_found = true;
@@ -821,8 +766,7 @@ bool MICP::loadSensor(
     // connect to sensor topics
     sensor->connect();
 
-    // add sensor to class
-    m_sensors[sensor->name] = sensor;
+    
 
     #ifdef RMCL_EMBREE
     if(sensor->type == 0) // spherical
@@ -853,8 +797,9 @@ bool MICP::loadSensor(
     
     sensor->fetchTF();
     sensor->updateCorrectors();
-    
-    // throw std::runtime_error("TODO");
+
+    // add sensor to class
+    m_sensors[sensor->name] = sensor;
 
     return true;
 }
