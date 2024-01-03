@@ -113,7 +113,7 @@ public:
     void loadParams();
 
     bool loadSensor(std::string sensor_name, 
-        std::vector<std::string> sensor_params);
+        std::unordered_set<std::string> sensor_params);
 
     void loadMap(std::string filename);
     
@@ -158,7 +158,7 @@ public:
         return m_sensors;
     }
 
-    void useInThisThread()
+    inline void useInThisThread()
     {
         #ifdef RMCL_OPTIX
         // TODO hold a context ptr at MICP object
