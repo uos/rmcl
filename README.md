@@ -56,24 +56,21 @@ It is usually started through a launch file since it requires a large set of par
 
 ### Launch
 
-Starting the following Launch-File
+The following Launch-File
 
 ```xml
 <launch>
 
-<arg name="map" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
-<arg name="config" default="$(find rmcl)/config/examples/micp_velodyne_cpu.yaml" />
-
-<node pkg="rmcl" type="micp_localization" name="micp_localization" output="screen">
-    <param name="map_file" type="string" value="$(arg map)" />
-    <rosparam command="load" file="$(arg config)" />
+<node pkg="rmcl" exec="micp_localization" name="micp_localization" output="screen">
+    <param name="map_file" value="/path/to/mesh/map.dae" />
+    <param from="/path/to/config/file.yaml" />
     <remap from="pose_wc" to="/initialpose" />
 </node>
 
 </launch>
 ```
 
-runs the MICP localization. After that a pose has to be given, e.g. by the RViz "2D Pose Estimate" Tool that publishes the results on the `/initialpose` topic.
+runs the MICP localization node. After that a pose has to be given, e.g. by the RViz "2D Pose Estimate" Tool that publishes the results on the `/initialpose` topic.
 Doing that, make sure to set the fixed frame to the map coordinate system.
 RMCL itself doesn't provide any tools to visualize the maps (triangle meshes).
 If you want to see the map in RViz, use for example the `rviz_mesh_plugin` of the [mesh_tools](https://github.com/aock/mesh_tools) (loading a standard mesh format is only available in the fork).
@@ -297,4 +294,3 @@ The planned Roadmap is as follows:
 
 - [x] MICP-L
 - [ ] RMCL
-
