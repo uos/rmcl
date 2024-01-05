@@ -298,3 +298,8 @@ The planned Roadmap is as follows:
 - [x] MICP-L
 - [ ] RMCL
 
+## News
+
+### 2024-01-05: ROS2 - humble
+
+The first ROS2 port has been released! If you are using ROS2, check out the `humble` branch of this and all linked repositories. After the new branch has been tested well enough, I will make it the main branch. The current version will persist in the `noetic` branch.
