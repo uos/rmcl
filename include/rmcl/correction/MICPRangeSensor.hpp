@@ -121,12 +121,12 @@ class MICPRangeSensor
 : std::enable_shared_from_this<MICPRangeSensor>
 {
 public: // TODO: dont have everything public
-    std::string     name;
+    std::string          name;
 
-    TopicInfo       data_topic;
+    TopicInfo            data_topic;
     // optional
-    bool            has_info_topic;
-    TopicInfo       info_topic;
+    bool                 has_info_topic;
+    TopicInfo            info_topic;
 
     // robots base frame
     std::string          frame;
@@ -142,7 +142,7 @@ public: // TODO: dont have everything public
     SensorModelV         model;
     // model meta
     bool                 model_received_once = false;
-    rclcpp::Time            model_last_update;
+    rclcpp::Time         model_last_update;
     float                model_frequency_est; // currently unused
     
 
@@ -164,8 +164,16 @@ public: // TODO: dont have everything public
     
     
     // subscriber to data
-    rclcpp::Node::SharedPtr nh; // micp
+    
+    // Main node nh
+    rclcpp::Node::SharedPtr nh;
+    // Subnodes nh_p, nh_sensor
+    // private node. Publisher is publishing on /ns/node_name
+    rclcpp::Node::SharedPtr nh_p;
+    // private node. Publisher is publishing on /ns/node_name/sensors/sensor_name
     rclcpp::Node::SharedPtr nh_sensor;
+
+    // subscriber to data
     rclcpp::SubscriptionBase::SharedPtr data_sub;
     rclcpp::SubscriptionBase::SharedPtr info_sub;
     
@@ -188,7 +196,7 @@ public: // TODO: dont have everything public
     float viz_corr_scale = 0.005;
     int viz_corr_skip = 0;
 
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr   pub_corr;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_corr;
 
     // correction: TODO better
     #ifdef RMCL_EMBREE

@@ -53,7 +53,7 @@ extern "C" __global__ void __raygen__rg()
             OptixVisibilityMask( 1 ),   // Specify always visible
             OPTIX_RAY_FLAG_DISABLE_ANYHIT,
             0,          // SBT offset
-            1,             // SBT stride
+            1,          // SBT stride
             0,          // missSBTIndex
             p0, p1, p2, p3 );
 

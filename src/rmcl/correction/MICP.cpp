@@ -1,10 +1,4 @@
 #include "rmcl/correction/MICP.hpp"
-// how to port this?
-// #include <ros/master.h>
-#include <vector>
-
-
-#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/ros_helper.h>
@@ -19,10 +13,10 @@
 #include <rmagine/util/StopWatch.hpp>
 
 #include <rclcpp/wait_for_message.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <chrono>
-
-#include <rclcpp/wait_for_message.hpp>
+#include <vector>
 
 using namespace std::chrono_literals;
 
@@ -36,6 +30,16 @@ MICP::MICP(rclcpp::Node::SharedPtr node)
 ,m_tf_buffer(new tf2_ros::Buffer(m_nh->get_clock()))
 ,m_tf_listener(new tf2_ros::TransformListener(*m_tf_buffer))
 {
+    std::string nh_name = m_nh->get_fully_qualified_name();
+
+    if(nh_name[0] == '/')
+    {
+        // remove leasing '/'
+        nh_name.erase(0, 1);
+    }
+
+    m_nh_p = m_nh->create_sub_node(nh_name);
+
     std::cout << "MICP initiailized" << std::endl;
 
     std::cout << std::endl;
@@ -784,7 +788,8 @@ bool MICP::loadSensor(
     
     // connect sensor to ROS
     sensor->nh = m_nh;
-    sensor->tf_buffer = m_tf_buffer; 
+    sensor->nh_p = m_nh_p;
+    sensor->tf_buffer = m_tf_buffer;
 
     // load additional params: duplicated from above
     sensor->fetchMICPParams();

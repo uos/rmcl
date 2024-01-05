@@ -24,8 +24,8 @@ extern "C" __global__ void __raygen__rg()
 
     if(pid < mem.Nposes)
     {
-        const float rangeMin = mem.model->range.min;
-        const float rangeMax = mem.model->range.max;
+        const float range_min = mem.model->range.min;
+        const float range_max = mem.model->range.max;
         
         const rm::Transform Tsb = mem.Tsb[0];
         const rm::Transform Tbm = mem.Tbm[pid];
@@ -59,7 +59,7 @@ extern "C" __global__ void __raygen__rg()
                 const unsigned int loc_id = mem.model->getBufferId(vid, hid);
                 
                 const float real_range = mem.ranges[loc_id];
-                if(real_range < rangeMin || real_range > rangeMax)
+                if(real_range < range_min || real_range > range_max)
                 {
                     continue;
                 }
@@ -73,7 +73,7 @@ extern "C" __global__ void __raygen__rg()
                         make_float3(Tsm.t.x, Tsm.t.y, Tsm.t.z),
                         make_float3(ray_dir_m.x, ray_dir_m.y, ray_dir_m.z),
                         0.0f,               // Min intersection distance
-                        rangeMax,                   // Max intersection distance
+                        range_max,                   // Max intersection distance
                         0.0f,                       // rayTime -- used for motion blur
                         OptixVisibilityMask( 1 ),   // Specify always visible
                         OPTIX_RAY_FLAG_DISABLE_ANYHIT,
@@ -83,7 +83,7 @@ extern "C" __global__ void __raygen__rg()
                         p0, p1, p2, p3);
 
                 const float range = __uint_as_float( p0 );
-                if(range > rangeMax)
+                if(range > range_max)
                 {
                     continue;
                 }

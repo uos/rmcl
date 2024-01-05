@@ -225,8 +225,7 @@ void MICPRangeSensor::fetchMICPParams(bool init)
 
         if(nh)
         {
-            nh_sensor = nh->create_sub_node(node_ns);
-
+            nh_sensor = nh_p->create_sub_node(node_ns);
         } else {
             // ERROR
             std::cerr << "ERROR: MICPRangeSensor has no MICP node." << std::endl;
@@ -851,9 +850,21 @@ void MICPRangeSensor::computeCovs(
                 {
                     pub_corr->publish(marker);
                 }
+
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_pinhole_optix->computeCovs(Tbms, res);
             }
 
-            corr_pinhole_optix->computeCovs(Tbms, res);   
         } else if(type == 2) {
 
             if(viz_corr)
@@ -879,9 +890,21 @@ void MICPRangeSensor::computeCovs(
                 {
                     pub_corr->publish(marker);
                 }
+
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_o1dn_optix->computeCovs(Tbms, res);
             }
 
-            corr_o1dn_optix->computeCovs(Tbms, res);
         } else if(type == 3) {
 
             if(viz_corr)
@@ -907,9 +930,20 @@ void MICPRangeSensor::computeCovs(
                 {
                     pub_corr->publish(marker);
                 }
-            }
 
-            corr_ondn_optix->computeCovs(Tbms, res);
+                res.ds.resize(Tbms.size());
+                res.ms.resize(Tbms.size());
+                res.Cs.resize(Tbms.size());
+                res.Ncorr.resize(Tbms.size());
+
+                means_covs_online_batched(
+                    dataset_points, model_points, corr_valid, // input
+                    res.ds, res.ms, // outputs
+                    res.Cs, res.Ncorr
+                );
+            } else {
+                corr_ondn_optix->computeCovs(Tbms, res);
+            }
         }
     }
     #endif // RMCL_OPTIX
@@ -933,7 +967,7 @@ void MICPRangeSensor::enableVizCorrespondences(bool enable)
         {
             std::stringstream ss;
             ss << "sensors/" << name;
-            nh_sensor = nh->create_sub_node(ss.str());
+            nh_sensor = nh_p->create_sub_node(ss.str());
         }
 
         pub_corr = nh_sensor->create_publisher<visualization_msgs::msg::Marker>("correspondences", 1);
@@ -1306,8 +1340,8 @@ void MICPRangeSensor::pclO1DnCB(
     // We let the data define the sensor model
     // or we trust the existing sensor model
     // TODO: make a decision and a proper documentation
-    model_.orig = T.t;
-    model_.width = msg->width;
+    model_.orig   = T.t;
+    model_.width  = msg->width;
     model_.height = msg->height;
     if(model_.dirs.size() < msg->width * msg->height)
     {
