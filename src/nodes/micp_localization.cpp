@@ -328,8 +328,6 @@ void init()
     Tbo = Transform::Identity();
 }
 
-
-
 void tf_loop()
 {
     if(pose_received)
@@ -477,15 +475,10 @@ int main(int argc, char** argv)
     });
 
     // MAIN LOOP TF
-    rclcpp::Rate r(tf_rate);
-    // rclcpp::Rate r = nh->create_rate(tf_rate);
     last_tf_stamp = nh->now();
-
-
     auto tf_timer = nh->create_wall_timer(std::chrono::duration<double>(1.0 / tf_rate), tf_loop);
 
     std::cout << "TF Rate: " << tf_rate << std::endl;
-
     std::cout << "Waiting for pose guess..." << std::endl;
 
     rclcpp::ExecutorOptions opts;

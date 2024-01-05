@@ -354,12 +354,8 @@ bool MICP::loadSensor(
             rm::O1DnModel model;
             bool model_loading_error = false;
 
-            model.width  = model_params->at("width")->data->as_int();
-            model.height = model_params->at("height")->data->as_int();
-
             model.range.min = model_params->at("range_min")->data->as_double();
             model.range.max = model_params->at("range_max")->data->as_double();
-
 
             std::vector<double> orig = model_params->at("orig")->data->as_double_array();
 
@@ -373,11 +369,36 @@ bool MICP::loadSensor(
             model.orig.y = orig[1];
             model.orig.z = orig[2];
 
-            std::vector<double> dirs = model_params->at("dirs")->data->as_double_array();
-            model.dirs.resize(dirs.size() / 3);
-            for(size_t i=0; i<dirs.size() / 3; i++)
+            if(model_params->exists("width"))
             {
-                model.dirs[i]  = {dirs[i * 3 + 0], dirs[i * 3 + 1], dirs[i * 3 + 2]};
+                // model.widt
+                model.width = model_params->at("width")->data->as_double();
+            } else {
+                // loading actual width from sensor data
+                model.width = 0;
+            }
+
+            if(model_params->exists("height"))
+            {
+                // model.widt
+                model.height = model_params->at("height")->data->as_double();
+            } else {
+                // loading actual height from sensor data
+                model.height = 0;
+            }
+
+            if(model_params->exists("dirs"))
+            {
+                std::vector<double> dirs = model_params->at("dirs")->data->as_double_array();
+                model.dirs.resize(dirs.size() / 3);
+                for(size_t i=0; i<dirs.size() / 3; i++)
+                {
+                    model.dirs[i].x = dirs[i * 3 + 0];
+                    model.dirs[i].y = dirs[i * 3 + 1];
+                    model.dirs[i].z = dirs[i * 3 + 2];
+                }
+            } else {
+                model.dirs.resize(0);
             }
 
             sensor->model = model;
@@ -400,8 +421,13 @@ bool MICP::loadSensor(
             model.dirs.resize(dirs.size() / 3);
             for(size_t i=0; i<origs.size() / 3; i++)
             {
-                model.origs[i] = {origs[i * 3 + 0], origs[i * 3 + 1], origs[i * 3 + 2]};
-                model.dirs[i]  = {dirs[i * 3 + 0], dirs[i * 3 + 1], dirs[i * 3 + 2]};
+                model.origs[i].x = origs[i * 3 + 0];
+                model.origs[i].y = origs[i * 3 + 1];
+                model.origs[i].z = origs[i * 3 + 2];
+
+                model.dirs[i].x  = dirs[i * 3 + 0];
+                model.dirs[i].y  = dirs[i * 3 + 1];
+                model.dirs[i].z  = dirs[i * 3 + 2];
             }
            
             sensor->model = model;
@@ -426,7 +452,6 @@ bool MICP::loadSensor(
         sensor->info_topic.name = info_topic_name;
 
         std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->info_topic.name  << TC_END << std::endl;
-
 
         std::map<std::string, std::vector<std::string> > topic_map = m_nh->get_topic_names_and_types();
         

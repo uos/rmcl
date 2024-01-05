@@ -52,13 +52,13 @@ visualization_msgs::msg::Marker make_marker(
     marker.scale.z = scale;
 
 
-    for(size_t j=0; j<dataset_points.size(); j += step)
+    for(size_t i=0; i<dataset_points.size(); i += step)
     {
-        if(corr_valid[j] > 0)
+        if(corr_valid[i] > 0)
         {
             // transform from base coords to map coords
-            rm::Point d = Tbm * dataset_points[j];
-            rm::Point m = Tbm * model_points[j];
+            rm::Point d = Tbm * dataset_points[i];
+            rm::Point m = Tbm * model_points[i];
             
             geometry_msgs::msg::Point dros;
             geometry_msgs::msg::Point mros;
@@ -162,6 +162,11 @@ void MICPRangeSensor::connect()
                     data_topic.name, 1, 
                     std::bind(&MICPRangeSensor::o1dnCB, this, std::placeholders::_1)
                 );
+        } else if(data_topic.msg == "sensor_msgs/msg/PointCloud2") {
+            data_sub = nh->create_subscription<sensor_msgs::msg::PointCloud2>(
+                data_topic.name, 1, 
+                std::bind(&MICPRangeSensor::pclO1DnCB, this, std::placeholders::_1)
+            );
         }
     } else if(type == 3) { // OnDn
         if(data_topic.msg == "rmcl_msgs/msg/OnDnStamped") {
@@ -1086,11 +1091,13 @@ void MICPRangeSensor::pclSphericalCB(
     if(ranges.size() < msg->width * msg->height)
     {
         ranges.resize(msg->width * msg->height);
-        // fill with nans
-        for(size_t i=0; i < ranges.size(); i++)
-        {
-            ranges[i] = std::numeric_limits<float>::quiet_NaN();
-        }
+        // fill with invalid values   
+    }
+
+    // fill
+    for(size_t i=0; i<ranges.size(); i++)
+    {
+        ranges[i] = model_.range.max + 1.0;
     }
 
     sensor_msgs::msg::PointField field_x;
@@ -1117,8 +1124,7 @@ void MICPRangeSensor::pclSphericalCB(
     {
         const uint8_t* data_ptr = &msg->data[i * msg->point_step];
 
-        // rmagine::Vector point;
-        
+        // rmagine::Vector point;   
         rm::Point p;
 
         if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
@@ -1155,7 +1161,6 @@ void MICPRangeSensor::pclSphericalCB(
             }
         }
     }
-
 
     // upload
     #ifdef RMCL_CUDA
@@ -1241,8 +1246,6 @@ void MICPRangeSensor::pclPinholeCB(
             throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
         }
 
-        
-
         // transform point if required
         if(!std::isnan(p.x) && !std::isnan(p.y) && !std::isnan(p.z))
         {
@@ -1271,6 +1274,234 @@ void MICPRangeSensor::pclPinholeCB(
         countValidRanges();
     }
 }
+
+void MICPRangeSensor::pclO1DnCB(
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+    // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
+    fetchTF();
+
+    rm::Transform T = rm::Transform::Identity();
+
+    if(frame != msg->header.frame_id)
+    {
+        try {
+            auto Tros = tf_buffer->lookupTransform(frame, msg->header.frame_id,
+                               tf2::TimePointZero);
+            convert(Tros.transform, T);
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_WARN(nh_sensor->get_logger(), "%s", ex.what());
+        }
+    }
+    
+    auto model_ = std::get<2>(model);
+
+    if(ranges.size() < msg->width * msg->height)
+    {
+        ranges.resize(msg->width * msg->height);
+    }
+    
+    // I'm no sure here:
+    // Either
+    // We let the data define the sensor model
+    // or we trust the existing sensor model
+    // TODO: make a decision and a proper documentation
+    model_.orig = T.t;
+    model_.width = msg->width;
+    model_.height = msg->height;
+    if(model_.dirs.size() < msg->width * msg->height)
+    {
+        model_.dirs.resize(msg->width * msg->height);
+    }
+
+    sensor_msgs::msg::PointField field_x;
+    sensor_msgs::msg::PointField field_y;
+    sensor_msgs::msg::PointField field_z;
+
+    for(size_t i=0; i<msg->fields.size(); i++)
+    {
+        if(msg->fields[i].name == "x")
+        {
+            field_x = msg->fields[i];
+        }
+        if(msg->fields[i].name == "y")
+        {
+            field_y = msg->fields[i];
+        }
+        if(msg->fields[i].name == "z")
+        {
+            field_z = msg->fields[i];
+        }
+    }
+
+    for(size_t i=0; i<msg->width * msg->height; i++)
+    {
+        const uint8_t* data_ptr = &msg->data[i * msg->point_step];
+
+        rm::Point p;
+
+        if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
+        {
+            // Float
+            p.x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
+            p.y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
+            p.z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
+        } else if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT64) {
+            // Double
+            p.x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
+            p.y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
+            p.z = *reinterpret_cast<const double*>(data_ptr + field_z.offset);
+        } else {
+            throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
+        }
+
+        if(!std::isnan(p.x) && !std::isnan(p.y) && !std::isnan(p.z))
+        {
+            // transform to actual sensor frame
+            p = T * p;
+            // O1Dn model can have a move sensor origin.
+            // that means the ray goes from this origin to the target p. so we have to subtract:
+            p = p - model_.orig;
+            // set range and dir
+            ranges[i] = p.l2norm();
+            model_.dirs[i] = p.normalize();
+            // so that the following equation is satisfied:
+            // p = range * dir + orig
+        } else {
+            ranges[i] = model_.range.max + 1.0;
+            model_.dirs[i].x = 1.0;
+            model_.dirs[i].y = 0.0;
+            model_.dirs[i].z = 0.0;
+        }
+    }
+
+    model = model_;
+
+    // upload
+    #ifdef RMCL_CUDA
+    ranges_gpu = ranges;
+    #endif // RMCL_CUDA
+
+    // data meta
+    data_last_update = msg->header.stamp;
+    data_received_once = true;
+
+    updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
+}
+
+// HOW TO IMPLEMENT THIS
+// void MICPRangeSensor::pclOnDnCB(
+//     const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+// {
+//     // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
+//     fetchTF();
+
+//     rm::Transform T = rm::Transform::Identity();
+
+//     if(frame != msg->header.frame_id)
+//     {
+//         try {
+//             auto Tros = tf_buffer->lookupTransform(frame, msg->header.frame_id,
+//                                tf2::TimePointZero);
+//             convert(Tros.transform, T);
+//         } catch (tf2::TransformException &ex) {
+//             RCLCPP_WARN(nh_sensor->get_logger(), "%s", ex.what());
+//         }
+//     }
+    
+//     auto model_ = std::get<3>(model);
+
+//     if(ranges.size() < msg->width * msg->height)
+//     {
+//         ranges.resize(msg->width * msg->height);
+//         // fill with invalid values
+//         for(size_t i=0; i<ranges.size(); i++)
+//         {
+//             ranges[i] = model_.range.max + 1.0;
+            
+//         }
+//     }
+
+//     if(model_.dirs.size() < msg->width * msg->height)
+//     {
+//         model_.dirs.resize(msg->width * msg->height);
+//         // fill with initial values
+//         for(size_t i=0; i<ranges.size(); i++)
+//         {
+//             model_.dirs[i].x = 1.0;
+//             model_.dirs[i].y = 0.0;
+//             model_.dirs[i].z = 0.0;
+//         }
+//     }
+
+//     sensor_msgs::msg::PointField field_x;
+//     sensor_msgs::msg::PointField field_y;
+//     sensor_msgs::msg::PointField field_z;
+
+//     for(size_t i=0; i<msg->fields.size(); i++)
+//     {
+//         if(msg->fields[i].name == "x")
+//         {
+//             field_x = msg->fields[i];
+//         }
+//         if(msg->fields[i].name == "y")
+//         {
+//             field_y = msg->fields[i];
+//         }
+//         if(msg->fields[i].name == "z")
+//         {
+//             field_z = msg->fields[i];
+//         }
+//     }
+
+//     for(size_t i=0; i<msg->width * msg->height; i++)
+//     {
+//         const uint8_t* data_ptr = &msg->data[i * msg->point_step];
+
+//         rm::Point p;
+
+//         if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
+//         {
+//             // Float
+//             p.x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
+//             p.y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
+//             p.z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
+//         } else if(field_x.datatype == sensor_msgs::msg::PointField::FLOAT64) {
+//             // Double
+//             p.x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
+//             p.y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
+//             p.z = *reinterpret_cast<const double*>(data_ptr + field_z.offset);
+//         } else {
+//             throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
+//         }
+
+//         if(!std::isnan(p.x) && !std::isnan(p.y) && !std::isnan(p.z))
+//         {
+//             p = T * p;
+//             ranges[i] = p.l2norm();
+//             model_.dirs[i] = p.normalize();
+//         }
+//     }
+
+//     // upload
+//     #ifdef RMCL_CUDA
+//     ranges_gpu = ranges;
+//     #endif // RMCL_CUDA
+
+//     // data meta
+//     data_last_update = msg->header.stamp;
+//     data_received_once = true;
+
+//     updateCorrectors();
+//     if(count_valid_ranges)
+//     {
+//         countValidRanges();
+//     }
+// }
 
 void MICPRangeSensor::laserCB(
     const sensor_msgs::msg::LaserScan::SharedPtr msg)

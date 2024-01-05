@@ -39,12 +39,18 @@ static T get_parameter(
     return param_out;
 }
 
+static std::optional<rclcpp::Parameter> get_parameter(rclcpp::Node::SharedPtr node, 
+    const std::string& param_name)
+{
+    std::optional<rclcpp::Parameter> ret;
 
+    if(node->has_parameter(param_name))
+    {
+        ret = node->get_parameter(param_name);
+    }
 
-// class ParamTree : public std::unordered_map<std::string, std::string >
-// {
-
-// };
+    return ret;
+}
 
 
 // Forward declarations
@@ -54,28 +60,13 @@ class ParamTree;
 template<typename ParamT>
 using ParamTreePtr = std::shared_ptr<ParamTree<ParamT> >;
 
-
-
-static std::vector<std::string> split_param_name(const std::string& s)
-{
-    std::vector<std::string> result;
-    std::stringstream ss (s);
-    std::string item;
-
-    while(getline(ss, item, '.')) {
-        result.push_back(item);
-    }
-
-    return result;
-}
-
 template<typename ParamT>
 class ParamTree : public std::unordered_map<std::string, std::shared_ptr<ParamTree<ParamT> > >
 {
 private:
     using Base = std::unordered_map<std::string, std::shared_ptr<ParamTree<ParamT> > >;
-public:
     using ThisType = ParamTree<ParamT>;
+public:
     using SharedPtr = std::shared_ptr<ParamTree<ParamT> >;
 
     std::shared_ptr<ParamT> data;
@@ -116,26 +107,22 @@ public:
         }
     }
 
-
     inline void print(int indent = 0)
     {
         for(size_t i=0; i<indent; i++) 
         {
             std::cout << "  ";
         }
-        std::cout << name;
-        
-        // if(data)
-        // {
-        //     std::cout << ": " << *data;
-        // }
-
-        std::cout << std::endl;
+        std::cout << name << std::endl;
         
         for(auto elem : *this)
         {
             elem.second->print(indent + 1);
         }
+    }
+
+    inline bool exists(std::string key) const{
+        return Base::find(key) != Base::end();
     }
 };
 
@@ -158,72 +145,6 @@ inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
     return ret;
 }
 
-
-// THANKS TO NAV2
-// static std::vector<std::vector<float> > parseVVF(const std::string & input, std::string & error_return)
-// {
-//   std::vector<std::vector<float>> result;
-
-//   std::stringstream input_ss(input);
-//   int depth = 0;
-//   std::vector<float> current_vector;
-//   while (!!input_ss && !input_ss.eof()) {
-//     switch (input_ss.peek()) {
-//       case EOF:
-//         break;
-//       case '[':
-//         depth++;
-//         if (depth > 2) {
-//           error_return = "Array depth greater than 2";
-//           return result;
-//         }
-//         input_ss.get();
-//         current_vector.clear();
-//         break;
-//       case ']':
-//         depth--;
-//         if (depth < 0) {
-//           error_return = "More close ] than open [";
-//           return result;
-//         }
-//         input_ss.get();
-//         if (depth == 1) {
-//           result.push_back(current_vector);
-//         }
-//         break;
-//       case ',':
-//       case ' ':
-//       case '\t':
-//         input_ss.get();
-//         break;
-//       default:  // All other characters should be part of the numbers.
-//         if (depth != 2) {
-//           std::stringstream err_ss;
-//           err_ss << "Numbers at depth other than 2. Char was '" << char(input_ss.peek()) << "'.";
-//           error_return = err_ss.str();
-//           return result;
-//         }
-//         float value;
-//         input_ss >> value;
-//         if (!!input_ss) {
-//           current_vector.push_back(value);
-//         }
-//         break;
-//     }
-//   }
-
-//   if (depth != 0) {
-//     error_return = "Unterminated vector string.";
-//   } else {
-//     error_return = "";
-//   }
-
-//   return result;
-// }
-
-
 } // namespace rmcl
-
-
 
 #endif // RMCL_UTIL_ROS_HELPER_H

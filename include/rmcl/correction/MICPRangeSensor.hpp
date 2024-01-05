@@ -263,6 +263,12 @@ protected:
     void pclPinholeCB(
         const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
+    void pclO1DnCB(
+        const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    
+    // void pclOnDnCB(
+    //     const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
     void laserCB(
         const sensor_msgs::msg::LaserScan::SharedPtr msg);
 
