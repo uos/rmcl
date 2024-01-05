@@ -4,19 +4,18 @@ map_frame: map
 odom_frame: odom
 
 # rate of broadcasting tf transformations
-tf_rate: 50
+tf_rate: 50.0
 
 micp:
   # merging on gpu or cpu
   combining_unit: cpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
-  corr_rate_max: 10
+  corr_rate_max: 10.0
   print_corr_rate: False
 
   # adjust max distance dependend of the state of localization
   adaptive_max_dist: False # enable adaptive max dist
-  
 
   # initial pose changes
   trans: [0.0, 0.0, 0.0]
@@ -39,10 +38,10 @@ sensors: # list of range sensors - at least one is required
       range_max: 130.0
       phi_min: -0.261799067259
       phi_inc: 0.03490658503988659
-      phi_N: 16
+      phi_n: 16
       theta_min: -3.14159011841
       theta_inc: 0.01431249500496489 # (2*pi)/439 instead of (2*pi)/440 
-      theta_N: 440
+      theta_n: 440
     micp:
       max_dist: 1.0
       adaptive_max_dist_min: 0.15

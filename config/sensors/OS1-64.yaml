@@ -8,7 +8,7 @@ model:
   range_max: 75.0
   phi_min: -0.26
   phi_inc: 0.006989082655372176
-  phi_N: 64
+  phi_n: 64
   theta_min: -3.14159011841
   theta_inc: 0.012295861657885687 # 2*pi / 511 instead of 2*pi / 512 
-  theta_N: 512
+  theta_n: 512

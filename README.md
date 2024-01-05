@@ -52,7 +52,7 @@ IMU prior is also possible as long as it is integrated as TF-Transform, e.g. wit
 ### Usage
 
 The `micp_localization` Node starts the process of localizing the robot in a mesh using MICP and a given pose estimate. 
-It is usually started through a Launch-File since it requires a large set of parameters.
+It is usually started through a launch file since it requires a large set of parameters.
 
 ### Launch
 
@@ -148,7 +148,7 @@ map_frame: map
 odom_frame: odom
 
 # rate of broadcasting tf transformations
-tf_rate: 50
+tf_rate: 50.0
 invert_tf: False
 
 micp:
@@ -156,7 +156,7 @@ micp:
   combining_unit: cpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
-  corr_rate_max: 1000
+  corr_rate_max: 1000.0
   print_corr_rate: False
 
   # adjust max distance dependend of the state of localization
@@ -179,10 +179,10 @@ sensors: # list of range sensors - at least one is required
       range_max: 130.0
       phi_min: -0.261799067259
       phi_inc: 0.03490658503988659
-      phi_N: 16
+      phi_n: 16
       theta_min: -3.14159011841
       theta_inc: 0.01431249500496489 
-      theta_N: 440
+      theta_n: 440
     micp:
       max_dist: 1.0
       # Once adaptive_max_dist is set to true:
@@ -216,14 +216,14 @@ map_frame: map
 odom_frame: odom
 
 # rate of broadcasting tf transformations
-tf_rate: 50
+tf_rate: 50.0
 
 micp:
   # merging on gpu or cpu
   combining_unit: gpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
-  corr_rate_max: 1000
+  corr_rate_max: 1000.0
   print_corr_rate: False
 
   # adjust max distance dependend of the state of localization
@@ -238,7 +238,7 @@ sensors: # list of range sensors - at least one is required
   sick:
     topic: scan
     micp:
-      weight: 1
+      weight: 1.0
       backend: optix
   wheels: # pull robot to the mesh
     ranges: [0.2, 0.2, 0.2, 0.2]
@@ -260,7 +260,7 @@ sensors: # list of range sensors - at least one is required
     micp:
       max_dist: 1.0
       adaptive_max_dist_min: 0.2
-      weight: 1
+      weight: 1.0
       backend: optix
 ```
 

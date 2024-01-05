@@ -72,19 +72,19 @@ void loadParameters(ros::NodeHandle &nh_p)
         return;
     }
 
-    int phi_N_tmp, theta_N_tmp;
-    if (!nh_p.getParam("model/phi_N", phi_N_tmp))
+    int phi_n_tmp, theta_n_tmp;
+    if (!nh_p.getParam("model/phi_n", phi_n_tmp))
     {
         ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_min");
         return;
     }
-    if (!nh_p.getParam("model/theta_N", theta_N_tmp))
+    if (!nh_p.getParam("model/theta_n", theta_n_tmp))
     {
         ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_max");
         return;
     }
-    scanner_model.phi_N = phi_N_tmp;
-    scanner_model.theta_N = theta_N_tmp;
+    scanner_model.phi_n = phi_n_tmp;
+    scanner_model.theta_n = theta_n_tmp;
 
     nh_p.param<bool>("debug_cloud", debug_cloud, false);
 }
