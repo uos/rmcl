@@ -66,6 +66,7 @@ bool pose_received = false;
 
 rclcpp::Node::SharedPtr nh;
 std::unique_ptr<tf2_ros::TransformBroadcaster> br;
+rclcpp::Time last_tf_stamp;
 
 void fetchTF()
 {
@@ -327,6 +328,22 @@ void init()
     Tbo = Transform::Identity();
 }
 
+
+
+void tf_loop()
+{
+    if(pose_received)
+    {   
+        rclcpp::Time new_stamp = nh->now();
+        // std::cout << new_stamp. << std::endl;
+        if(new_stamp > last_tf_stamp)
+        {
+            updateTF();
+            last_tf_stamp = new_stamp;
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
@@ -461,7 +478,11 @@ int main(int argc, char** argv)
 
     // MAIN LOOP TF
     rclcpp::Rate r(tf_rate);
-    rclcpp::Time stamp = nh->now();
+    // rclcpp::Rate r = nh->create_rate(tf_rate);
+    last_tf_stamp = nh->now();
+
+
+    auto tf_timer = nh->create_wall_timer(std::chrono::duration<double>(1.0 / tf_rate), tf_loop);
 
     std::cout << "TF Rate: " << tf_rate << std::endl;
 
@@ -469,32 +490,8 @@ int main(int argc, char** argv)
 
     rclcpp::ExecutorOptions opts;
     rclcpp::executors::MultiThreadedExecutor executor(opts, 4);
-    executor.add_node(nh);
-    
-
-    while(rclcpp::ok())
-    {
-        if(pose_received)
-        {
-            // updateTF();
-            // weird bug. new_stamp sometimes is equal to stamp. results 
-
-            // if(print_corr_rate)
-            // {
-            //     std::cout << "- update tf" << std::endl;
-            // }
-            
-            rclcpp::Time new_stamp = nh->now();
-            if(new_stamp > stamp)
-            {
-                updateTF();
-                stamp = new_stamp;
-            }
-        }
-        
-        r.sleep();
-        executor.spin_once();
-    }
+    executor.add_node(nh);    
+    executor.spin();
 
     stop_correction_thread = true;
     correction_thread.join();
