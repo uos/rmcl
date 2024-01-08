@@ -47,7 +47,7 @@ IMU prior is also possible as long as it is integrated as TF-Transform, e.g. wit
 
 - Title: "MICP-L: Mesh-based ICP for Robot Localization using Hardware-Accelerated Ray Casting"
 - Preprint: https://arxiv.org/abs/2210.13904
-- Experiments: https://github.com/aock/micp_experiments
+- Experiments: https://github.com/aock/micp_experiments (only available with ROS-noetic)
 
 ### Usage
 
@@ -73,7 +73,7 @@ The following Launch-File
 runs the MICP localization node. After that a pose has to be given, e.g. by the RViz "2D Pose Estimate" Tool that publishes the results on the `/initialpose` topic.
 Doing that, make sure to set the fixed frame to the map coordinate system.
 RMCL itself doesn't provide any tools to visualize the maps (triangle meshes).
-If you want to see the map in RViz, use for example the `rviz_mesh_plugin` of the [mesh_tools](https://github.com/aock/mesh_tools) (loading a standard mesh format is only available in the fork).
+If you want to see the map in RViz, use for example the `rviz_mesh_tools_plugins` of the [mesh_tools](https://github.com/naturerobots/mesh_tools).
 
 Once the launch file is started, the output in Terminal should look as follows:
 
@@ -270,7 +270,7 @@ Dependencies:
 - Download and install [Rmagine](https://github.com/uos/rmagine) (v > 2.2.0): Compile from source (not debian packages).
   - Recommended: Install OptiX backend if NVIDIA GPU is available
   - For rmagine version >= 2.2.2 it is possible to put rmagine into your ROS workspace for easier compilation
-- ROS (tested with ROS-noetic)
+- ROS2 (check compatible branches)
 - Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
 
 Clone this repository into your ROS workspace and build it.
