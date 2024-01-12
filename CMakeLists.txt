@@ -487,9 +487,9 @@ install(TARGETS
 # ################
 # ### EXAMPLES ###
 # ################
-# if(BUILD_MICP_EXPERIMENTS)
+if(BUILD_MICP_EXPERIMENTS)
 
-# if(RMCL_EMBREE)
+if(RMCL_EMBREE)
 
 # ### HILTI ###
 # add_executable(micp_hilti src/nodes/examples/micp_hilti.cpp)
@@ -505,23 +505,27 @@ install(TARGETS
 #     rmcl_embree_ros
 # )
 
-# ### EVAL ###
-# add_executable(micp_eval src/nodes/examples/micp_eval.cpp)
+### EVAL ###
+add_executable(micp_eval src/nodes/examples/micp_eval.cpp)
 
-# add_dependencies(micp_eval 
-#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#     ${catkin_EXPORTED_TARGETS}
-# )
+## Specify libraries to link a library or executable target against
+target_link_libraries(micp_eval
+    rmcl_embree_ros
+)
 
-# ## Specify libraries to link a library or executable target against
-# target_link_libraries(micp_eval
-#     ${catkin_LIBRARIES}
-#     rmcl_embree_ros
-# )
+ament_target_dependencies(micp_eval
+    rclcpp
+    geometry_msgs
+    sensor_msgs
+    tf2_ros
+    rmcl_msgs
+    image_transport
+    visualization_msgs
+)
 
-# endif(RMCL_EMBREE)
+endif(RMCL_EMBREE)
 
-# endif(BUILD_MICP_EXPERIMENTS)
+endif(BUILD_MICP_EXPERIMENTS)
 
 
 # if(BUILD_EXAMPLES)
