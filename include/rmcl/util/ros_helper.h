@@ -39,7 +39,8 @@ static T get_parameter(
     return param_out;
 }
 
-static std::optional<rclcpp::Parameter> get_parameter(rclcpp::Node::SharedPtr node, 
+static std::optional<rclcpp::Parameter> get_parameter(
+    rclcpp::Node::SharedPtr node, 
     const std::string& param_name)
 {
     std::optional<rclcpp::Parameter> ret;
