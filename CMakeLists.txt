@@ -523,6 +523,10 @@ ament_target_dependencies(micp_eval
     visualization_msgs
 )
 
+install(TARGETS 
+    micp_eval
+    DESTINATION lib/${PROJECT_NAME})
+
 endif(RMCL_EMBREE)
 
 endif(BUILD_MICP_EXPERIMENTS)

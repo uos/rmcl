@@ -30,7 +30,6 @@ using namespace std::chrono_literals;
 namespace rm = rmagine;
 
 rclcpp::Node::SharedPtr nh;
-rclcpp::Node::SharedPtr nh_p;
 
 std::shared_ptr<tf2_ros::Buffer> tf_buffer;
 std::shared_ptr<tf2_ros::TransformListener> tf_listener;
@@ -127,7 +126,7 @@ void convert(
 
 void pclCB(const sensor_msgs::msg::PointCloud2::SharedPtr pcl)
 {
-    RCLCPP_INFO(nh->get_logger(), "Got Cloud");
+    RCLCPP_INFO_STREAM(nh->get_logger(), "Got cloud at frame " << pcl->header.frame_id);
 
     rm::Transform Tsb; // Transform sensor -> base (urdf)
     rm::Transform Tbo; // Transform base -> odom (odometry estimation)
@@ -135,44 +134,53 @@ void pclCB(const sensor_msgs::msg::PointCloud2::SharedPtr pcl)
     rm::Transform Tls = rm::Transform::Identity();
     double Tbo_time_error = 0.0;
 
+    geometry_msgs::msg::TransformStamped T;
+
     try
     {
-        geometry_msgs::msg::TransformStamped T;
-
         // static
         T = tf_buffer->lookupTransform(base_frame, 
             pcl->header.frame_id, pcl->header.stamp);
         convert(T.transform, Tsb);
+    } catch (const tf2::TransformException &ex) {
+        RCLCPP_WARN(nh->get_logger(), "micp_eval - T_sensor->base - %s", ex.what());
+        return;
+    }
 
+    try 
+    {
         // dynamic
         T = tf_buffer->lookupTransform(
             odom_frame, base_frame,
             pcl->header.stamp, 1s);
         convert(T.transform, Tbo);
-
-        // auto balbal = nh->now() - T.header.stamp;
-
-        // builtin_interfaces::msg::Time testA = pcl->header.stamp;
-        // builtin_interfaces::msg::Time testB = T.header.stamp;
-        // auto diff = testA - testB;
-
-        rclcpp::Time pcl_stamp = pcl->header.stamp;
-        rclcpp::Time T_stamp = T.header.stamp;
-        Tbo_time_error = (pcl_stamp - T_stamp).seconds();
-
-        if (pcl->header.frame_id != lidar_frame)
-        {
-            T = tf_buffer->lookupTransform(lidar_frame, pcl->header.frame_id,
-                                           pcl->header.stamp);
-            convert(T.transform, Tsl);
-            Tls = ~Tsl;
-        }
-    }
-    catch (tf2::TransformException &ex)
-    {
-        RCLCPP_WARN(nh->get_logger(), "micp_eval - %s", ex.what());
+    } catch (const tf2::TransformException& ex) {
+        RCLCPP_WARN(nh->get_logger(), "micp_eval - T_base->odom - %s", ex.what());
         return;
     }
+    // auto balbal = nh->now() - T.header.stamp;
+
+    // builtin_interfaces::msg::Time testA = pcl->header.stamp;
+    // builtin_interfaces::msg::Time testB = T.header.stamp;
+    // auto diff = testA - testB;
+
+    rclcpp::Time pcl_stamp = pcl->header.stamp;
+    rclcpp::Time T_stamp = T.header.stamp;
+    Tbo_time_error = (pcl_stamp - T_stamp).seconds();
+
+    if (pcl->header.frame_id != lidar_frame)
+    {
+        try {
+            T = tf_buffer->lookupTransform(lidar_frame, pcl->header.frame_id,
+                                        pcl->header.stamp);
+        } catch(const tf2::TransformException& ex) {
+            RCLCPP_WARN(nh->get_logger(), "micp_eval - T_cloud->sensor - %s", ex.what());
+            return;
+        }
+        convert(T.transform, Tsl);
+        Tls = ~Tsl;
+    }
+
 
     if (first_iteration)
     {
@@ -554,11 +562,11 @@ void pclCB(const sensor_msgs::msg::PointCloud2::SharedPtr pcl)
     }
 }
 
-bool loadParameters(rclcpp::Node::SharedPtr nh_p)
+bool loadParameters(rclcpp::Node::SharedPtr nh)
 {
     T_mesh_to_map = rm::Transform::Identity();
 
-    auto transform_params_opt = rmcl::get_parameter(nh_p, "mesh_to_map_transform");
+    auto transform_params_opt = rmcl::get_parameter(nh, "mesh_to_map_transform");
 
     if(transform_params_opt)
     {
@@ -591,7 +599,7 @@ bool loadParameters(rclcpp::Node::SharedPtr nh_p)
     }
 
     Tbm_init = rm::Transform::Identity();
-    auto initial_guess_params_opt = rmcl::get_parameter(nh_p, "initial_guess");
+    auto initial_guess_params_opt = rmcl::get_parameter(nh, "initial_guess");
     if(initial_guess_params_opt)
     {
         std::vector<double> initial_guess_params
@@ -623,7 +631,7 @@ bool loadParameters(rclcpp::Node::SharedPtr nh_p)
     }
 
     std::string map_file;
-    auto map_file_opt = rmcl::get_parameter(nh_p, "map_file");
+    auto map_file_opt = rmcl::get_parameter(nh, "map_file");
     if(!map_file_opt)
     {
         std::cout << "ERROR: No mesh map found in parameter set. Please set the parameter 'map_file' before running this node!" << std::endl;
@@ -637,14 +645,14 @@ bool loadParameters(rclcpp::Node::SharedPtr nh_p)
     umeyama = std::make_shared<rmcl::Correction>();
 
     // because float is not possible
-    correction_mode = rmcl::get_parameter<int>(nh_p, "correction_mode", 1);
-    iterations = rmcl::get_parameter<int>(nh_p, "iterations", 10);
-    disable_registration = rmcl::get_parameter<bool>(nh_p, "disable_registration", false);
-    generate_evaluation = rmcl::get_parameter<bool>(nh_p, "generate_evaluation", false);
-    max_distance = rmcl::get_parameter<double>(nh_p, "max_distance", 0.5);
-    min_range = rmcl::get_parameter<double>(nh_p, "min_range", 0.3);
-    max_range = rmcl::get_parameter<double>(nh_p, "max_range", 80.0);
-    outlier_dist = rmcl::get_parameter<double>(nh_p, "outlier_dist", 5.0);
+    correction_mode = rmcl::get_parameter<int>(nh, "correction_mode", 1);
+    iterations = rmcl::get_parameter<int>(nh, "iterations", 10);
+    disable_registration = rmcl::get_parameter<bool>(nh, "disable_registration", false);
+    generate_evaluation = rmcl::get_parameter<bool>(nh, "generate_evaluation", false);
+    max_distance = rmcl::get_parameter<double>(nh, "max_distance", 0.5);
+    min_range = rmcl::get_parameter<double>(nh, "min_range", 0.3);
+    max_range = rmcl::get_parameter<double>(nh, "max_range", 80.0);
+    outlier_dist = rmcl::get_parameter<double>(nh, "outlier_dist", 5.0);
 
     corr_params.max_distance = max_distance;
     corr->setParams(corr_params);
@@ -652,10 +660,10 @@ bool loadParameters(rclcpp::Node::SharedPtr nh_p)
     ouster_model.range.min = min_range;
     ouster_model.range.max = max_range;
 
-    map_frame = rmcl::get_parameter<std::string>(nh_p, "map_frame", "map");
-    odom_frame = rmcl::get_parameter<std::string>(nh_p, "odom_frame", "odom");
-    base_frame = rmcl::get_parameter<std::string>(nh_p, "base_frame", "base_link");
-    lidar_frame = rmcl::get_parameter<std::string>(nh_p, "lidar_frame", "os_lidar");
+    map_frame = rmcl::get_parameter<std::string>(nh, "map_frame", "map");
+    odom_frame = rmcl::get_parameter<std::string>(nh, "odom_frame", "odom");
+    base_frame = rmcl::get_parameter<std::string>(nh, "base_frame", "base_link");
+    lidar_frame = rmcl::get_parameter<std::string>(nh, "lidar_frame", "os_lidar");
 
     {
         rm::OnDnSimulatorEmbreePtr test_corr = std::make_shared<rm::OnDnSimulatorEmbree>(mesh);
@@ -738,20 +746,10 @@ int main(int argc, char **argv)
         .automatically_declare_parameters_from_overrides(true);
 
     nh = rclcpp::Node::make_shared("micp_eval", options);
-    
-    std::string nh_name = nh->get_fully_qualified_name();
-
-    if(nh_name[0] == '/')
-    {
-        // remove leasing '/'
-        nh_name.erase(0, 1);
-    }
-
-    nh_p = nh->create_sub_node(nh_name);
 
     RCLCPP_INFO(nh->get_logger(), "MICP EVALUATION SCRIPT STARTED.");
 
-    if(!loadParameters(nh_p))
+    if(!loadParameters(nh))
     {
         RCLCPP_ERROR(nh->get_logger(), "Could not load required parameters. Exitting.");
         return 0;
