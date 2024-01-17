@@ -1,20 +1,13 @@
 <?xml version="1.0"?>
 <launch>
 
-<!-- <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" /> -->
-<!-- <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/oru.dae" /> -->
-<!-- <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/cube.dae" /> -->
-<!-- <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/cylinder.dae" /> -->
-<!-- <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/tray.dae" /> -->
-<!-- <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/floor.dae" /> -->
-<!-- <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/sphere.dae" /> -->
-<arg name="map" default="/home/amock/hilti_uzh_tracking_area/hilti_uzh_tracking_area_deskewed.ply" />
+<arg name="map" default="/put/your/mesh/map/path/here.ply" description="path to map file" />
+<arg name="config" default="$(find-pkg-share rmcl)/config/micp_examples/hilti/uzh_tracking_area.yaml" description="path to config file" />
 
-<arg name="config" default="$(find rmcl)/config/micp_examples/hilti/uzh_tracking_area.yaml" />
-
-<node pkg="rmcl" type="micp_localization" name="micp_localization" output="screen">
-    <param name="map_file" type="string" value="$(arg map)" />
-    <rosparam command="load" file="$(arg config)" />
+<node pkg="rmcl" exec="micp_localization" name="micp_localization" output="screen">
+    <param name="map_file" value="$(var map)" />
+    <param from="$(var config)" />
+    <!-- remap default topic to topic where the initial pose is published -->
     <remap from="pose_wc" to="/initialpose" />
 </node>
 
