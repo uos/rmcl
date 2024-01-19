@@ -76,7 +76,7 @@ Starting the following Launch-File
 runs the MICP localization. After that a pose has to be given, e.g. by the RViz "2D Pose Estimate" Tool that publishes the results on the `/initialpose` topic.
 Doing that, make sure to set the fixed frame to the map coordinate system.
 RMCL itself doesn't provide any tools to visualize the maps (triangle meshes).
-If you want to see the map in RViz, use for example the `rviz_mesh_plugin` of the [mesh_tools](https://github.com/aock/mesh_tools) (loading a standard mesh format is only available in the fork).
+If you want to visualize the map in RViz, use for example the `rviz_mesh_plugin` of the [mesh_tools](https://github.com/naturerobots/mesh_tools).
 
 Once the launch file is started, the output in Terminal should look as follows:
 
