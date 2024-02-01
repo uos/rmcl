@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2...10.0)
 project(rmcl
-	VERSION 1.1.4
+	VERSION 1.1.5
 	)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
@@ -677,15 +677,18 @@ if(RMCL_OPTIX)
 
 endif(RMCL_OPTIX)
 
-
 # BENCHMARKS
-add_executable(rmcl_correction_embree_benchmark
-    src/nodes/benchmarks/lidar_corrector_embree_benchmark.cpp
-)
+if(RMCL_EMBREE)
+    
+    add_executable(rmcl_correction_embree_benchmark
+        src/nodes/benchmarks/lidar_corrector_embree_benchmark.cpp
+    )
 
-target_link_libraries(rmcl_correction_embree_benchmark
-    rmcl_embree
-)
+    target_link_libraries(rmcl_correction_embree_benchmark
+        rmcl_embree
+    )
+
+endif(RMCL_EMBREE)
 
 # add_executable(rmcl_correction_optix_benchmark
 #     src/nodes/lidar_corrector_optix_benchmark.cpp

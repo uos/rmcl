@@ -49,7 +49,7 @@
 #include <geometry_msgs/PoseStamped.h>
 
 // Rmagine deps
-#include <rmagine/map/EmbreeMap.hpp>
+#include <rmagine/map/OptixMap.hpp>
 
 // Internal deps
 #include "PinholeCorrectorOptix.hpp"
