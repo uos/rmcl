@@ -3,7 +3,7 @@
 <package format="3">
     <name>rmcl</name>
     <version>2.0.0</version>
-    <description>The rmcl package</description>
+    <description>The RMCL package. Software Tools for Mobile Robot Localization in 3D Meshes.</description>
 
     <maintainer email="amock@uos.de">Alexander Mock</maintainer>
 
@@ -24,5 +24,4 @@
     <export>
         <build_type>ament_cmake</build_type>
     </export>
-    
 </package>

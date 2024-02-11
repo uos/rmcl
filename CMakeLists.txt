@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(rmcl
-	VERSION 2.0.0
-	)
+	VERSION 2.0.0)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
@@ -738,6 +737,5 @@ endif(BUILD_MICP_EXPERIMENTS)
 # # target_link_libraries(rmcl_correction_optix_benchmark
 # #     rmcl_optix
 # # )
-
 
 ament_package()
