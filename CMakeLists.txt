@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(rmcl
-	VERSION 1.2.0
+	VERSION 2.0.0
 	)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)

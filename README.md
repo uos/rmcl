@@ -299,6 +299,10 @@ The planned Roadmap is as follows:
 
 ## News
 
+### 2024-02-08: ROS2 release - v2.0.0
+
+The main branch is humble now! Since it is not backwards compatible we decided to increase the version of RMCL to 2.0.0. The noetic version will still exist with the "noetic" branch. The "noetic" branch will be maintained until the end of 2024.
+
 ### 2024-01-05: ROS2 - humble
 
 The first ROS2 port has been released! If you are using ROS2, check out the `humble` branch of this and all linked repositories. After the new branch has been tested well enough, I will make it the main branch. The current version will persist in the `noetic` branch.
