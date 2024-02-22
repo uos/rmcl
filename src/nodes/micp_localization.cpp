@@ -365,6 +365,13 @@ int main(int argc, char** argv)
     odom_frame = get_parameter(nh, "odom_frame", "odom");
     map_frame = get_parameter(nh, "map_frame", "map");
 
+    has_odom_frame = (odom_frame != "");
+
+    if(!has_odom_frame)
+    {
+      std::cout << "WARNING! Odom frame not specified -> you are entering untested terrain" << std::endl;
+    }
+
     tf_rate = get_parameter(nh, "tf_rate", 50.0);
     invert_tf = get_parameter(nh, "invert_tf", false);
 

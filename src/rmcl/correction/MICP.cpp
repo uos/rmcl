@@ -361,8 +361,14 @@ bool MICP::loadSensor(
             model.range.min = model_params->at("range_min")->data->as_double();
             model.range.max = model_params->at("range_max")->data->as_double();
 
-            std::vector<double> orig = model_params->at("orig")->data->as_double_array();
 
+            std::vector<double> orig = {0.0, 0.0, 0.0};
+            
+            if(model_params->exists("orig"))
+            {
+              orig = model_params->at("orig")->data->as_double_array();
+            }
+             
             if(orig.size() != 3)
             {
                 // error
