@@ -162,6 +162,40 @@ public:
         rmagine::Memory<rmagine::Vector>& model_normals,
         rmagine::Memory<unsigned int>& corr_valid
     ) const;
+
+
+    /**
+     * @brief Find Closest Point Correspondences (CPC)
+     * 
+     * @param Tbms 
+     * @param dataset_points 
+     * @param model_points 
+     * @param corr_valid
+     */
+    void findCPC(
+        const rmagine::Transform& Tbm,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<rmagine::Vector> model_normals,
+        rmagine::MemoryView<unsigned int> corr_valid
+    ) const;
+
+    void findCPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point> data_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<rmagine::Vector> model_normals,
+        rmagine::MemoryView<unsigned int> corr_valid
+    ) const;
+
+    void findCPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<rmagine::Vector>& model_normals,
+        rmagine::Memory<unsigned int>& corr_valid
+    ) const;
+
     
     inline CorrectionParams params() const
     {
