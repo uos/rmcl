@@ -97,7 +97,7 @@ include(ExternalProject)
 set(RMCL_LIBRARIES rmcl rmcl_ros)
 
 if(TARGET rmagine::embree AND NOT ${DISABLE_EMBREE})
-    list(APPEND RMCL_LIBRARIES rmcl_embree rmcl_embree_ros)
+    list(APPEND RMCL_LIBRARIES rmcl_embree)
 endif()
 
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
@@ -105,7 +105,7 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
 endif()
 
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
-    list(APPEND RMCL_LIBRARIES rmcl_optix rmcl_optix_ros)
+    list(APPEND RMCL_LIBRARIES rmcl_optix)
 endif()
 
 include_directories(
@@ -195,33 +195,6 @@ if(TARGET rmagine::embree)
     )
 
     list(APPEND RMCL_LIBS rmcl_embree)
-
-    add_library(rmcl_embree_ros
-        src/rmcl/correction/SphereCorrectorEmbreeROS.cpp
-        src/rmcl/correction/PinholeCorrectorEmbreeROS.cpp
-        src/rmcl/correction/O1DnCorrectorEmbreeROS.cpp
-        src/rmcl/correction/OnDnCorrectorEmbreeROS.cpp
-    )
-
-    target_link_libraries(rmcl_embree_ros
-        rmcl_embree
-        rmcl_ros
-    )
-
-    ament_target_dependencies(rmcl_embree_ros
-        rclcpp
-        sensor_msgs
-        rmcl_msgs
-        tf2_ros
-    )
-
-    install(TARGETS rmcl_embree_ros
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
-
-    list(APPEND RMCL_LIBS rmcl_embree_ros)
 
     add_definitions(-DRMCL_EMBREE)
     set(RMCL_EMBREE TRUE)
@@ -365,38 +338,6 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 
     list(APPEND RMCL_LIBS rmcl_optix)
 
-    # ROS code
-    add_library(rmcl_optix_ros
-        # Sphere
-        src/rmcl/correction/SphereCorrectorOptixROS.cpp
-        # Pinhole
-        src/rmcl/correction/PinholeCorrectorOptixROS.cpp
-        # O1Dn
-        src/rmcl/correction/O1DnCorrectorOptixROS.cpp
-        # OnDn
-        src/rmcl/correction/OnDnCorrectorOptixROS.cpp
-    )
-
-    target_link_libraries(rmcl_optix_ros
-        rmcl_optix
-        rmcl_ros
-    )
-
-    ament_target_dependencies(rmcl_optix_ros
-        rclcpp
-        sensor_msgs
-        rmcl_msgs
-        tf2_ros
-    )
-
-    install(TARGETS rmcl_optix_ros
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
-
-    list(APPEND RMCL_LIBS rmcl_optix_ros)
-
     add_definitions(-DRMCL_OPTIX)
     set(RMCL_OPTIX True)
 endif(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
@@ -415,7 +356,6 @@ install(DIRECTORY launch config
 ##############
 #### MICP ####
 ##############
-
 add_executable(micp_localization 
     src/nodes/micp_localization.cpp
     # MICP
@@ -429,7 +369,7 @@ target_link_libraries(micp_localization
 
 if(RMCL_EMBREE)
     target_link_libraries(micp_localization
-        rmcl_embree_ros
+        rmcl_embree
     )
 endif(RMCL_EMBREE)
     
@@ -441,7 +381,7 @@ endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
     target_link_libraries(micp_localization
-        rmcl_optix_ros
+        rmcl_optix
     )
 endif(RMCL_OPTIX)
 
@@ -523,7 +463,7 @@ add_executable(micp_eval src/nodes/examples/micp_eval.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(micp_eval
-    rmcl_embree_ros
+    rmcl_embree
 )
 
 ament_target_dependencies(micp_eval

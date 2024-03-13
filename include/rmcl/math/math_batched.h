@@ -102,6 +102,18 @@ void means_covs_p2l_online_batched(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr);
 
+void means_covs_p2p_online_batched(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& pre_transforms, // N
+    const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& dataset_points, // from, M
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& dataset_mask, // from, M
+    const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_points, // to, NxM
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& model_mask, // NxM
+    const float max_corr_dist,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr);
+
 
 /**
  * @brief one-pass means and covariance computation
