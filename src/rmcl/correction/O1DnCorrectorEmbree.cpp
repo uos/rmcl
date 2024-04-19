@@ -773,9 +773,9 @@ void O1DnCorrectorEmbree::findCPC(
     }
 
     findCPC(Tbms, 
-        dataset_points(0, Nrays), 
-        model_points(0, Nrays), 
-        model_normals(0, Nrays), 
+        dataset_points(0, Nrays),
+        model_points(0, Nrays),
+        model_normals(0, Nrays),
         corr_valid(0, Nrays));
 }
 

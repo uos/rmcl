@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(rmcl
-	VERSION 2.0.0)
+	VERSION 2.0.1)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
@@ -51,10 +51,9 @@ find_package(visualization_msgs REQUIRED)
 find_package(OpenMP REQUIRED)
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
-set(RMAGINE_MAX_VERSION "2.3.0")
+set(RMAGINE_MAX_VERSION "2.4.0")
 
-
-find_package(rmagine 2.2.2
+find_package(rmagine 2.2.3
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -483,7 +482,6 @@ install(TARGETS
 endif(RMCL_EMBREE)
 
 endif(BUILD_MICP_EXPERIMENTS)
-
 
 ament_export_include_directories(
   include

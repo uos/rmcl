@@ -169,7 +169,7 @@ public:
      * 
      * @param Tbms 
      * @param dataset_points 
-     * @param model_points 
+     * @param model_points
      * @param corr_valid
      */
     void findCPC(
