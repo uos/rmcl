@@ -654,6 +654,9 @@ void O1DnCorrectorEmbree::findCPC(
     rmagine::MemoryView<rmagine::Vector> model_normals,
     rmagine::MemoryView<unsigned int> corr_valid) const
 {
+    // TODO: check if max distance should be used here.
+    // - contra point: how would we know here which actual distance is used for optimization?: point to plane for example
+    // - pro point: we could still set the max_distance value to inf to produce the same behavior
     const float max_distance = m_params.max_distance;
 
     auto scene = m_map->scene->handle();
@@ -688,9 +691,9 @@ void O1DnCorrectorEmbree::findCPC(
             const rm::Point P_est_m = ray_orig_m + ray_dir_m * range_real;
 
             // use embree's closest point functionality (TODO: improve speed)
-            rm::ClosestPointResult res = m_map->closestPoint(P_est_m);
+            const rm::EmbreeClosestPointResult res = m_map->closestPoint(P_est_m, max_distance);
 
-            bool res_valid = res.geomID != RTC_INVALID_GEOMETRY_ID && res.primID != RTC_INVALID_GEOMETRY_ID;
+            const bool res_valid = res.geomID != RTC_INVALID_GEOMETRY_ID && res.primID != RTC_INVALID_GEOMETRY_ID;
 
             if(res_valid)
             {
@@ -709,6 +712,8 @@ void O1DnCorrectorEmbree::findCPC(
                 model_points[loc_id] = pint_b;
                 model_normals[loc_id] = nint_b;
                 corr_valid[loc_id] = 1;
+
+
             } else {
                 dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
                 model_points[loc_id] = {0.0f, 0.0f, 0.0f};
@@ -726,11 +731,11 @@ void O1DnCorrectorEmbree::findCPC(
     rm::MemoryView<rm::Vector> model_normals,
     rm::MemoryView<unsigned int> corr_valid) const
 {
-    const float max_distance = m_params.max_distance;
+    // const float max_distance = m_params.max_distance;
 
-    auto scene = m_map->scene->handle();
+    // auto scene = m_map->scene->handle();
 
-    const rm::Transform Tsb = m_Tsb[0];
+    // const rm::Transform Tsb = m_Tsb[0];
 
     #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)

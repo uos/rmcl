@@ -691,7 +691,7 @@ void OnDnCorrectorEmbree::findCPC(
             const rm::Point P_est_m = ray_orig_m + ray_dir_m * range_real;
 
             // use embree's closest point functionality (TODO: improve speed)
-            rm::ClosestPointResult res = m_map->closestPoint(P_est_m);
+            const rm::EmbreeClosestPointResult res = m_map->closestPoint(P_est_m, max_distance);
 
             bool res_valid = res.geomID != RTC_INVALID_GEOMETRY_ID && res.primID != RTC_INVALID_GEOMETRY_ID;
 
