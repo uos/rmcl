@@ -77,7 +77,8 @@ Doing that, make sure to set the fixed frame to the map coordinate system.
 RMCL itself doesn't provide any tools to visualize the maps (triangle meshes).
 If you want to see the map in RViz, use for example the `rviz_mesh_tools_plugins` of the [mesh_tools](https://github.com/naturerobots/mesh_tools).
 
-Once the launch file is started, the output in Terminal should look as follows:
+<details>
+<summary>Once the launch file is started, the output in Terminal should look as follows:</summary>
 
 ```console
 Combining Unit: CPU
@@ -121,6 +122,8 @@ MICP load params - done. Valid Sensors: 1
 Waiting for pose guess...
 ```
 
+</details>
+
 At startup, MICP does a few sanity checks for the input parameters.
 Every possible mistake in configuration can then be inferred by this output.
 For example, once there is no data available on the given `PointCloud2`-Topic it will print `data: no` instead.
@@ -137,8 +140,8 @@ MICP Localization using a 3D LiDAR and doing the MICP steps completely on the CP
 Here the 3D LiDAR is a Velodyne VLP-16 with 16 scan lines.
 The horizontal number of points is reduced to 440 and might be adjusted for your own Velodyne.
 
-
-File: `config/examples/micp_velodyne_cpu.yaml`
+<details>
+<summary>File: `config/examples/micp_velodyne_cpu.yaml` </summary>
 
 ```yaml
 # required
@@ -196,6 +199,8 @@ sensors: # list of range sensors - at least one is required
       backend: embree
 ```
 
+</details>
+
 ### Params - 2D LiDAR + Wheels - GPU
 
 MICP also supports to localize a robot only equipped with a 2D LiDAR in a 3D map.
@@ -205,8 +210,8 @@ In this example, all MICP steps are computed on GPU.
 The robot has four wheels of which the highest points are located relative to `base_footprint` as listed in `origs`.
 By setting a virtual scanner to the wheel positions scanning downwards with a constant scanning range equal to the wheel diameter it is possible to pull the robot to the mesh.
 
-
-File: `config/examples/micp_sick_gpu.yaml`
+<details>
+<summary>File: `config/examples/micp_sick_gpu.yaml`</summary>
 
 ```yaml
 # required
@@ -262,6 +267,7 @@ sensors: # list of range sensors - at least one is required
       weight: 1.0
       backend: optix
 ```
+</details>
 
 
 # RMCL - Project
