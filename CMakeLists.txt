@@ -53,7 +53,7 @@ find_package(OpenMP REQUIRED)
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.4.0")
 
-find_package(rmagine 2.2.3
+find_package(rmagine 2.2.4
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
