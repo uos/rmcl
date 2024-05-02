@@ -1001,6 +1001,10 @@ void MICPRangeSensor::sphericalCB(
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::pinholeCB(
