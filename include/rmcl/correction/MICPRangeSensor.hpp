@@ -261,6 +261,9 @@ protected:
     void pclPinholeCB(
         const sensor_msgs::PointCloud2::ConstPtr& msg);
 
+    void pclO1DnCB(
+        const sensor_msgs::PointCloud2::ConstPtr& msg)
+
     void laserCB(
         const sensor_msgs::LaserScan::ConstPtr& msg);
 
