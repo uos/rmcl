@@ -12,109 +12,154 @@
 #include <Eigen/Dense>
 
 #include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2/exceptions.h>
+#include <tf2/convert.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
 
-
-using namespace rmcl;
-
 namespace rm = rmagine;
 
-std::string focal_frame = "";
-bool debug_cloud = false;
-
-ros::Publisher scan_pub;
-ros::Publisher back_conv_pub;
-
-rmcl_msgs::msg::ScanStamped scan;
-
-std::shared_ptr<tf2_ros::Buffer> tf_buffer;
-std::shared_ptr<tf2_ros::TransformListener> tf_listener;
-
-void initScanArray()
+namespace rmcl
 {
-    fillEmpty(scan.scan);
-}
 
-void loadParameters(ros::NodeHandle &nh_p)
+class Pcl2ToScanNode : public rclcpp::Node
 {
-    rmcl_msgs::msg::ScanInfo &scanner_model = scan.scan.info;
-    if (!nh_p.getParam("model/phi_min", scanner_model.phi_min))
+public:
+  explicit Pcl2ToScanNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()
+        .allow_undeclared_parameters(true)
+        .automatically_declare_parameters_from_overrides(true))
+  :rclcpp::Node("pcl2_to_scan_node", options)
+  {
+    fetchParameters();
+
+    pub_scan_ = this->create_publisher<rmcl_msgs::msg::ScanStamped>(
+      "rmcl_scan", 10);
+
+    if(debug_cloud)
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_min");
+      pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
+        "debug_cloud", 10);
+    }
+
+    tf_buffer_ =
+      std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ =
+      std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    sub_pcl_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "cloud", 10, 
+      [=](const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg) -> void
+      { 
+        cloudCB(msg); 
+      });
+  }
+
+private:
+
+  void fetchParameters()
+  {
+    if(this->has_parameter("focal_frame"))
+    {
+      focal_frame = this->get_parameter("focal_frame").as_string();
+    } else {
+      focal_frame = "";
+    }
+    
+    rmcl_msgs::msg::ScanInfo &scanner_model = scan_.scan.info;
+
+    if (!this->get_parameter("model.phi_min", scanner_model.phi_min))
+    {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
         return;
     }
-    if (!nh_p.getParam("model/phi_inc", scanner_model.phi_inc))
+    if (!this->get_parameter("model.phi_inc", scanner_model.phi_inc))
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_max");
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
         return;
     }
 
-    if (!nh_p.getParam("model/theta_min", scanner_model.theta_min))
+    if (!this->get_parameter("model.theta_min", scanner_model.theta_min))
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_min");
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
         return;
     }
-    if (!nh_p.getParam("model/theta_inc", scanner_model.theta_inc))
+    if (!this->get_parameter("model.theta_inc", scanner_model.theta_inc))
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_max");
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
         return;
     }
 
-    if (!nh_p.getParam("model/range_min", scanner_model.range_min))
+    if (!this->get_parameter("model.range_min", scanner_model.range_min))
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_min");
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
         return;
     }
-    if (!nh_p.getParam("model/range_max", scanner_model.range_max))
+    if (!this->get_parameter("model.range_max", scanner_model.range_max))
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_max");
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
         return;
     }
 
     int phi_n_tmp, theta_n_tmp;
-    if (!nh_p.getParam("model/phi_n", phi_n_tmp))
+    if (!this->get_parameter("model.phi_n", phi_n_tmp))
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_min");
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model/phi_min");
         return;
     }
-    if (!nh_p.getParam("model/theta_n", theta_n_tmp))
+    if (!this->get_parameter("model.theta_n", theta_n_tmp))
     {
-        ROS_ERROR_STREAM("When specifying auto_detect_phi to false you have to provide model/phi_max");
+        RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model/phi_max");
         return;
     }
     scanner_model.phi_n = phi_n_tmp;
     scanner_model.theta_n = theta_n_tmp;
 
-    nh_p.param<bool>("debug_cloud", debug_cloud, false);
-}
+    if(this->has_parameter("debug_cloud"))
+    {
+        this->get_parameter("debug_cloud").as_bool();
+    } else {
+        debug_cloud = false;
+    }
+  }
 
-void convert(
-    const sensor_msgs::msg::PointCloud2::ConstPtr &pcl,
-    rmcl_msgs::msg::ScanStamped &scan)
-{
+  void initScanArray()
+  {
+    fillEmpty(scan_.scan);
+  }
+
+  bool convert(
+      const sensor_msgs::msg::PointCloud2::ConstSharedPtr& pcl,
+      rmcl_msgs::msg::ScanStamped& scan)
+  {
     rm::Transform T = rm::Transform::Identity();
 
     if (pcl->header.frame_id != focal_frame)
     {
-        // TODO: get transform
+      // TODO: get transform
+      geometry_msgs::msg::TransformStamped Tros;
 
-        geometry_msgs::msg::TransformStamped Tros;
-
-        try
-        {
-            Tros = tf_buffer->lookupTransform(focal_frame, pcl->header.frame_id,
-                                              tf2::TimePointZero);
-            convert(Tros.transform, T);
-        }
-        catch (tf2::TransformException &ex)
-        {
-            ROS_WARN("%s", ex.what());
-            ros::Duration(1.0).sleep();
-        }
+      try
+      {
+        Tros = tf_buffer_->lookupTransform(focal_frame, pcl->header.frame_id,
+                                          tf2::TimePointZero);
+        // convert(Tros.transform, T);
+        T.t.x = Tros.transform.translation.x;
+        T.t.y = Tros.transform.translation.y;
+        T.t.z = Tros.transform.translation.z;
+        T.R.x = Tros.transform.rotation.x;
+        T.R.y = Tros.transform.rotation.y;
+        T.R.z = Tros.transform.rotation.z;
+        T.R.w = Tros.transform.rotation.w;
+      }
+      catch (tf2::TransformException &ex)
+      {
+        RCLCPP_WARN(this->get_logger(), "%s", ex.what());
+        return false;
+      }
     }
 
-    fillEmpty(scan.scan);
+    fillEmpty(scan_.scan);
 
     sensor_msgs::msg::PointField field_x;
     sensor_msgs::msg::PointField field_y;
@@ -122,142 +167,135 @@ void convert(
 
     for (size_t i = 0; i < pcl->fields.size(); i++)
     {
-        if (pcl->fields[i].name == "x")
-        {
-            field_x = pcl->fields[i];
-        }
-        if (pcl->fields[i].name == "y")
-        {
-            field_y = pcl->fields[i];
-        }
-        if (pcl->fields[i].name == "z")
-        {
-            field_z = pcl->fields[i];
-        }
+      if (pcl->fields[i].name == "x")
+      {
+        field_x = pcl->fields[i];
+      }
+      if (pcl->fields[i].name == "y")
+      {
+        field_y = pcl->fields[i];
+      }
+      if (pcl->fields[i].name == "z")
+      {
+        field_z = pcl->fields[i];
+      }
     }
 
-    rmagine::SphericalModel model;
-    convert(scan.scan.info, model);
+    rm::SphericalModel model;
+    rmcl::convert(scan_.scan.info, model);
 
     for (size_t i = 0; i < pcl->width * pcl->height; i++)
     {
-        const uint8_t *data_ptr = &pcl->data[i * pcl->point_step];
+      const uint8_t *data_ptr = &pcl->data[i * pcl->point_step];
 
-        // rmagine::Vector point;
+      // rmagine::Vector point;
+      float x, y, z;
 
-        float x, y, z;
+      if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
+      {
+        // Float
+        x = *reinterpret_cast<const float *>(data_ptr + field_x.offset);
+        y = *reinterpret_cast<const float *>(data_ptr + field_y.offset);
+        z = *reinterpret_cast<const float *>(data_ptr + field_z.offset);
+      }
+      else if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT64)
+      {
+        // Double
+        x = *reinterpret_cast<const double *>(data_ptr + field_x.offset);
+        y = *reinterpret_cast<const double *>(data_ptr + field_y.offset);
+        z = *reinterpret_cast<const double *>(data_ptr + field_z.offset);
+      }
+      else
+      {
+        throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
+      }
 
-        if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
+      if(!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
+      {
+        rm::Vector ps_s = rm::Vector{x, y, z};
+        rm::Vector ps = T * ps_s;
+
+        float range_est = ps.l2norm();
+        float theta_est = atan2(ps.y, ps.x); // horizontal
+        float phi_est = atan2(ps.z, range_est); // vertical
+        
+        int phi_id = ((phi_est - model.phi.min) / model.phi.inc) + 0.5;
+        int theta_id = ((theta_est - model.theta.min) / model.theta.inc) + 0.5;
+
+        // rm::Vector ps_ = model.getDirection(phi_id, theta_id) * range_est;
+
+        // std::cout << "-------------------" << std::endl;
+
+        // std::cout << "origorig: " << ps_s << std::endl;
+        // std::cout << "orig: " << ps << std::endl;
+
+        // std::cout << "polar (phi, theta, range): " << phi_est << ", " << theta_est << ", " << range_est << std::endl; 
+        // std::cout << "scan id (phi_id, theta_id): " << phi_id << ", " << theta_id << std::endl; 
+
+        // std::cout << "recon: " << ps_ << std::endl;
+
+        if(phi_id >= 0 && phi_id < model.phi.size
+            && theta_id >= 0 && theta_id < model.theta.size)
         {
-            // Float
-            x = *reinterpret_cast<const float *>(data_ptr + field_x.offset);
-            y = *reinterpret_cast<const float *>(data_ptr + field_y.offset);
-            z = *reinterpret_cast<const float *>(data_ptr + field_z.offset);
+          if(model.range.inside(range_est))
+          {
+            // std::cout << "Polar (theta, phi, range): " << theta_est << ", " << phi_est << ", " << range_est << std::endl;
+            // std::cout << "- matrix id (theta, phi): " << theta_id << ", " << phi_id << std::endl;
+            // std::cout << "- valid: add" << std::endl;
+            unsigned int p_id = model.getBufferId(phi_id, theta_id);
+            scan_.scan.data.ranges[p_id] = range_est;
+          }
+          
+        } else {
+          // std::cout << "- out scanner matrix" << std::endl;
         }
-        else if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT64)
-        {
-            // Double
-            x = *reinterpret_cast<const double *>(data_ptr + field_x.offset);
-            y = *reinterpret_cast<const double *>(data_ptr + field_y.offset);
-            z = *reinterpret_cast<const double *>(data_ptr + field_z.offset);
-        }
-        else
-        {
-            throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
-        }
-
-        if(!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
-        {
-            rm::Vector ps_s = rm::Vector{x, y, z};
-            rm::Vector ps = T * ps_s;
-
-
-
-            float range_est = ps.l2norm();
-            float theta_est = atan2(ps.y, ps.x); // horizontal
-            float phi_est = atan2(ps.z, range_est); // vertical
-            
-            int phi_id = ((phi_est - model.phi.min) / model.phi.inc) + 0.5;
-            int theta_id = ((theta_est - model.theta.min) / model.theta.inc) + 0.5;
-
-            // rm::Vector ps_ = model.getDirection(phi_id, theta_id) * range_est;
-
-            // std::cout << "-------------------" << std::endl;
-
-            // std::cout << "origorig: " << ps_s << std::endl;
-            // std::cout << "orig: " << ps << std::endl;
-
-            // std::cout << "polar (phi, theta, range): " << phi_est << ", " << theta_est << ", " << range_est << std::endl; 
-            // std::cout << "scan id (phi_id, theta_id): " << phi_id << ", " << theta_id << std::endl; 
-
-            // std::cout << "recon: " << ps_ << std::endl;
-
-            if(phi_id >= 0 && phi_id < model.phi.size
-                && theta_id >= 0 && theta_id < model.theta.size)
-            {
-                if(model.range.inside(range_est))
-                {
-                    // std::cout << "Polar (theta, phi, range): " << theta_est << ", " << phi_est << ", " << range_est << std::endl;
-                    // std::cout << "- matrix id (theta, phi): " << theta_id << ", " << phi_id << std::endl;
-                    // std::cout << "- valid: add" << std::endl;
-                    unsigned int p_id = model.getBufferId(phi_id, theta_id);
-                    scan.scan.data.ranges[p_id] = range_est;
-                }
-
-                // } else {
-                //     // std::cout << "- out of range" << std::endl; 
-                // }
-
-                
-            } else {
-                // std::cout << "- out scanner matrix" << std::endl;
-            }
-        }
+      }
     }
-}
 
-void veloCB(const sensor_msgs::msg::PointCloud2::ConstPtr &msg)
-{
+    return true;
+  }
+
+  void cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
+  {
     if (focal_frame == "")
     {
-        focal_frame = msg->header.frame_id;
+      focal_frame = msg->header.frame_id;
     }
 
-    scan.header.stamp = msg->header.stamp;
-    scan.header.frame_id = focal_frame;
-    convert(msg, scan);
+    scan_.header.stamp = msg->header.stamp;
+    scan_.header.frame_id = focal_frame;
+    if(!convert(msg, scan_))
+    {
+      return;
+    }
 
-    scan_pub.publish(scan);
+    pub_scan_->publish(scan_);
 
     if (debug_cloud)
     {
-        sensor_msgs::msg::PointCloud cloud;
-        rmcl::convert(scan, cloud);
-        cloud.header.stamp = msg->header.stamp;
-        back_conv_pub.publish(cloud);
+      sensor_msgs::msg::PointCloud cloud;
+      rmcl::convert(scan_, cloud);
+      cloud.header.stamp = msg->header.stamp;
+      pub_debug_cloud_->publish(cloud);
     }
-}
+  }
 
-int main(int argc, char **argv)
-{
-    ros::init(argc, argv, "pcl2_to_scan");
-    ros::NodeHandle nh;
-    ros::NodeHandle nh_p("~");
+  std::string focal_frame = "";
+  bool debug_cloud = false;
 
-    nh_p.param<std::string>("focal_frame", focal_frame, "");
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_;
 
-    loadParameters(nh_p);
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_debug_cloud_;
+  rclcpp::Publisher<rmcl_msgs::msg::ScanStamped>::SharedPtr pub_scan_;
+  rmcl_msgs::msg::ScanStamped scan_;
 
-    tf_buffer = std::make_shared<tf2_ros::Buffer>();
-    tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
-    ROS_INFO("sensor_msgs::msg::PointCloud2 to mamcl_msgs::ScanStamped Converter started");
+};
 
-    ros::Subscriber velo_sub = nh.subscribe<sensor_msgs::msg::PointCloud2>("cloud", 1, veloCB);
-    scan_pub = nh_p.advertise<rmcl_msgs::msg::ScanStamped>("scan", 1);
-    back_conv_pub = nh_p.advertise<sensor_msgs::msg::PointCloud>("cloud_back", 1);
+} // namespace rmcl
 
-    ros::spin();
 
-    return 0;
-}
+#include "rclcpp_components/register_node_macro.hpp"
+RCLCPP_COMPONENTS_REGISTER_NODE(rmcl::Pcl2ToScanNode)

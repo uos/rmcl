@@ -387,7 +387,7 @@ int main(int argc, char** argv)
     std::vector<double> trans, rot;
     
     // rclcpp::Parameter trans_param;
-    if(nh->get_parameter("micp/trans", trans))
+    if(nh->get_parameter("micp.trans", trans))
     {
         if(trans.size() != 3)
         {
@@ -398,7 +398,7 @@ int main(int argc, char** argv)
         initial_pose_offset.t.z = trans[2];
     }
 
-    if(nh->get_parameter("micp/rot", rot))
+    if(nh->get_parameter("micp.rot", rot))
     {
         if(rot.size() == 3)
         {

@@ -403,52 +403,76 @@ install(TARGETS
 # ########################
 # ### CONVERSION NODES ###
 # ########################
-# if(BUILD_CONV)
+if(BUILD_CONV)
 
-#     ####### PCL2 to SCAN CONVERTER
-#     add_executable(conv_pcl2_to_scan src/nodes/conv/pcl2_to_scan.cpp)
+    ####### PCL2 to SCAN CONVERTER
+    add_library(conv_pcl2_to_scan SHARED 
+        src/nodes/conv/pcl2_to_scan.cpp)
 
-#     add_dependencies(conv_pcl2_to_scan 
-#         ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#         ${catkin_EXPORTED_TARGETS}
-#     )
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(conv_pcl2_to_scan
+        rmcl_ros
+    )
 
-#     ## Specify libraries to link a library or executable target against
-#     target_link_libraries(conv_pcl2_to_scan
-#         ${catkin_LIBRARIES}
-#         rmcl_ros
-#     )
+    ament_target_dependencies(conv_pcl2_to_scan
+        rclcpp
+        rclcpp_components
+        geometry_msgs
+        sensor_msgs
+        tf2
+        tf2_ros
+        rmcl_msgs
+        image_transport
+        visualization_msgs
+    )
 
-#     ####### PCL2 to DEPTH CONVERTER
-#     add_executable(conv_pcl2_to_depth src/nodes/conv/pcl2_to_depth.cpp)
+    rclcpp_components_register_node(conv_pcl2_to_scan PLUGIN "rmcl::Pcl2ToScanNode" EXECUTABLE conv_pcl2_to_scan_node)
 
-#     add_dependencies(conv_pcl2_to_depth 
-#         ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#         ${catkin_EXPORTED_TARGETS}
-#     )
+    install(TARGETS 
+        conv_pcl2_to_scan
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin      
+    )
+    
+    ####### PCL2 to DEPTH CONVERTER
+    # add_executable(conv_pcl2_to_depth src/nodes/conv/pcl2_to_depth.cpp)
 
-#     ## Specify libraries to link a library or executable target against
-#     target_link_libraries(conv_pcl2_to_depth
-#         ${catkin_LIBRARIES}
-#         ${rmagine_ext_LIBRARIES}
-#         rmcl_ros
-#     )
+    ## Specify libraries to link a library or executable target against
+    # target_link_libraries(conv_pcl2_to_depth
+    #     rmagine::core
+    #     rmcl_ros
+    # )
 
-#     ####### IMAGE to DEPTH CONVERTER
-#     add_executable(conv_image_to_depth src/nodes/conv/image_to_depth.cpp)
+    # ament_target_dependencies(conv_pcl2_to_depth
+    #     rclcpp
+    #     geometry_msgs
+    #     sensor_msgs
+    #     tf2_ros
+    #     rmcl_msgs
+    #     image_transport
+    #     visualization_msgs
+    # )
 
-#     add_dependencies(conv_image_to_depth 
-#         ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#         ${catkin_EXPORTED_TARGETS}
-#     )
+    # install(TARGETS 
+    #     conv_pcl2_to_depth
+    #     DESTINATION lib/${PROJECT_NAME})
+        
+    ####### IMAGE to DEPTH CONVERTER
+    # add_executable(conv_image_to_depth src/nodes/conv/image_to_depth.cpp)
 
-#     ## Specify libraries to link a library or executable target against
-#     target_link_libraries(conv_image_to_depth
-#         ${catkin_LIBRARIES}
-#         rmcl_ros
-#     )
+    # add_dependencies(conv_image_to_depth 
+    #     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+    #     ${catkin_EXPORTED_TARGETS}
+    # )
 
-# endif(BUILD_CONV)
+    # ## Specify libraries to link a library or executable target against
+    # target_link_libraries(conv_image_to_depth
+    #     ${catkin_LIBRARIES}
+    #     rmcl_ros
+    # )
+
+endif(BUILD_CONV)
 
 # ################
 # ### EXAMPLES ###
@@ -492,8 +516,10 @@ ament_export_libraries(
 )
 
 ament_export_dependencies(rclcpp
+  rclcpp_components
   geometry_msgs
   sensor_msgs
+  tf2
   tf2_ros
   rmcl_msgs
   image_transport
