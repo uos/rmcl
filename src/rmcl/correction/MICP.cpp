@@ -17,11 +17,6 @@
 #include <rmagine/util/StopWatch.hpp>
 
 
-
-
-
-
-
 namespace rm = rmagine;
 
 namespace rmcl
@@ -119,18 +114,18 @@ void MICP::loadParams()
     
 }
 
-// template<typename T>
-// inline T get_as(const XmlRpc::XmlRpcValue& v)
-// {
-//     if(v.getType() == XmlRpc::XmlRpcValue::TypeDouble)
-//     {
-//         double tmp = v;
-//         return static_cast<T>(tmp);
-//     } else if(v.getType() == XmlRpc::XmlRpcValue::TypeInt) {
-//         int tmp = v;
-//         return static_cast<T>(tmp);
-//     }
-// }
+std::unordered_map<std::string, std::string> get_topic_type_map()
+{
+    std::unordered_map<std::string, ros::master::TopicInfo> ret;
+    std::vector<ros::master::TopicInfo> topic_infos;
+    ros::master::getTopics(topic_infos);
+    for(auto topic_info : topic_infos)
+    {
+        ret[topic_info.name] = topic_info.datatype;
+    }
+
+    return ret;
+}
 
 bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params)
 {
@@ -187,14 +182,39 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         sensor->data_topic.name = topic_name;
         std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->data_topic.name << TC_END << std::endl;
 
-        std::vector<ros::master::TopicInfo> topic_infos;
-        ros::master::getTopics(topic_infos);
-        for(auto topic_info : topic_infos)
+        if(sensor_params.hasMember("topic_type"))
         {
-            if(topic_info.name == sensor->data_topic.name)
+            sensor->data_topic.msg = (std::string)sensor_params["topic_type"];
+        }
+
+        std::unordered_map<std::string, std::string> topic_map
+            = get_topic_type_map();
+        if(topic_map.find(sensor->data_topic.name) != topic_map.end())
+        {
+            auto topic_type = topic_map[sensor->data_topic.name];
+
+            if(sensor->data_topic.msg != "")
             {
-                sensor->data_topic.msg = topic_info.datatype;
-                break;
+                if(sensor->data_topic.msg != topic_type)
+                {
+                    // WARNING
+                    std::cout << "WARNING: Topic type mismatch found:" << std::endl;
+                    std::cout << "-- user input: " << sensor->data_topic.msg << std::endl;
+                    std::cout << "-- topic type: " << topic_type << std::endl;
+                    std::cout << "Using actual topic type" << std::endl;
+                }
+            }
+
+            sensor->data_topic.msg = topic_type;
+        } else {
+            // could not find topic. maybe its not existing yet?
+            // suggestion how to handle it: (TODO implement properly)
+            if(sensor->data_topic.msg == "")
+            {
+                // empty type
+                std::cout << "ERROR: TOPIC '" << sensor->data_topic.name << "' IS NOT EXISTING" << std::endl;
+            } else {
+                std::cout << "WAITING FOR TOPIC '" << sensor->data_topic.name << "' TO APPEAR" << std::endl;
             }
         }
 
@@ -310,51 +330,73 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             rm::O1DnModel model;
             bool model_loading_error = false;
 
-            model.width = (int)model_xml["width"];
-            model.height = (int)model_xml["height"];
-
+            // could also be loaded by data using rmcl_msgs
             model.range.min = (double)model_xml["range_min"];
             model.range.max = (double)model_xml["range_max"];
 
-
-            auto orig_xml = model_xml["orig"];
-            if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
+            model.orig = {0.0, 0.0, 0.0};
+            if(model_xml.hasMember("orig"))
             {
-                model.orig.x = (double)orig_xml[0];
-                model.orig.y = (double)orig_xml[1];
-                model.orig.z = (double)orig_xml[2];
-            } else {
-                std::cout << "reading o1dn model error: orig muste be a list of three numbers (x,y,z)" << std::endl;
-                model_loading_error = true;
-            }
-
-            auto dirs_xml = model_xml["dirs"];
-            if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
-            {   
-                model.dirs.resize(dirs_xml.size());
-                for(size_t i=0; i<dirs_xml.size(); i++)
+                auto orig_xml = model_xml["orig"];
+                if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
                 {
-                    auto dir_xml = dirs_xml[i];
-                    if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
-                        && dir_xml.size() == 3) 
-                    {
-                        rm::Vector dir;
-                        dir.x = (double)dir_xml[0];
-                        dir.y = (double)dir_xml[1];
-                        dir.z = (double)dir_xml[2];
-                        model.dirs[i] = dir;
-                    } else {
-                        // better error message
-                        std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
-                    }
+                    model.orig.x = (double)orig_xml[0];
+                    model.orig.y = (double)orig_xml[1];
+                    model.orig.z = (double)orig_xml[2];
+                } else {
+                    std::cout << "reading o1dn model error: orig muste be a list of three numbers (x,y,z)" << std::endl;
+                    model_loading_error = true;
                 }
-            } 
-            else 
-            {
-                model_loading_error = true;
-                std::cout << "o1dn model - dirs: is no array" << std::endl;
             }
 
+            if(model_xml.hasMember("width"))
+            {
+                model.width = (int)model_xml["width"];
+            } else {
+                // loading actual width from sensor data
+                model.width = 0;
+            }
+
+            if(model_xml.hasMember("height"))
+            {
+                model.width = (int)model_xml["height"];
+            } else {
+                // loading actual height from sensor data
+                model.width = 0;
+            }
+            
+            if(model_xml.hasMember("dirs"))
+            {
+                auto dirs_xml = model_xml["dirs"];
+                if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
+                {   
+                    model.dirs.resize(dirs_xml.size());
+                    for(size_t i=0; i<dirs_xml.size(); i++)
+                    {
+                        auto dir_xml = dirs_xml[i];
+                        if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
+                            && dir_xml.size() == 3) 
+                        {
+                            rm::Vector dir;
+                            dir.x = (double)dir_xml[0];
+                            dir.y = (double)dir_xml[1];
+                            dir.z = (double)dir_xml[2];
+                            model.dirs[i] = dir;
+                        } else {
+                            // better error message
+                            std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
+                        }
+                    }
+                } 
+                else 
+                {
+                    model_loading_error = true;
+                    std::cout << "o1dn model - dirs: is no array" << std::endl;
+                }
+            } else {
+                model.dirs.resize(0);
+            }
+            
             sensor->model = model;
             model_loaded = !model_loading_error;
         } else if(sensor_type == "ondn") {
@@ -362,62 +404,86 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
             bool model_loading_error = false;
 
-            model.width = (int)model_xml["width"];
-            model.height = (int)model_xml["height"];
             model.range.min = (double)model_xml["range_min"];
             model.range.max = (double)model_xml["range_max"];
             
-            auto origs_xml = model_xml["origs"];
-            if(origs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
+            if(model_xml.hasMember("origs"))
             {
-                model.origs.resize(origs_xml.size());
-
-                for(size_t i=0; i<origs_xml.size(); i++)
+                auto origs_xml = model_xml["origs"];
+                if(origs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
                 {
-                    auto orig_xml = origs_xml[i];
-                    if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray
-                        && orig_xml.size() == 3) 
+                    model.origs.resize(origs_xml.size());
+
+                    for(size_t i=0; i<origs_xml.size(); i++)
                     {
-                        rm::Vector orig;
-                        orig.x = (double)orig_xml[0];
-                        orig.y = (double)orig_xml[1];
-                        orig.z = (double)orig_xml[2];
-                        model.origs[i] = orig;
-                    } else {
-                        // better error message
-                        std::cout << "ERROR: malformed vector in parameters (origs, " << i << ")" << std::endl;
+                        auto orig_xml = origs_xml[i];
+                        if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray
+                            && orig_xml.size() == 3) 
+                        {
+                            rm::Vector orig;
+                            orig.x = (double)orig_xml[0];
+                            orig.y = (double)orig_xml[1];
+                            orig.z = (double)orig_xml[2];
+                            model.origs[i] = orig;
+                        } else {
+                            // better error message
+                            std::cout << "ERROR: malformed vector in parameters (origs, " << i << ")" << std::endl;
+                        }
                     }
+                } else {
+                    model_loading_error = true;
+                    std::cout << "ondn model - origs: is no array" << std::endl;
                 }
             } else {
-                model_loading_error = true;
-                std::cout << "ondn model - origs: is no array" << std::endl;
+                model.origs.resize(0);
             }
 
-            auto dirs_xml = model_xml["dirs"];
-            if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
-            {   
-                model.dirs.resize(dirs_xml.size());
-                for(size_t i=0; i<dirs_xml.size(); i++)
-                {
-                    auto dir_xml = dirs_xml[i];
-                    if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
-                        && dir_xml.size() == 3)
-                    {
-                        rm::Vector dir;
-                        dir.x = (double)dir_xml[0];
-                        dir.y = (double)dir_xml[1];
-                        dir.z = (double)dir_xml[2];
-                        model.dirs[i] = dir;
-                    } else {
-                        // better error message
-                        std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
-                    }
-                }
-            } 
-            else 
+            if(model_xml.hasMember("dirs"))
             {
-                model_loading_error = true;
-                std::cout << "ondn model - dirs: is no array" << std::endl;
+                auto dirs_xml = model_xml["dirs"];
+                if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
+                {   
+                    model.dirs.resize(dirs_xml.size());
+                    for(size_t i=0; i<dirs_xml.size(); i++)
+                    {
+                        auto dir_xml = dirs_xml[i];
+                        if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
+                            && dir_xml.size() == 3)
+                        {
+                            rm::Vector dir;
+                            dir.x = (double)dir_xml[0];
+                            dir.y = (double)dir_xml[1];
+                            dir.z = (double)dir_xml[2];
+                            model.dirs[i] = dir;
+                        } else {
+                            // better error message
+                            std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
+                        }
+                    }
+                } 
+                else 
+                {
+                    model_loading_error = true;
+                    std::cout << "ondn model - dirs: is no array" << std::endl;
+                }
+            } else {
+                model.dirs.resize(0);
+            }
+
+            if(model_xml.hasMember("width"))
+            {
+                model.width = (int)model_xml["width"];
+            } else {
+                // loading actual width from sensor data
+                model.width = 0;
+            }
+
+            if(model_xml.hasMember("height"))
+            {
+                model.width = (int)model_xml["height"];
+            } else {
+                // loading actual height from sensor data
+                model.width = 0;
             }
 
             sensor->model = model;
@@ -443,15 +509,31 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
         std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->info_topic.name  << TC_END << std::endl;
 
-        std::vector<ros::master::TopicInfo> topic_infos;
-        ros::master::getTopics(topic_infos);
-        for(auto topic_info : topic_infos)
+        if(sensor_params.hasMember("topic_type"))
         {
-            if(topic_info.name == info_topic_name)
+            sensor->data_topic.msg = (std::string)sensor_params["topic_type"];
+        }
+
+        std::unordered_map<std::string, std::string> topic_map
+            = get_topic_type_map();
+        if(topic_map.find(sensor->info_topic.name) != topic_map.end())
+        {
+            std::string topic_type = topic_map[sensor->info_topic.name];
+            if(sensor->info_topic.msg != "")
             {
-                sensor->info_topic.msg = topic_info.datatype;
-                break;
+                // compare actual topic type with user input
+                // if they dont match. act accordingly
+                if(sensor->info_topic.msg != topic_type)
+                {
+                    // WARNING
+                    std::cout << "WARNING: Topic type mismatch found:" << std::endl;
+                    std::cout << "-- user input: " << sensor->info_topic.msg << std::endl;
+                    std::cout << "-- topic type: " << topic_type << std::endl;
+                    std::cout << "Using actual topic type" << std::endl;
+                }
             }
+
+            sensor->info_topic.msg = topic_type;
         }
 
         if(sensor->info_topic.msg != "")
@@ -794,8 +876,6 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     // connect to sensor topics
     sensor->connect();
 
-    // add sensor to class
-    m_sensors[sensor->name] = sensor;
 
     #ifdef RMCL_EMBREE
     if(sensor->type == 0) // spherical
@@ -826,6 +906,9 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     
     sensor->fetchTF();
     sensor->updateCorrectors();
+
+    // add sensor to class
+    m_sensors[sensor->name] = sensor;
     
     return true;
 }
