@@ -193,11 +193,9 @@ bool MICP::loadSensor(
         sensor->data_topic.name = topic_name;
         std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->data_topic.name << TC_END << std::endl;
 
-
         if(sensor_params->find("topic_type") != sensor_params->end())
         {
             sensor->data_topic.msg = sensor_params->at("topic_type")->data->as_string();
-            std::cout << "FOUND TOPIC TYPE: " << sensor->data_topic.msg << std::endl;
         }
         
 
@@ -361,24 +359,6 @@ bool MICP::loadSensor(
             model.range.min = model_params->at("range_min")->data->as_double();
             model.range.max = model_params->at("range_max")->data->as_double();
 
-
-            std::vector<double> orig = {0.0, 0.0, 0.0};
-            
-            if(model_params->exists("orig"))
-            {
-              orig = model_params->at("orig")->data->as_double_array();
-            }
-             
-            if(orig.size() != 3)
-            {
-                // error
-                std::cout << "ERROR: origin point is not 3D" << std::endl;
-            }
-
-            model.orig.x = orig[0];
-            model.orig.y = orig[1];
-            model.orig.z = orig[2];
-
             if(model_params->exists("width"))
             {
                 // model.widt
@@ -396,6 +376,22 @@ bool MICP::loadSensor(
                 // loading actual height from sensor data
                 model.height = 0;
             }
+
+            std::vector<double> orig = {0.0, 0.0, 0.0};
+            if(model_params->exists("orig"))
+            {
+              orig = model_params->at("orig")->data->as_double_array();
+            }
+             
+            if(orig.size() != 3)
+            {
+                // error
+                std::cout << "ERROR: origin point is not 3D" << std::endl;
+            }
+
+            model.orig.x = orig[0];
+            model.orig.y = orig[1];
+            model.orig.z = orig[2];
 
             if(model_params->exists("dirs"))
             {
@@ -418,26 +414,53 @@ bool MICP::loadSensor(
 
             bool model_loading_error = false;
 
-            model.width  = model_params->at("width")->data->as_int();
-            model.height = model_params->at("height")->data->as_int();
-
             model.range.min = model_params->at("range_min")->data->as_double();
             model.range.max = model_params->at("range_max")->data->as_double();
 
-            std::vector<double> origs = model_params->at("origs")->data->as_double_array();
-            std::vector<double> dirs = model_params->at("dirs")->data->as_double_array();
-
-            model.origs.resize(origs.size() / 3);
-            model.dirs.resize(dirs.size() / 3);
-            for(size_t i=0; i<origs.size() / 3; i++)
+            if(model_params->exists("width"))
             {
-                model.origs[i].x = origs[i * 3 + 0];
-                model.origs[i].y = origs[i * 3 + 1];
-                model.origs[i].z = origs[i * 3 + 2];
+                // model.widt
+                model.width = model_params->at("width")->data->as_double();
+            } else {
+                // loading actual width from sensor data
+                model.width = 0;
+            }
 
-                model.dirs[i].x  = dirs[i * 3 + 0];
-                model.dirs[i].y  = dirs[i * 3 + 1];
-                model.dirs[i].z  = dirs[i * 3 + 2];
+            if(model_params->exists("height"))
+            {
+                // model.widt
+                model.height = model_params->at("height")->data->as_double();
+            } else {
+                // loading actual height from sensor data
+                model.height = 0;
+            }
+
+            if(model_params->exists("origs"))
+            {
+                std::vector<double> origs = model_params->at("origs")->data->as_double_array();
+                model.origs.resize(origs.size() / 3);
+                for(size_t i=0; i<origs.size() / 3; i++)
+                {
+                    model.origs[i].x = origs[i * 3 + 0];
+                    model.origs[i].y = origs[i * 3 + 1];
+                    model.origs[i].z = origs[i * 3 + 2];
+                }
+            } else {
+                model.origs.resize(0);
+            }
+
+            if(model_params->exists("dirs"))
+            {
+                std::vector<double> dirs = model_params->at("dirs")->data->as_double_array();
+                model.dirs.resize(dirs.size() / 3);
+                for(size_t i=0; i<dirs.size() / 3; i++)
+                {
+                    model.dirs[i].x = dirs[i * 3 + 0];
+                    model.dirs[i].y = dirs[i * 3 + 1];
+                    model.dirs[i].z = dirs[i * 3 + 2];
+                }
+            } else {
+                model.dirs.resize(0);
             }
            
             sensor->model = model;
@@ -462,6 +485,11 @@ bool MICP::loadSensor(
         sensor->info_topic.name = info_topic_name;
 
         std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->info_topic.name  << TC_END << std::endl;
+
+        if(sensor_params->find("model_topic_type") != sensor_params->end())
+        {
+            sensor->info_topic.msg = sensor_params->at("model_topic_type")->data->as_string();
+        }
 
         std::map<std::string, std::vector<std::string> > topic_map = m_nh->get_topic_names_and_types();
         
@@ -802,7 +830,6 @@ bool MICP::loadSensor(
     // connect to sensor topics
     sensor->connect();
 
-    
 
     #ifdef RMCL_EMBREE
     if(sensor->type == 0) // spherical

@@ -541,8 +541,6 @@ void MICPRangeSensor::computeCovs(
 {
     // this is bad. maybe we must go away from having a completely generic sensor
 
-    // std::cout << "Compute Covs - CPU" << std::endl;
-
     #ifdef RMCL_EMBREE
     if(backend == 0)
     {
