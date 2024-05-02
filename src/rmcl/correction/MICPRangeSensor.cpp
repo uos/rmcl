@@ -519,6 +519,7 @@ void MICPRangeSensor::adaptCorrectionParams(
     float adaption_rate)
 {
     corr_params.max_distance = corr_params_init.max_distance + (adaptive_max_dist_min - corr_params_init.max_distance) * adaption_rate;
+    // std::cout << "setting max corr distance to " << corr_params.max_distance << std::endl;
 }
 
 void MICPRangeSensor::computeCovs(
@@ -527,13 +528,11 @@ void MICPRangeSensor::computeCovs(
 {
     // this is bad. maybe we must go away from having a completely generic sensor
 
-    // std::cout << "Compute Covs - CPU" << std::endl;
-
     #ifdef RMCL_EMBREE
     if(backend == 0)
     {
-        if(type == 0) {
-
+        if(type == 0) 
+        {
             if(viz_corr)
             {
                 // draw correspondences of first pose
@@ -551,7 +550,7 @@ void MICPRangeSensor::computeCovs(
                     corr_valid, Tbms0[0], 
                     viz_corr_data_color, viz_corr_model_color,
                     viz_corr_scale, viz_corr_skip + 1);
-                
+               
                 marker.header.stamp = ros::Time::now();
                 if(pub_corr)
                 {
@@ -568,6 +567,8 @@ void MICPRangeSensor::computeCovs(
                     res.ds, res.ms, // outputs
                     res.Cs, res.Ncorr
                 );
+
+                // std::cout << "Valid Correspondences: " << res.Ncorr[0] << std::endl;
             } else {
                 corr_sphere_embree->computeCovs(Tbms, res);
             }
@@ -932,7 +933,6 @@ void MICPRangeSensor::enableVizCorrespondences(bool enable)
 void MICPRangeSensor::sphericalCB(
     const rmcl_msgs::ScanStamped::ConstPtr& msg)
 {
-    // ROS_INFO_STREAM("sensor: " << name << " received " << data_topic.msg << " message");
     fetchTF();
 
     // model
@@ -956,6 +956,10 @@ void MICPRangeSensor::sphericalCB(
     data_received_once = true;
 
     updateCorrectors();
+    if(count_valid_ranges)
+    {
+        countValidRanges();
+    }
 }
 
 void MICPRangeSensor::pinholeCB(
