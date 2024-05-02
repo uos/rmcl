@@ -688,6 +688,18 @@ if(RMCL_EMBREE)
         rmcl_embree
     )
 
+    add_executable(segment_node_embree src/nodes/tests/segment_node_embree.cpp)
+
+    add_dependencies(segment_node_embree 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(segment_node_embree
+        ${catkin_LIBRARIES}
+        rmcl_embree_ros
+    )
 endif(RMCL_EMBREE)
 
 # add_executable(rmcl_correction_optix_benchmark
