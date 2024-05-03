@@ -116,7 +116,7 @@ void MICP::loadParams()
 
 std::unordered_map<std::string, std::string> get_topic_type_map()
 {
-    std::unordered_map<std::string, ros::master::TopicInfo> ret;
+    std::unordered_map<std::string, std::string> ret;
     std::vector<ros::master::TopicInfo> topic_infos;
     ros::master::getTopics(topic_infos);
     for(auto topic_info : topic_infos)
