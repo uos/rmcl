@@ -1531,7 +1531,7 @@ void MICP::checkTopic(
     ros::Time end = curr + timeout;
     // std::cout << curr.toSec() << " -> " << end.toSec() << std::endl;
 
-    ros::Duration timeout_inner(0.1);
+    ros::Duration timeout_inner(0.2);
 
     while(ros::ok() && curr < end && !info.data)
     {
