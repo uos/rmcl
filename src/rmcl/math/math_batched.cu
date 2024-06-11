@@ -320,7 +320,11 @@ __global__ void means_covs_online_batched_kernel(
     rm::Vector* dataset_center,
     rm::Vector* model_center,
     rm::Matrix3x3* Cs,
-    unsigned int* Ncorr)
+    unsigned int* Ncorr,
+    int scene_id,
+    int object_id,
+    const unsigned int* scene_ids,
+    const unsigned int* object_ids)
 {
     // Online update: Covariance and means 
     // - https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
@@ -354,7 +358,8 @@ __global__ void means_covs_online_batched_kernel(
     {
         if(tid + blockSize * i < chunkSize)
         {
-            if(mask[globId + blockSize * i] > 0)
+            //if(! scene_ids[globId + blockSize * i] == scene_id;
+            if(mask[globId + blockSize * i] > 0 ) 
             {
                 // global read
                 const rm::Vector Di = dataset_points[globId + blockSize * i];
@@ -733,7 +738,12 @@ void means_covs_online_batched(
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& dataset_center,
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
-    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr)
+    rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
+    int scene_id,
+    int object_id,
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& scene_ids,
+    const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& object_ids
+    )
 {
     unsigned int Nbatches = Ncorr.size();
     unsigned int batchSize = dataset_points.size() / Nbatches;
@@ -741,7 +751,8 @@ void means_covs_online_batched(
 
     means_covs_online_batched_kernel<blockSize> <<<Nbatches, blockSize>>>(
         dataset_points.raw(), model_points.raw(), mask.raw(), batchSize, 
-        dataset_center.raw(), model_center.raw(), Cs.raw(), Ncorr.raw());
+        dataset_center.raw(), model_center.raw(), Cs.raw(), Ncorr.raw(),
+        scene_id, object_id, scene_ids.raw(), object_ids.raw());
 }
 
 

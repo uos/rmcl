@@ -41,7 +41,7 @@ void fill_ones(rm::MemoryView<unsigned int> mask)
 
 int main(int argc, char** argv)
 {
-    rm::Mem<rm::Vector> dataset(10000);
+    rm::Mem<rm::Vector> dataset(307200);
     fill_random(dataset);
     // fill_sequence(dataset);
 
@@ -117,6 +117,14 @@ int main(int argc, char** argv)
         rmcl::means_covs_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_);
         el = sw();
         std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
+
+
+        std::cout << "means_covs_batched" << std::endl;
+        sw();
+        rmcl::means_covs_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_);
+        el = sw();
+        std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
+
         ds = ds_; ms = ms_; Cs = Cs_; Ncorr = Ncorr_;
         std::cout << ds[0] << std::endl;
         std::cout << ms[0] << std::endl;
@@ -136,7 +144,7 @@ int main(int argc, char** argv)
 
         std::cout << "means_covs_online_batched" << std::endl;
         sw();
-        rmcl::means_covs_online_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_);
+        rmcl::means_covs_online_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_, -1, -1, mask_, mask_);
         el = sw();
         std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
         ds = ds_; ms = ms_; Cs = Cs_; Ncorr = Ncorr_;
