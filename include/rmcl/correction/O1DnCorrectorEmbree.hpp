@@ -144,10 +144,49 @@ public:
         rmagine::MemoryView<rmagine::Point> dataset_points,
         rmagine::MemoryView<rmagine::Point> model_points,
         rmagine::MemoryView<rmagine::Vector> model_normals,
-        rmagine::MemoryView<unsigned int> corr_valid
+        rmagine::MemoryView<unsigned int> corr_valid,
+        rmagine::MemoryView<unsigned int> scene_ids,
+        rmagine::MemoryView<unsigned int> geometry_ids
+        ) const;
+
+    void findRCC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point> data_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<rmagine::Vector> model_normals,
+        rmagine::MemoryView<unsigned int> corr_valid,
+        rmagine::MemoryView<unsigned int> scene_ids,
+        rmagine::MemoryView<unsigned int> geometry_ids
     ) const;
 
     void findRCC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>& dataset_points,
+        rmagine::Memory<rmagine::Point>& model_points,
+        rmagine::Memory<rmagine::Vector>& model_normals,
+        rmagine::Memory<unsigned int>& corr_valid,
+        rmagine::Memory<unsigned int>& scene_ids,
+        rmagine::Memory<unsigned int>& geometry_ids
+    ) const;
+
+
+    /**
+     * @brief Find Closest Point Correspondences (CPC)
+     * 
+     * @param Tbms 
+     * @param dataset_points 
+     * @param model_points
+     * @param corr_valid
+     */
+    void findCPC(
+        const rmagine::Transform& Tbm,
+        rmagine::MemoryView<rmagine::Point> dataset_points,
+        rmagine::MemoryView<rmagine::Point> model_points,
+        rmagine::MemoryView<rmagine::Vector> model_normals,
+        rmagine::MemoryView<unsigned int> corr_valid
+    ) const;
+
+    void findCPC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         rmagine::MemoryView<rmagine::Point> data_points,
         rmagine::MemoryView<rmagine::Point> model_points,
@@ -155,7 +194,7 @@ public:
         rmagine::MemoryView<unsigned int> corr_valid
     ) const;
 
-    void findRCC(
+    void findCPC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         rmagine::Memory<rmagine::Point>& dataset_points,
         rmagine::Memory<rmagine::Point>& model_points,
@@ -173,6 +212,8 @@ public:
     {
         return m_model[0];
     }
+
+
 
 protected:
     rmagine::Memory<float, rmagine::RAM> m_ranges;

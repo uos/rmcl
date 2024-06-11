@@ -148,7 +148,11 @@ void means_covs_p2l_online_batched(
     rm::MemoryView<rm::Vector, rm::RAM>& dataset_center, // N
     rm::MemoryView<rm::Vector, rm::RAM>& model_center, // N
     rm::MemoryView<rm::Matrix3x3, rm::RAM>& Cs, // N
-    rm::MemoryView<unsigned int, rm::RAM>& Ncorr // N
+    rm::MemoryView<unsigned int, rm::RAM>& Ncorr, // N
+    int scene_id,
+    int object_id,
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& scene_mask, // NxM
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& object_mask // NxM
     )
 {
     unsigned int Nbatches = pre_transforms.size();
@@ -162,6 +166,10 @@ void means_covs_p2l_online_batched(
         const rm::MemoryView<rm::Vector> model_batch = model_points(i * batchSize, (i+1) * batchSize);
         const rm::MemoryView<rm::Vector> model_normal_batch = model_normals(i * batchSize, (i+1) * batchSize);
         const rm::MemoryView<unsigned int> model_mask_batch = model_mask(i * batchSize, (i+1) * batchSize);
+        const rm::MemoryView<unsigned int> scene_mask_batch = scene_mask(i * batchSize, (i+1) * batchSize);
+        const rm::MemoryView<unsigned int> object_mask_batch = object_mask(i * batchSize, (i+1) * batchSize);
+
+
 
         rm::Vector d_mean = {0.0f, 0.0f, 0.0f};
         rm::Vector m_mean = {0.0f, 0.0f, 0.0f};
@@ -172,7 +180,9 @@ void means_covs_p2l_online_batched(
         {
             // figure out if distance is too high
 
-            if(dataset_mask[j] > 0 && model_mask_batch[j] > 0)
+            if(dataset_mask[j] > 0 && model_mask_batch[j] > 0
+               && ((scene_id > -1 && object_id > -1) || (scene_mask_batch[j] == scene_id && object_mask_batch[j] == object_id))
+            )
             {
                 const rm::Vector Di = Tpre * data_batch[j]; // read
                 const rm::Vector Ii = model_batch[j]; // read

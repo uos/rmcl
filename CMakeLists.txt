@@ -52,7 +52,7 @@ include_directories(
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.3.0")
 
-find_package(rmagine 2.2.1... 
+find_package(rmagine 2.2.1
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -215,7 +215,7 @@ endif()
 # CUDA
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     # Build cuda related stuff
-    find_package(CUDA)
+    find_package(CUDAToolkit)
 
     enable_language(CUDA)
     include_directories(${CUDA_INCLUDE_DIRS})

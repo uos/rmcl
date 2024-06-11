@@ -100,7 +100,14 @@ void means_covs_p2l_online_batched(
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& dataset_center,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_center,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
-    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr);
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr,
+
+    // this should not belong here, but this allows for defaults.
+    int scene_id = -1,
+    int object_id = -1,
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& scene_mask = rmagine::Memory<unsigned int, rmagine::RAM>(0), // NxM
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& object_mask = rmagine::Memory<unsigned int, rmagine::RAM>(0)// NxM
+    );
 
 
 /**
