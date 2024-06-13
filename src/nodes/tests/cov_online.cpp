@@ -31,24 +31,44 @@ void fill_sequence(rm::MemoryView<rm::Vector, rm::RAM> points)
     }
 }
 
-void fill_ones(rm::MemoryView<unsigned int> mask)
+void fill_ones(rm::MemoryView<unsigned int> mask, int n)
 {
+    int cnt = 0;
     for(unsigned int i=0; i < mask.size(); i++)
     {
-        mask[i] = i % 2;
+      if(n != 0)
+      {
+        if(i%n)
+        {
+          mask[i] = 0;
+        }
+        else
+        {
+          cnt++;
+          mask[i] = 1;
+        }
+
+      }
+      else
+      {
+        mask[i] = 0;
+      }
     }
+
+    std::cout << "valid: "  << cnt << std::endl;
 }
 
 int main(int argc, char** argv)
 {
-    rm::Mem<rm::Vector> dataset(307200);
+    rm::Mem<rm::Vector> dataset(1000000);
     fill_random(dataset);
     // fill_sequence(dataset);
 
     rm::Mem<rm::Vector> model(dataset.size());
 
     rm::Mem<unsigned int> mask(dataset.size());
-    fill_ones(mask);
+    fill_ones(mask, 50000);
+
 
 
     rm::Transform T;
@@ -71,6 +91,7 @@ int main(int argc, char** argv)
     {
         std::cout << "means_covs_batched" << std::endl;
         sw();
+        rmcl::means_covs_batched(dataset, model, mask, ds, ms, Cs, Ncorr);
         rmcl::means_covs_batched(dataset, model, mask, ds, ms, Cs, Ncorr);
         el = sw();
         std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
@@ -115,6 +136,7 @@ int main(int argc, char** argv)
         std::cout << "means_covs_batched" << std::endl;
         sw();
         rmcl::means_covs_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_);
+        ds = ds_; ms = ms_; Cs = Cs_; Ncorr = Ncorr_;
         el = sw();
         std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
 
@@ -122,36 +144,37 @@ int main(int argc, char** argv)
         std::cout << "means_covs_batched" << std::endl;
         sw();
         rmcl::means_covs_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_);
-        el = sw();
-        std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
 
         ds = ds_; ms = ms_; Cs = Cs_; Ncorr = Ncorr_;
         std::cout << ds[0] << std::endl;
         std::cout << ms[0] << std::endl;
         std::cout << Cs[0] << std::endl;
         std::cout << Ncorr[0] << std::endl;
+        el = sw();
+        std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
 
         std::cout << "means_covs_online_approx_batched" << std::endl;
         sw();
         rmcl::means_covs_online_approx_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_);
-        el = sw();
-        std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
         ds = ds_; ms = ms_; Cs = Cs_; Ncorr = Ncorr_;
         std::cout << ds[0] << std::endl;
         std::cout << ms[0] << std::endl;
         std::cout << Cs[0] << std::endl;
         std::cout << Ncorr[0] << std::endl;
+        el = sw();
+        std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
 
         std::cout << "means_covs_online_batched" << std::endl;
         sw();
         rmcl::means_covs_online_batched(dataset_, model_, mask_, ds_, ms_, Cs_, Ncorr_, -1, -1, mask_, mask_);
+        ds = ds_; ms = ms_; Cs = Cs_; Ncorr = Ncorr_;
         el = sw();
         std::cout << "- runtime: " << el * 1000.0 << " ms" << std::endl;
-        ds = ds_; ms = ms_; Cs = Cs_; Ncorr = Ncorr_;
         std::cout << ds[0] << std::endl;
         std::cout << ms[0] << std::endl;
         std::cout << Cs[0] << std::endl;
         std::cout << Ncorr[0] << std::endl;
+    
     }
 
     return 0;

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.2...10.0)
 project(rmcl
 	VERSION 1.1.5
 	)
-
+cmake_policy(SET CMP0148 OLD)
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_CONV "Build Conversion Nodes" ON)
