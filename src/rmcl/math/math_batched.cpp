@@ -181,7 +181,7 @@ void means_covs_p2l_online_batched(
             // figure out if distance is too high
 
             if(dataset_mask[j] > 0 && model_mask_batch[j] > 0
-               && ((scene_id > -1 && object_id > -1) || (scene_mask_batch[j] == scene_id && object_mask_batch[j] == object_id))
+               && ((scene_id < 0 && object_id < 0) || (scene_mask_batch[j] == static_cast<unsigned int>(scene_id) && object_mask_batch[j] == static_cast<unsigned int>(object_id)))
             )
             {
                 const rm::Vector Di = Tpre * data_batch[j]; // read

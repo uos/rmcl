@@ -571,6 +571,7 @@ void O1DnCorrectorEmbree::findRCC(
                 // search point on surface that is more nearby
                 pint_s = ray_orig_s + ray_dir_s * rayhit.ray.tfar;
 
+
                 // convert back to base (sensor shared coordinate system)
                 const rm::Vector preal_b = Tsb * preal_s;
                 const rm::Vector pint_b = Tsb * pint_s;
@@ -582,6 +583,11 @@ void O1DnCorrectorEmbree::findRCC(
                 corr_valid[loc_id] = 1;
                 geometry_ids[loc_id] = rayhit.hit.geomID;
                 scene_ids[loc_id] = rayhit.hit.instID[0];
+//                if(rayhit.hit.instID[0] > 1)
+//                {
+//                  std::cout << rayhit.hit.geomID << " " << rayhit.hit.instID[0] <<  std::endl;
+//
+//                }
 
             } else {
                 dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
