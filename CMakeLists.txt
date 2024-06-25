@@ -418,6 +418,22 @@ if(BUILD_CONV)
         rmcl_ros
     )
 
+    ####### PCL2 to O1DN CONVERTER
+    add_executable(conv_pcl2_to_o1dn src/nodes/conv/pcl2_to_o1dn.cpp)
+
+    add_dependencies(conv_pcl2_to_o1dn 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(conv_pcl2_to_o1dn
+        ${catkin_LIBRARIES}
+        rmcl_ros
+    )
+
+
+
     ####### PCL2 to DEPTH CONVERTER
     add_executable(conv_pcl2_to_depth src/nodes/conv/pcl2_to_depth.cpp)
 

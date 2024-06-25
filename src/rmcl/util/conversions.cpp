@@ -214,6 +214,42 @@ void convert(
 }
 
 void convert(
+    const rmcl_msgs::O1DnStamped& scan, 
+    sensor_msgs::PointCloud& cloud)
+{
+    cloud.header = scan.header;
+    convert(scan.o1dn, cloud.points);
+}
+
+void convert(
+    const rmcl_msgs::O1Dn& scan, 
+    std::vector<geometry_msgs::Point32>& cloud)
+{
+    rmagine::O1DnModel model;
+    convert(scan.info, model);
+
+    cloud.reserve(model.size());
+    for(size_t vid = 0; vid < model.getHeight(); vid++)
+    {
+        for(size_t hid = 0; hid < model.getWidth(); hid++)
+        {
+            const unsigned int pid = model.getBufferId(vid, hid);
+            const float range = scan.data.ranges[pid];
+
+            if(model.range.inside(range))
+            {
+                rmagine::Vector p = model.getDirection(vid, hid) * range + model.getOrigin(vid, hid);
+                geometry_msgs::Point32 p_ros;
+                p_ros.x = p.x;
+                p_ros.y = p.y;
+                p_ros.z = p.z;
+                cloud.push_back(p_ros);
+            }
+        }
+    }
+}
+
+void convert(
     const rmcl_msgs::ScanStamped& scan, 
     sensor_msgs::PointCloud& cloud)
 {
@@ -245,5 +281,6 @@ void convert(
         scan_out.scan.data.ranges[i] = scan_in.ranges[i];
     }
 }
+
 
 } // namespace rmcl 
