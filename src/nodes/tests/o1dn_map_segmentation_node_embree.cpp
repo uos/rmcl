@@ -127,7 +127,7 @@ void scanCB(const O1DnStamped::ConstPtr& msg)
                     nint_s.normalizeInplace();
 
                     float signed_plane_dist = (preal_s - pint_s).dot(nint_s);
-                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
+                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
                     const float plane_distance = (pmesh_s - preal_s).l2norm();
 
                     if(range_real < range_sim)
@@ -165,7 +165,7 @@ void scanCB(const O1DnStamped::ConstPtr& msg)
                 if(range_sim_valid)
                 {
                     // sim hits surface but real not: map could be wrong
-                    Vector pint_s = model.getDirection(vid, hid) * range_sim;
+                    Vector pint_s = model.getDirection(vid, hid) * range_sim + model.getOrigin(vid, hid);
                     geometry_msgs::Point32 p_ros;
                     p_ros.x = pint_s.x;
                     p_ros.y = pint_s.y;
