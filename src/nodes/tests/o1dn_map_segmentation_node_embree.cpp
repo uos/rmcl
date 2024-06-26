@@ -5,15 +5,15 @@
 #include <tf2_ros/transform_listener.h>
 
 // Rmagine deps
-#include <rmagine/map/OptixMap.hpp>
+#include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
-#include <rmagine/math/math.cuh>
+#include <rmagine/math/math.h>
 #include <rmagine/util/prints.h>
-#include <rmagine/simulation/SphereSimulatorOptix.hpp>
+#include <rmagine/simulation/O1DnSimulatorEmbree.hpp>
 #include <rmagine/simulation/SimulationResults.hpp>
 
 // RCML msgs
-#include <rmcl_msgs/ScanStamped.h>
+#include <rmcl_msgs/O1DnStamped.h>
 
 // RMCL code
 #include <rmcl/util/conversions.h>
@@ -39,7 +39,8 @@ using namespace rmcl_msgs;
 using namespace rmagine;
 
 
-SphereSimulatorOptixPtr scan_sim;
+
+O1DnSimulatorEmbreePtr scan_sim;
 
 
 float min_dist_outlier_scan;
@@ -57,7 +58,7 @@ ros::Publisher pub_outlier_scan;
 ros::Publisher pub_outlier_map;
 
 
-void scanCB(const ScanStamped::ConstPtr& msg)
+void scanCB(const O1DnStamped::ConstPtr& msg)
 {
     geometry_msgs::TransformStamped T_sensor_map;
     
@@ -73,18 +74,18 @@ void scanCB(const ScanStamped::ConstPtr& msg)
     Memory<Transform, RAM> T(1);
     convert(T_sensor_map.transform, T[0]);
 
-    Memory<Transform, VRAM_CUDA> T_ = T;
+    // Memory<Transform, VRAM_CUDA> T_ = T;
 
-    SphericalModel model;
-    convert(msg->scan.info, model);
+    O1DnModel model;
+    convert(msg->o1dn.info, model);
     scan_sim->setModel(model);
 
     using ResultT = Bundle<
-        Ranges<VRAM_CUDA>,
-        Normals<VRAM_CUDA>
+        Ranges<RAM>,
+        Normals<RAM>
     >;
 
-    ResultT res = scan_sim->simulate<ResultT>(T_);
+    ResultT res = scan_sim->simulate<ResultT>(T);
 
 
     Memory<float, RAM> ranges = res.ranges;
@@ -102,26 +103,25 @@ void scanCB(const ScanStamped::ConstPtr& msg)
     cloud_outlier_map.header.frame_id = msg->header.frame_id;
 
 
+    // if this doesnt work: the ranges/dirs of the original scan must be ordered differently
     for(size_t vid = 0; vid < model.getHeight(); vid++)
     {
         for(size_t hid = 0; hid < model.getWidth(); hid++)
         {
             const size_t bid = model.getBufferId(vid, hid);
 
-            const float range_real = msg->scan.data.ranges[bid];
+            const float range_real = msg->o1dn.data.ranges[bid];
             const float range_sim = ranges[bid];
-            
 
             const bool range_real_valid = model.range.inside(range_real);
             const bool range_sim_valid = model.range.inside(range_sim);
 
             if(range_real_valid)
             {
-                Vector preal_s = model.getDirection(vid, hid) * range_real;
+                Vector preal_s = model.getDirection(vid, hid) * range_real + model.getOrigin(vid, hid);
 
                 if(range_sim_valid)
                 {
-                    
                     Vector pint_s = model.getDirection(vid, hid) * range_sim;
                     Vector nint_s = normals[bid];
                     nint_s.normalizeInplace();
@@ -184,7 +184,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "segment_node_optix");
+    ros::init(argc, argv, "o1dn_map_segmentation_node_embree");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
@@ -198,8 +198,8 @@ int main(int argc, char** argv)
     nh_p.param<float>("min_dist_outlier_scan", min_dist_outlier_scan, 0.15);
     nh_p.param<float>("min_dist_outlier_map", min_dist_outlier_map, 0.15);
 
-    OptixMapPtr map = import_optix_map(meshfile);
-    scan_sim = std::make_shared<SphereSimulatorOptix>(map);
+    EmbreeMapPtr map = import_embree_map(meshfile);
+    scan_sim = std::make_shared<SphereSimulatorEmbree>(map);
     scan_sim->setTsb(Transform::Identity());
 
     // get TF of scanner
