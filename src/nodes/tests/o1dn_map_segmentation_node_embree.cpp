@@ -199,7 +199,7 @@ int main(int argc, char** argv)
     nh_p.param<float>("min_dist_outlier_map", min_dist_outlier_map, 0.15);
 
     EmbreeMapPtr map = import_embree_map(meshfile);
-    scan_sim = std::make_shared<SphereSimulatorEmbree>(map);
+    scan_sim = std::make_shared<O1DnSimulatorEmbree>(map);
     scan_sim->setTsb(Transform::Identity());
 
     // get TF of scanner
@@ -207,7 +207,7 @@ int main(int argc, char** argv)
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
 
-    ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
+    ros::Subscriber sub = nh.subscribe<rmcl_msgs::O1DnStamped>("scan", 1, scanCB);
 
     pub_outlier_scan = nh_p.advertise<sensor_msgs::PointCloud>("outlier_scan", 1);
     pub_outlier_map = nh_p.advertise<sensor_msgs::PointCloud>("outlier_map", 1);
