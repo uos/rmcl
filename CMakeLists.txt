@@ -679,15 +679,15 @@ target_link_libraries(rmcl_test_cov_online
 
 if(RMCL_OPTIX)
 
-    add_executable(scan_map_segmentation_node_optix src/nodes/filter/scan_map_segmentation_node_optix.cpp)
+    add_executable(scan_map_segmentation_optix_node src/nodes/filter/scan_map_segmentation_optix_node.cpp)
 
-    add_dependencies(scan_map_segmentation_node_optix 
+    add_dependencies(scan_map_segmentation_optix_node 
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
         ${catkin_EXPORTED_TARGETS}
     )
 
     ## Specify libraries to link a library or executable target against
-    target_link_libraries(scan_map_segmentation_node_optix
+    target_link_libraries(scan_map_segmentation_optix_node
         ${catkin_LIBRARIES}
         rmcl_optix_ros
     )
@@ -705,28 +705,28 @@ if(RMCL_EMBREE)
         rmcl_embree
     )
 
-    add_executable(scan_map_segmentation_node_embree src/nodes/filter/scan_map_segmentation_node_embree.cpp)
+    add_executable(scan_map_segmentation_embree_node src/nodes/filter/scan_map_segmentation_embree_node.cpp)
 
-    add_dependencies(scan_map_segmentation_node_embree 
+    add_dependencies(scan_map_segmentation_embree_node 
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
         ${catkin_EXPORTED_TARGETS}
     )
 
     ## Specify libraries to link a library or executable target against
-    target_link_libraries(scan_map_segmentation_node_embree
+    target_link_libraries(scan_map_segmentation_embree_node
         ${catkin_LIBRARIES}
         rmcl_embree_ros
     )
 
-    add_executable(o1dn_map_segmentation_node_embree src/nodes/filter/o1dn_map_segmentation_node_embree.cpp)
+    add_executable(o1dn_map_segmentation_embree_node src/nodes/filter/o1dn_map_segmentation_embree_node.cpp)
 
-    add_dependencies(o1dn_map_segmentation_node_embree 
+    add_dependencies(o1dn_map_segmentation_embree_node 
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
         ${catkin_EXPORTED_TARGETS}
     )
 
     ## Specify libraries to link a library or executable target against
-    target_link_libraries(o1dn_map_segmentation_node_embree
+    target_link_libraries(o1dn_map_segmentation_embree_node
         ${catkin_LIBRARIES}
         rmcl_embree_ros
     )

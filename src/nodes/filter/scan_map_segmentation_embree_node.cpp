@@ -5,11 +5,11 @@
 #include <tf2_ros/transform_listener.h>
 
 // Rmagine deps
-#include <rmagine/map/OptixMap.hpp>
+#include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/util/StopWatch.hpp>
-#include <rmagine/math/math.cuh>
+#include <rmagine/math/math.h>
 #include <rmagine/util/prints.h>
-#include <rmagine/simulation/SphereSimulatorOptix.hpp>
+#include <rmagine/simulation/SphereSimulatorEmbree.hpp>
 #include <rmagine/simulation/SimulationResults.hpp>
 
 // RCML msgs
@@ -39,7 +39,7 @@ using namespace rmcl_msgs;
 using namespace rmagine;
 
 
-SphereSimulatorOptixPtr scan_sim;
+SphereSimulatorEmbreePtr scan_sim;
 
 
 float min_dist_outlier_scan;
@@ -73,18 +73,18 @@ void scanCB(const ScanStamped::ConstPtr& msg)
     Memory<Transform, RAM> T(1);
     convert(T_sensor_map.transform, T[0]);
 
-    Memory<Transform, VRAM_CUDA> T_ = T;
+    // Memory<Transform, VRAM_CUDA> T_ = T;
 
     SphericalModel model;
     convert(msg->scan.info, model);
     scan_sim->setModel(model);
 
     using ResultT = Bundle<
-        Ranges<VRAM_CUDA>,
-        Normals<VRAM_CUDA>
+        Ranges<RAM>,
+        Normals<RAM>
     >;
 
-    ResultT res = scan_sim->simulate<ResultT>(T_);
+    ResultT res = scan_sim->simulate<ResultT>(T);
 
 
     Memory<float, RAM> ranges = res.ranges;
@@ -184,7 +184,7 @@ void scanCB(const ScanStamped::ConstPtr& msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "scan_map_segmentation_node_optix");
+    ros::init(argc, argv, "scan_map_segmentation_embree_node");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
@@ -198,8 +198,8 @@ int main(int argc, char** argv)
     nh_p.param<float>("min_dist_outlier_scan", min_dist_outlier_scan, 0.15);
     nh_p.param<float>("min_dist_outlier_map", min_dist_outlier_map, 0.15);
 
-    OptixMapPtr map = import_optix_map(meshfile);
-    scan_sim = std::make_shared<SphereSimulatorOptix>(map);
+    EmbreeMapPtr map = import_embree_map(meshfile);
+    scan_sim = std::make_shared<SphereSimulatorEmbree>(map);
     scan_sim->setTsb(Transform::Identity());
 
     // get TF of scanner
