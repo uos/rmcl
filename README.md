@@ -45,9 +45,18 @@ IMU prior is also possible as long as it is integrated as TF-Transform, e.g. wit
 
 ### Publication
 
-- Title: "MICP-L: Mesh-based ICP for Robot Localization using Hardware-Accelerated Ray Casting"
-- Preprint: https://arxiv.org/abs/2210.13904
-- Experiments: https://github.com/aock/micp_experiments
+MICP-L has been accepted to IROS'24! Please reference the following paper when using the MICP-L method in your scientific work.
+
+```latex
+@inproceedings{mock2024micpl,
+  title={{MICP-L: Mesh-based ICP for Robot Localization using Hardware-Accelerated Ray Casting}}, 
+  author={Mock, Alexander and Wiemann, Thomas and Pütz, Sebastian and Hertzberg, Joachim},
+  booktitle={IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 
+  year={2024},
+}
+```
+
+The [preprint](https://arxiv.org/abs/2210.13904) will be updated soon.
 
 ### Usage
 
