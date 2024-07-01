@@ -20,7 +20,7 @@ using namespace rmcl;
 
 namespace rm = rmagine;
 
-std::string focal_frame = "";
+std::string sensor_frame = "";
 bool debug_cloud = false;
 
 ros::Publisher scan_pub;
@@ -38,6 +38,8 @@ void initScanArray()
 
 void loadParameters(ros::NodeHandle &nh_p)
 {
+    nh_p.param<std::string>("sensor_frame", sensor_frame, "");
+
     rmcl_msgs::ScanInfo &scanner_model = scan.scan.info;
     if (!nh_p.getParam("model/phi_min", scanner_model.phi_min))
     {
@@ -95,7 +97,7 @@ void convert(
 {
     rm::Transform T = rm::Transform::Identity();
 
-    if (pcl->header.frame_id != focal_frame)
+    if (pcl->header.frame_id != sensor_frame)
     {
         // TODO: get transform
 
@@ -103,7 +105,7 @@ void convert(
 
         try
         {
-            Tros = tf_buffer->lookupTransform(focal_frame, pcl->header.frame_id,
+            Tros = tf_buffer->lookupTransform(sensor_frame, pcl->header.frame_id,
                                               ros::Time(0));
             convert(Tros.transform, T);
         }
@@ -218,13 +220,13 @@ void convert(
 
 void veloCB(const sensor_msgs::PointCloud2::ConstPtr &msg)
 {
-    if (focal_frame == "")
+    if (sensor_frame == "")
     {
-        focal_frame = msg->header.frame_id;
+        sensor_frame = msg->header.frame_id;
     }
 
     scan.header.stamp = msg->header.stamp;
-    scan.header.frame_id = focal_frame;
+    scan.header.frame_id = sensor_frame;
     convert(msg, scan);
 
     scan_pub.publish(scan);
@@ -243,8 +245,6 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "pcl2_to_scan");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
-
-    nh_p.param<std::string>("focal_frame", focal_frame, "");
 
     loadParameters(nh_p);
 
