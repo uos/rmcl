@@ -19,12 +19,6 @@
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
-
-// // rosmath
-// #include <rosmath/sensor_msgs/conversions.h>
-// #include <rosmath/sensor_msgs/math.h>
-// #include <rosmath/eigen/conversions.h>
-
 #include <chrono>
 #include <memory>
 #include <omp.h>
@@ -49,10 +43,7 @@ float min_dist_outlier_map;
 std::shared_ptr<tf2_ros::Buffer> tfBuffer;
 std::shared_ptr<tf2_ros::TransformListener> tfListener; 
 
-
 std::string map_frame;
-
-geometry_msgs::TransformStamped T_sensor_map;
 
 ros::Publisher pub_outlier_scan;
 ros::Publisher pub_outlier_map;

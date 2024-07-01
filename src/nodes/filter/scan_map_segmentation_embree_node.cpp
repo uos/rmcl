@@ -19,21 +19,12 @@
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
-
-// // rosmath
-// #include <rosmath/sensor_msgs/conversions.h>
-// #include <rosmath/sensor_msgs/math.h>
-// #include <rosmath/eigen/conversions.h>
-
 #include <chrono>
 #include <memory>
 #include <omp.h>
 #include <thread>
 #include <mutex>
 
-// #include <Eigen/Dense>
-
-// using namespace rosmath;
 using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
@@ -50,8 +41,6 @@ std::shared_ptr<tf2_ros::TransformListener> tfListener;
 
 
 std::string map_frame;
-
-geometry_msgs::TransformStamped T_sensor_map;
 
 ros::Publisher pub_outlier_scan;
 ros::Publisher pub_outlier_map;
