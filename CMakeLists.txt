@@ -679,7 +679,7 @@ target_link_libraries(rmcl_test_cov_online
 
 if(RMCL_OPTIX)
 
-    add_executable(scan_map_segmentation_node_optix src/nodes/tests/scan_map_segmentation_node_optix.cpp)
+    add_executable(scan_map_segmentation_node_optix src/nodes/filter/scan_map_segmentation_node_optix.cpp)
 
     add_dependencies(scan_map_segmentation_node_optix 
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
@@ -705,7 +705,7 @@ if(RMCL_EMBREE)
         rmcl_embree
     )
 
-    add_executable(scan_map_segmentation_node_embree src/nodes/tests/scan_map_segmentation_node_embree.cpp)
+    add_executable(scan_map_segmentation_node_embree src/nodes/filter/scan_map_segmentation_node_embree.cpp)
 
     add_dependencies(scan_map_segmentation_node_embree 
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
@@ -718,7 +718,7 @@ if(RMCL_EMBREE)
         rmcl_embree_ros
     )
 
-    add_executable(o1dn_map_segmentation_node_embree src/nodes/tests/o1dn_map_segmentation_node_embree.cpp)
+    add_executable(o1dn_map_segmentation_node_embree src/nodes/filter/o1dn_map_segmentation_node_embree.cpp)
 
     add_dependencies(o1dn_map_segmentation_node_embree 
         ${${PROJECT_NAME}_EXPORTED_TARGETS}
