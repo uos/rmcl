@@ -58,8 +58,6 @@ void convert(
 
     if (pcl->header.frame_id != sensor_frame)
     {
-        // TODO: get transform
-
         geometry_msgs::TransformStamped Tros;
 
         try
@@ -80,7 +78,7 @@ void convert(
     scan.o1dn.info.width  = pcl->width;
     scan.o1dn.info.height = pcl->height;
     scan.o1dn.info.dirs.resize(scan.o1dn.info.width * scan.o1dn.info.height);
-    // TODO tf lookup
+    
     scan.o1dn.info.orig.x = 0.0;
     scan.o1dn.info.orig.y = 0.0;
     scan.o1dn.info.orig.z = 0.0;
@@ -111,7 +109,6 @@ void convert(
         const uint8_t *data_ptr = &pcl->data[i * pcl->point_step];
 
         // rmagine::Vector point;
-
         float x, y, z;
 
         if (field_x.datatype == sensor_msgs::PointField::FLOAT32)

@@ -9,21 +9,15 @@
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/math/math.h>
 #include <rmagine/util/prints.h>
-#include <rmagine/simulation/O1DnSimulatorEmbree.hpp>
+#include <rmagine/simulation/SphereSimulatorEmbree.hpp>
 #include <rmagine/simulation/SimulationResults.hpp>
 
 // RCML msgs
-#include <rmcl_msgs/O1DnStamped.h>
+#include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
-
-
-// // rosmath
-// #include <rosmath/sensor_msgs/conversions.h>
-// #include <rosmath/sensor_msgs/math.h>
-// #include <rosmath/eigen/conversions.h>
 
 #include <chrono>
 #include <memory>
@@ -31,16 +25,12 @@
 #include <thread>
 #include <mutex>
 
-// #include <Eigen/Dense>
-
-// using namespace rosmath;
 using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
 
-
-O1DnSimulatorEmbreePtr scan_sim;
+SphereSimulatorEmbreePtr scan_sim;
 
 
 float min_dist_outlier_scan;
@@ -52,13 +42,11 @@ std::shared_ptr<tf2_ros::TransformListener> tfListener;
 
 std::string map_frame;
 
-geometry_msgs::TransformStamped T_sensor_map;
-
 ros::Publisher pub_outlier_scan;
 ros::Publisher pub_outlier_map;
 
 
-void scanCB(const O1DnStamped::ConstPtr& msg)
+void scanCB(const ScanStamped::ConstPtr& msg)
 {
     geometry_msgs::TransformStamped T_sensor_map;
     
@@ -76,8 +64,8 @@ void scanCB(const O1DnStamped::ConstPtr& msg)
 
     // Memory<Transform, VRAM_CUDA> T_ = T;
 
-    O1DnModel model;
-    convert(msg->o1dn.info, model);
+    SphericalModel model;
+    convert(msg->scan.info, model);
     scan_sim->setModel(model);
 
     using ResultT = Bundle<
@@ -103,31 +91,32 @@ void scanCB(const O1DnStamped::ConstPtr& msg)
     cloud_outlier_map.header.frame_id = msg->header.frame_id;
 
 
-    // if this doesnt work: the ranges/dirs of the original scan must be ordered differently
     for(size_t vid = 0; vid < model.getHeight(); vid++)
     {
         for(size_t hid = 0; hid < model.getWidth(); hid++)
         {
             const size_t bid = model.getBufferId(vid, hid);
 
-            const float range_real = msg->o1dn.data.ranges[bid];
+            const float range_real = msg->scan.data.ranges[bid];
             const float range_sim = ranges[bid];
+            
 
             const bool range_real_valid = model.range.inside(range_real);
             const bool range_sim_valid = model.range.inside(range_sim);
 
             if(range_real_valid)
             {
-                Vector preal_s = model.getDirection(vid, hid) * range_real + model.getOrigin(vid, hid);
+                Vector preal_s = model.getDirection(vid, hid) * range_real;
 
                 if(range_sim_valid)
                 {
+                    
                     Vector pint_s = model.getDirection(vid, hid) * range_sim;
                     Vector nint_s = normals[bid];
                     nint_s.normalizeInplace();
 
                     float signed_plane_dist = (preal_s - pint_s).dot(nint_s);
-                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;
+                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
                     const float plane_distance = (pmesh_s - preal_s).l2norm();
 
                     if(range_real < range_sim)
@@ -165,7 +154,7 @@ void scanCB(const O1DnStamped::ConstPtr& msg)
                 if(range_sim_valid)
                 {
                     // sim hits surface but real not: map could be wrong
-                    Vector pint_s = model.getDirection(vid, hid) * range_sim + model.getOrigin(vid, hid);
+                    Vector pint_s = model.getDirection(vid, hid) * range_sim;
                     geometry_msgs::Point32 p_ros;
                     p_ros.x = pint_s.x;
                     p_ros.y = pint_s.y;
@@ -184,7 +173,7 @@ void scanCB(const O1DnStamped::ConstPtr& msg)
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "o1dn_map_segmentation_node_embree");
+    ros::init(argc, argv, "scan_map_segmentation_embree_node");
     ros::NodeHandle nh;
     ros::NodeHandle nh_p("~");
 
@@ -199,7 +188,7 @@ int main(int argc, char** argv)
     nh_p.param<float>("min_dist_outlier_map", min_dist_outlier_map, 0.15);
 
     EmbreeMapPtr map = import_embree_map(meshfile);
-    scan_sim = std::make_shared<O1DnSimulatorEmbree>(map);
+    scan_sim = std::make_shared<SphereSimulatorEmbree>(map);
     scan_sim->setTsb(Transform::Identity());
 
     // get TF of scanner
@@ -207,7 +196,7 @@ int main(int argc, char** argv)
     tfListener.reset(new tf2_ros::TransformListener(*tfBuffer));
 
 
-    ros::Subscriber sub = nh.subscribe<rmcl_msgs::O1DnStamped>("scan", 1, scanCB);
+    ros::Subscriber sub = nh.subscribe<ScanStamped>("scan", 1, scanCB);
 
     pub_outlier_scan = nh_p.advertise<sensor_msgs::PointCloud>("outlier_scan", 1);
     pub_outlier_map = nh_p.advertise<sensor_msgs::PointCloud>("outlier_map", 1);

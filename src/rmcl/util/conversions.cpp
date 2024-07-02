@@ -214,11 +214,36 @@ void convert(
 }
 
 void convert(
-    const rmcl_msgs::O1DnStamped& scan, 
+    const rmcl_msgs::ScanStamped& scan, 
     sensor_msgs::PointCloud& cloud)
 {
     cloud.header = scan.header;
-    convert(scan.o1dn, cloud.points);
+    convert(scan.scan, cloud.points);
+}
+
+void convert(
+    const sensor_msgs::LaserScan& scan_in, 
+    rmcl_msgs::ScanStamped& scan_out)
+{
+    scan_out.header = scan_in.header;
+    
+    scan_out.scan.info.phi_N = 1;
+    scan_out.scan.info.theta_N = scan_in.ranges.size();
+
+    scan_out.scan.info.range_min = scan_in.range_min;
+    scan_out.scan.info.range_max = scan_in.range_max;
+
+    scan_out.scan.info.theta_min = scan_in.angle_min;
+    scan_out.scan.info.theta_inc = scan_in.angle_increment;
+    
+    scan_out.scan.info.phi_min = 0.0;
+    scan_out.scan.info.phi_inc = 0.1;
+
+    scan_out.scan.data.ranges.resize(scan_in.ranges.size());
+    for(size_t i=0; i<scan_in.ranges.size(); i++)
+    {
+        scan_out.scan.data.ranges[i] = scan_in.ranges[i];
+    }
 }
 
 void convert(
@@ -250,36 +275,11 @@ void convert(
 }
 
 void convert(
-    const rmcl_msgs::ScanStamped& scan, 
+    const rmcl_msgs::O1DnStamped& scan, 
     sensor_msgs::PointCloud& cloud)
 {
     cloud.header = scan.header;
-    convert(scan.scan, cloud.points);
-}
-
-void convert(
-    const sensor_msgs::LaserScan& scan_in, 
-    rmcl_msgs::ScanStamped& scan_out)
-{
-    scan_out.header = scan_in.header;
-    
-    scan_out.scan.info.phi_N = 1;
-    scan_out.scan.info.theta_N = scan_in.ranges.size();
-
-    scan_out.scan.info.range_min = scan_in.range_min;
-    scan_out.scan.info.range_max = scan_in.range_max;
-
-    scan_out.scan.info.theta_min = scan_in.angle_min;
-    scan_out.scan.info.theta_inc = scan_in.angle_increment;
-    
-    scan_out.scan.info.phi_min = 0.0;
-    scan_out.scan.info.phi_inc = 0.1;
-
-    scan_out.scan.data.ranges.resize(scan_in.ranges.size());
-    for(size_t i=0; i<scan_in.ranges.size(); i++)
-    {
-        scan_out.scan.data.ranges[i] = scan_in.ranges[i];
-    }
+    convert(scan.o1dn, cloud.points);
 }
 
 
