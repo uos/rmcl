@@ -184,8 +184,8 @@ void means_covs_online_batched(
     rmagine::MemoryView<rmagine::Vector, rmagine::VRAM_CUDA>& model_center,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::VRAM_CUDA>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& Ncorr,
-    int scene_id,
-    int object_id,
+    int scene_id = -1,
+    int object_id = -1,
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& scene_mask = rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>(0), // NxM
     const rmagine::MemoryView<unsigned int, rmagine::VRAM_CUDA>& object_mask = rmagine::Memory<unsigned int, rmagine::VRAM_CUDA>(0) // NxM
 

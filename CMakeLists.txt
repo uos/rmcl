@@ -3,6 +3,7 @@ project(rmcl
 	VERSION 1.1.5
 	)
 cmake_policy(SET CMP0148 OLD)
+cmake_policy(SET CMP0146 OLD)
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_CONV "Build Conversion Nodes" ON)
@@ -101,7 +102,6 @@ if(TARGET rmagine::embree AND NOT ${DISABLE_EMBREE})
 endif()
 
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
-    message(WARNING "COMPILE WITH CUDA!")
     list(APPEND RMCL_LIBRARIES rmcl_cuda)
 endif()
 
@@ -216,7 +216,7 @@ endif()
 # CUDA
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     # Build cuda related stuff
-    find_package(CUDAToolkit)
+    find_package(CUDA)
 
     enable_language(CUDA)
     include_directories(${CUDA_INCLUDE_DIRS})
@@ -244,6 +244,9 @@ endif()
 
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     # Build optix related stuff
+    find_package(CUDA)
+
+    enable_language(CUDA)
 
     set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")
     set(RMCL_OPTIX_PTX_GLOB_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/rmcl_optix_ptx")
