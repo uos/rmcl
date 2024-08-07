@@ -18,7 +18,7 @@
   <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
   <a href="https://github.com/uos/rmcl/issues">Issues</a>
   <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://github.com/aock/rmcl_example">Examples</a>
+  <a href="https://github.com/amock/rmcl_example">Examples</a>
   <br />
 </div>
 
@@ -289,7 +289,7 @@ Clone this repository into your ROS workspace and build it.
 
 ## Examples
 
-To learn how to use RMCL ROS nodes in your project, visit https://github.com/aock/rmcl_example.
+To learn how to use RMCL ROS nodes in your project, visit https://github.com/amock/rmcl_example.
 
 To learn how to use RMCL library in your Node: `src/nodes/examples`.
 
