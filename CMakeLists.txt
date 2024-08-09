@@ -155,6 +155,10 @@ add_library(rmcl_ros
     src/rmcl/util/conversions.cpp
 )
 
+add_dependencies(rmcl_ros 
+        ${${PROJECT_NAME}_EXPORTED_TARGETS}
+        ${catkin_EXPORTED_TARGETS}
+    )
 target_link_libraries(rmcl_ros
     ${catkin_LIBRARIES}
     rmcl
@@ -733,7 +737,6 @@ if(RMCL_EMBREE)
         ${catkin_LIBRARIES}
         rmcl_embree_ros
     )
-
     
 endif(RMCL_EMBREE)
 
