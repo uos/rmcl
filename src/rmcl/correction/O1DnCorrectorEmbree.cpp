@@ -357,7 +357,7 @@ void O1DnCorrectorEmbree::findSPC(
     const rm::MemoryView<rm::Transform, rm::RAM>& Tbms,
     rm::MemoryView<rm::Point> dataset_points,
     rm::MemoryView<rm::Point> model_points,
-    rm::MemoryView<unsigned int> corr_valid)
+    rm::MemoryView<unsigned int> corr_valid) const
 {
     const float max_distance = m_params.max_distance;
 
@@ -473,7 +473,7 @@ void O1DnCorrectorEmbree::findSPC(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::Memory<rmagine::Point>& dataset_points,
     rmagine::Memory<rmagine::Point>& model_points,
-    rmagine::Memory<unsigned int>& corr_valid)
+    rmagine::Memory<unsigned int>& corr_valid) const
 {
     size_t Nrays = Tbms.size() * m_model->size();
     if(dataset_points.size() < Nrays)
@@ -494,15 +494,165 @@ void O1DnCorrectorEmbree::findSPC(
     findSPC(Tbms, dataset_points(0, Nrays), model_points(0, Nrays), corr_valid(0, Nrays));
 }
 
+void O1DnCorrectorEmbree::findRCC(
+    const rmagine::Transform& Tbm,
+    rmagine::MemoryView<rmagine::Point>   dataset_points,
+    rmagine::MemoryView<rmagine::Point>   model_points,
+    rmagine::MemoryView<rmagine::Vector>  model_normals,
+    rmagine::MemoryView<unsigned int>     corr_valid) const
+{
+    const float max_distance = m_params.max_distance;
+
+    auto scene = m_map->scene->handle();
+
+    const rm::Transform Tsb = m_Tsb[0];
+
+    const rmagine::Transform Tsm = Tbm * Tsb;
+    const rmagine::Transform Tmb = ~Tbm;
+
+    for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
+    {
+        for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
+        {
+            const unsigned int loc_id = m_model->getBufferId(vid, hid);
+            const float range_real = m_ranges[loc_id];
+            
+            if(range_real < m_model->range.min 
+                || range_real > m_model->range.max)
+            {
+                dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                corr_valid[loc_id] = 0;
+                continue;
+            }
+
+            const rm::Vector ray_orig_s = m_model->getOrigin(vid, hid);
+            const rm::Vector ray_dir_s = m_model->getDirection(vid, hid);
+
+            const rm::Vector ray_orig_m = Tsm * ray_orig_s;
+            const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
+
+            RTCRayHit rayhit;
+            rayhit.ray.org_x = ray_orig_m.x;
+            rayhit.ray.org_y = ray_orig_m.y;
+            rayhit.ray.org_z = ray_orig_m.z;
+            rayhit.ray.dir_x = ray_dir_m.x;
+            rayhit.ray.dir_y = ray_dir_m.y;
+            rayhit.ray.dir_z = ray_dir_m.z;
+            rayhit.ray.tnear = 0;
+            rayhit.ray.tfar = std::numeric_limits<float>::infinity();
+            rayhit.ray.mask = -1;
+            rayhit.ray.flags = 0;
+            rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+            rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
+
+            rtcIntersect1(scene, &rayhit);
+
+            bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
+            if(sim_valid)
+            {
+                // map space
+                rm::Vector nint_m;
+                nint_m.x = rayhit.hit.Ng_x;
+                nint_m.y = rayhit.hit.Ng_y;
+                nint_m.z = rayhit.hit.Ng_z;
+                nint_m.normalizeInplace();
+
+                // Do point to plane ICP here
+                rm::Vector preal_s, pint_s, nint_s;
+                preal_s = ray_orig_s + ray_dir_s * range_real;
+
+                // search point on surface that is more nearby
+                pint_s = ray_orig_s + ray_dir_s * rayhit.ray.tfar;
+
+                // convert back to base (sensor shared coordinate system)
+                const rm::Vector preal_b = Tsb * preal_s;
+                const rm::Vector pint_b = Tsb * pint_s;
+                const rm::Vector nint_b = Tmb.R * nint_m;
+
+                dataset_points[loc_id] = preal_b;
+                model_points[loc_id] = pint_b;
+                model_normals[loc_id] = nint_b;
+                corr_valid[loc_id] = 1;
+
+            } else {
+                dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_normals[loc_id] = {0.0f, 0.0f, 0.0f};
+                corr_valid[loc_id] = 0;
+            }
+        }
+    }
+}
+
+void O1DnCorrectorEmbree::findRCC(
+    const rm::MemoryView<rm::Transform, rm::RAM>& Tbms,
+    rm::MemoryView<rm::Point> dataset_points,
+    rm::MemoryView<rm::Point> model_points,
+    rm::MemoryView<rm::Vector> model_normals,
+    rm::MemoryView<unsigned int> corr_valid) const
+{
+    const float max_distance = m_params.max_distance;
+
+    auto scene = m_map->scene->handle();
+
+    const rm::Transform Tsb = m_Tsb[0];
+
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
+    for(size_t pid=0; pid < Tbms.size(); pid++)
+    {
+        const unsigned int glob_shift = pid * m_model->size();
+        auto dataset_points_ = dataset_points(glob_shift, glob_shift + m_model->size());
+        auto model_points_ = model_points(glob_shift, glob_shift + m_model->size());
+        auto model_normals_ = model_normals(glob_shift, glob_shift + m_model->size());
+        auto corr_valid_ = corr_valid(glob_shift, glob_shift + m_model->size());
+        findRCC(Tbms[pid], dataset_points_, model_points_, model_normals_, corr_valid_);
+    }
+}
+
+void O1DnCorrectorEmbree::findRCC(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+    rmagine::Memory<rmagine::Point>& dataset_points,
+    rmagine::Memory<rmagine::Point>& model_points,
+    rmagine::Memory<rmagine::Vector>& model_normals,
+    rmagine::Memory<unsigned int>& corr_valid) const
+{
+    size_t Nrays = Tbms.size() * m_model->size();
+    if(dataset_points.size() < Nrays)
+    {
+        dataset_points.resize(Nrays);
+    }
+
+    if(model_points.size() < Nrays)
+    {
+        model_points.resize(Nrays);
+    }
+
+    if(model_normals.size() < Nrays)
+    {
+        model_normals.resize(Nrays);
+    }
+
+    if(corr_valid.size() < Nrays)
+    {
+        corr_valid.resize(Nrays);
+    }
+
+    findRCC(Tbms, 
+        dataset_points(0, Nrays), 
+        model_points(0, Nrays), 
+        model_normals(0, Nrays), 
+        corr_valid(0, Nrays));
+}
 
 void O1DnCorrectorEmbree::findRCC(
     const rmagine::Transform& Tbm,
-    rmagine::MemoryView<rmagine::Point> dataset_points,
-    rmagine::MemoryView<rmagine::Point> model_points,
+    rmagine::MemoryView<rmagine::Point>  dataset_points,
+    rmagine::MemoryView<rmagine::Point>  model_points,
     rmagine::MemoryView<rmagine::Vector> model_normals,
-    rmagine::MemoryView<unsigned int> corr_valid,
-    rmagine::MemoryView<unsigned int> scene_ids,
-    rmagine::MemoryView<unsigned int> geometry_ids) const
+    rmagine::MemoryView<unsigned int>    model_scene_ids,
+    rmagine::MemoryView<unsigned int>    model_geom_ids,
+    rmagine::MemoryView<unsigned int>    corr_valid) const
 {
     const float max_distance = m_params.max_distance;
 
@@ -571,7 +721,6 @@ void O1DnCorrectorEmbree::findRCC(
                 // search point on surface that is more nearby
                 pint_s = ray_orig_s + ray_dir_s * rayhit.ray.tfar;
 
-
                 // convert back to base (sensor shared coordinate system)
                 const rm::Vector preal_b = Tsb * preal_s;
                 const rm::Vector pint_b = Tsb * pint_s;
@@ -580,20 +729,16 @@ void O1DnCorrectorEmbree::findRCC(
                 dataset_points[loc_id] = preal_b;
                 model_points[loc_id] = pint_b;
                 model_normals[loc_id] = nint_b;
-                corr_valid[loc_id] = 1;
-                geometry_ids[loc_id] = rayhit.hit.geomID;
-                scene_ids[loc_id] = rayhit.hit.instID[0];
-//                if(rayhit.hit.instID[0] > 1)
-//                {
-//                  std::cout << rayhit.hit.geomID << " " << rayhit.hit.instID[0] <<  std::endl;
-//
-//                }
-
+                model_scene_ids[loc_id] = rayhit.hit.instID[0];
+                model_geom_ids[loc_id] = rayhit.hit.geomID;
+                corr_valid[loc_id] = 1; // mark correspondence as valid
             } else {
                 dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
                 model_points[loc_id] = {0.0f, 0.0f, 0.0f};
                 model_normals[loc_id] = {0.0f, 0.0f, 0.0f};
-                corr_valid[loc_id] = 0;
+                model_scene_ids[loc_id] = RTC_INVALID_GEOMETRY_ID;
+                model_geom_ids[loc_id] = RTC_INVALID_GEOMETRY_ID;
+                corr_valid[loc_id] = 0; // mark correspondence as invalid
             }
         }
     }
@@ -601,13 +746,12 @@ void O1DnCorrectorEmbree::findRCC(
 
 void O1DnCorrectorEmbree::findRCC(
     const rm::MemoryView<rm::Transform, rm::RAM>& Tbms,
-    rm::MemoryView<rm::Point> dataset_points,
-    rm::MemoryView<rm::Point> model_points,
-    rm::MemoryView<rm::Vector> model_normals,
-    rm::MemoryView<unsigned int> corr_valid,
-    rmagine::MemoryView<unsigned int> scene_ids,
-    rmagine::MemoryView<unsigned int> geometry_ids) const
-
+    rm::MemoryView<rm::Point>         dataset_points,
+    rm::MemoryView<rm::Point>         model_points,
+    rm::MemoryView<rm::Vector>        model_normals,
+    rmagine::MemoryView<unsigned int> model_scene_ids,
+    rmagine::MemoryView<unsigned int> model_geom_ids,
+    rm::MemoryView<unsigned int>      corr_valid) const
 {
     const float max_distance = m_params.max_distance;
 
@@ -622,21 +766,28 @@ void O1DnCorrectorEmbree::findRCC(
         auto dataset_points_ = dataset_points(glob_shift, glob_shift + m_model->size());
         auto model_points_ = model_points(glob_shift, glob_shift + m_model->size());
         auto model_normals_ = model_normals(glob_shift, glob_shift + m_model->size());
+        auto model_scene_ids_ = model_scene_ids(glob_shift, glob_shift + m_model->size());
+        auto model_geom_ids_ = model_geom_ids(glob_shift, glob_shift + m_model->size());
         auto corr_valid_ = corr_valid(glob_shift, glob_shift + m_model->size());
-        auto scene_ids_ = scene_ids(glob_shift, glob_shift + m_model->size());
-        auto geometry_ids_ = geometry_ids(glob_shift, glob_shift + m_model->size());
-        findRCC(Tbms[pid], dataset_points_, model_points_, model_normals_, corr_valid_, scene_ids_, geometry_ids_);
+        // call findRCC with memory views
+        findRCC(Tbms[pid], 
+            dataset_points_, 
+            model_points_,
+            model_normals_,
+            model_scene_ids_,
+            model_geom_ids_,
+            corr_valid_);
     }
 }
 
 void O1DnCorrectorEmbree::findRCC(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-    rmagine::Memory<rmagine::Point>& dataset_points,
-    rmagine::Memory<rmagine::Point>& model_points,
+    rmagine::Memory<rmagine::Point>&  dataset_points,
+    rmagine::Memory<rmagine::Point>&  model_points,
     rmagine::Memory<rmagine::Vector>& model_normals,
-    rmagine::Memory<unsigned int>& corr_valid,
-    rmagine::Memory<unsigned int>& scene_ids,
-    rmagine::Memory<unsigned int>& geometry_ids) const
+    rmagine::Memory<unsigned int>&    model_scene_ids,
+    rmagine::Memory<unsigned int>&    model_geom_ids,
+    rmagine::Memory<unsigned int>&    corr_valid) const
 {
     size_t Nrays = Tbms.size() * m_model->size();
     if(dataset_points.size() < Nrays)
@@ -654,29 +805,29 @@ void O1DnCorrectorEmbree::findRCC(
         model_normals.resize(Nrays);
     }
 
+    if(model_scene_ids.size() < Nrays)
+    {
+        model_scene_ids.resize(Nrays);
+    }
+
+    if(model_geom_ids.size() < Nrays)
+    {
+        model_geom_ids.resize(Nrays);
+    }
+
     if(corr_valid.size() < Nrays)
     {
         corr_valid.resize(Nrays);
     }
 
-    if(scene_ids.size() < Nrays)
-    {
-        scene_ids.resize(Nrays);
-    }
-
-    if(geometry_ids.size() < Nrays)
-    {
-        geometry_ids.resize(Nrays);
-    }
-
-
+    // call findRCC with memory views
     findRCC(Tbms, 
         dataset_points(0, Nrays), 
         model_points(0, Nrays), 
         model_normals(0, Nrays), 
-        corr_valid(0, Nrays),
-        scene_ids(0, Nrays),
-        geometry_ids(0, Nrays)
+        model_scene_ids(0, Nrays),
+        model_geom_ids(0, Nrays),
+        corr_valid(0, Nrays)
         );
 }
 

@@ -2,8 +2,28 @@ cmake_minimum_required(VERSION 3.2...10.0)
 project(rmcl
 	VERSION 1.1.5
 	)
-cmake_policy(SET CMP0148 OLD)
-cmake_policy(SET CMP0146 OLD)
+
+
+# This gives an compiler error for standard ubuntu 20 setup including
+# - ROS noetic
+# - CUDA 11.4
+# - cmake 3.16.3
+# 
+# Error Message:
+# """
+# Errors     << rmcl:check /home/amock/workspaces/ros/warpsense_ws/logs/rmcl/build.check.022.log                                                      
+# CMake Error at /home/amock/workspaces/ros/warpsense_ws/src/rmcl_stack/rmcl/CMakeLists.txt:5 (cmake_policy):
+# Policy "CMP0148" is not known to this version of CMake.
+# CMake Error at /home/amock/workspaces/ros/warpsense_ws/src/rmcl_stack/rmcl/CMakeLists.txt:6 (cmake_policy):
+# Policy "CMP0146" is not known to this version of CMake.
+# """
+# 
+# before merging this into the noetic branch we need to make sure this compiles on standard ubuntu / ROS noetic systems
+# 
+# cmake_policy(SET CMP0148 OLD)
+# cmake_policy(SET CMP0146 OLD)
+#
+
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_CONV "Build Conversion Nodes" ON)
