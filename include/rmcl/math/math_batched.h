@@ -110,6 +110,21 @@ void means_covs_p2l_online_batched(
     );
 
 
+void incremental_covariance_object_wise(
+    const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& dataset_points, // from, M
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>&    dataset_mask, // from, M
+    const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_points, // to, M
+    const rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_normals, // to, M
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>&    model_object_ids,  // to, M
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>&    model_mask, // to, M
+    const float max_corr_dist,
+    rmagine::MemoryView<rmagine::Vector>& dataset_centers,      // per object id
+    rmagine::MemoryView<rmagine::Vector>& model_centers,        // per object
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,  // per object
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr     // per object
+);
+
+
 /**
  * @brief one-pass means and covariance computation
  * 
