@@ -298,7 +298,7 @@ void incremental_covariance_object_wise(
                 // read old partition (mu_d, mu_m, C_dm, N)
                 const rm::Vector d_mean_old = dataset_centers[Oi];
                 const rm::Vector m_mean_old = model_centers[Oi];
-                const rm::Matrix3x3 C = Cs[i];
+                const rm::Matrix3x3 C = Cs[Oi];
                 const unsigned int N_old = Ncorr[Oi];
 
                 const float N_1 = static_cast<float>(N_old);
