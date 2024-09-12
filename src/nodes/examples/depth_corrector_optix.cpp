@@ -15,7 +15,7 @@
 #include <rmcl_msgs/DepthStamped.h>
 
 // RMCL code
-#include <rmcl/correction/PinholeCorrectorOptixROS.hpp>
+#include <rmcl/correction/PinholeCorrectorOptix.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -29,7 +29,7 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-PinholeCorrectorOptixROSPtr depth_correct;
+PinholeCorrectorOptixPtr depth_correct;
 
 
 bool        pose_received = false;

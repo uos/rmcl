@@ -16,8 +16,8 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/OnDnCorrectorEmbreeROS.hpp>
-#include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
+#include <rmcl/correction/OnDnCorrectorEmbree.hpp>
+#include <rmcl/correction/SphereCorrectorEmbree.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -30,7 +30,7 @@ using namespace rmcl_msgs;
 using namespace rmagine;
 
 // SphereCorrectorEmbreeROSPtr scan_correct;
-OnDnCorrectorEmbreeROSPtr ondn_correct;
+OnDnCorrectorEmbreePtr ondn_correct;
 ros::Publisher model_pub;
 
 bool        pose_received = false;

@@ -17,8 +17,8 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/OnDnCorrectorOptixROS.hpp>
-#include <rmcl/correction/SphereCorrectorOptixROS.hpp>
+#include <rmcl/correction/OnDnCorrectorOptix.hpp>
+#include <rmcl/correction/SphereCorrectorOptix.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 #include <rmcl/math/math.cuh>
@@ -31,8 +31,8 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-SphereCorrectorOptixROSPtr scan_correct;
-OnDnCorrectorOptixROSPtr ondn_correct;
+SphereCorrectorOptixPtr scan_correct;
+OnDnCorrectorOptixPtr   ondn_correct;
 
 ros::Publisher model_pub;
 

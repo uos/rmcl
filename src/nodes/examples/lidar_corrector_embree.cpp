@@ -14,7 +14,7 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/SphereCorrectorEmbreeROS.hpp>
+#include <rmcl/correction/SphereCorrectorEmbree.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 #include <rmcl/math/math.h>
@@ -29,7 +29,7 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-SphereCorrectorEmbreeROSPtr scan_correct;
+SphereCorrectorEmbreePtr    scan_correct;
 CorrectionParams            corr_params;
 
 float max_distance;

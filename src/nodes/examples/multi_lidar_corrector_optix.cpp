@@ -16,7 +16,7 @@
 #include <rmcl_msgs/ScanStamped.h>
 
 // RMCL code
-#include <rmcl/correction/SphereCorrectorOptixROS.hpp>
+#include <rmcl/correction/SphereCorrectorOptix.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 #include <rmcl/clustering/clustering.h>
@@ -36,7 +36,7 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-SphereCorrectorOptixROSPtr scan_correct;
+SphereCorrectorOptixPtr scan_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 ros::Publisher pub_poses;

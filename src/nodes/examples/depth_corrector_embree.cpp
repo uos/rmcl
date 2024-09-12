@@ -13,7 +13,7 @@
 #include <rmcl_msgs/DepthStamped.h>
 
 // RMCL code
-#include <rmcl/correction/PinholeCorrectorEmbreeROS.hpp>
+#include <rmcl/correction/PinholeCorrectorEmbree.hpp>
 #include <rmcl/util/conversions.h>
 #include <rmcl/util/scan_operations.h>
 
@@ -26,7 +26,7 @@ using namespace rmcl;
 using namespace rmcl_msgs;
 using namespace rmagine;
 
-PinholeCorrectorEmbreeROSPtr depth_correct;
+PinholeCorrectorEmbreePtr depth_correct;
 ros::Publisher cloud_pub;
 ros::Publisher pose_pub;
 
