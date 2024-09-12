@@ -4,6 +4,7 @@
 #include <rmcl/math/math.h>
 
 #include <rmagine/math/omp.h>
+#include <rmagine/math/linalg.h>
 
 // DEBUG
 #include <rmagine/util/prints.h>
@@ -156,18 +157,9 @@ CorrectionResults<rm::RAM> OnDnCorrectorEmbree::correct(
 
         if(Ncorr > 0)
         {
-            rm::Matrix3x3 U, V, S;
-
-            { // the only Eigen code left
-                const Eigen::Matrix3f* Ceig = reinterpret_cast<const Eigen::Matrix3f*>(&C);
-                Eigen::Matrix3f* Ueig = reinterpret_cast<Eigen::Matrix3f*>(&U);
-                Eigen::Matrix3f* Veig = reinterpret_cast<Eigen::Matrix3f*>(&V);
-
-                Eigen::JacobiSVD<Eigen::Matrix3f> svd(Ceig[0], Eigen::ComputeFullU | Eigen::ComputeFullV);
-                Ueig[0] = svd.matrixU();
-                Veig[0] = svd.matrixV();
-            }
-
+            rm::Matrix3x3 U, S, V;
+            rm::svd(C, U, S, V);
+            
             S.setIdentity();
             if(U.det() * V.det() < 0)
             {

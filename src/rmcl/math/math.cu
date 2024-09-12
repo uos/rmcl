@@ -47,7 +47,6 @@ void CorrectionCuda::correction_from_covs(
 {
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
-    // dont need this
     rm::Memory<rm::Vector, rm::VRAM_CUDA> Ss(Cs.size());
 
     m_svd->calcUSV(Cs, Us, Ss, Vs);

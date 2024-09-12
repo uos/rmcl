@@ -4,6 +4,7 @@
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/util/prints.h>
 #include <rmagine/math/omp.h>
+#include <rmagine/math/linalg.h>
 
 #include <rmcl/math/math.h>
 
@@ -165,15 +166,7 @@ CorrectionResults<rmagine::RAM> SphereCorrectorEmbree::correct(
         {
             Matrix3x3 U, V, S;
 
-            { // the only Eigen code left
-                const Eigen::Matrix3f* Ceig = reinterpret_cast<const Eigen::Matrix3f*>(&C);
-                Eigen::Matrix3f* Ueig = reinterpret_cast<Eigen::Matrix3f*>(&U);
-                Eigen::Matrix3f* Veig = reinterpret_cast<Eigen::Matrix3f*>(&V);
-
-                Eigen::JacobiSVD<Eigen::Matrix3f> svd(Ceig[0], Eigen::ComputeFullU | Eigen::ComputeFullV);
-                Ueig[0] = svd.matrixU();
-                Veig[0] = svd.matrixV();
-            }
+            rm::svd(C, U, S, V);
 
             S.setIdentity();
             if(U.det() * V.det() < 0)

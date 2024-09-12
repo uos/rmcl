@@ -1062,7 +1062,8 @@ void MICP::correct(
             weights,
             pre_res);
 
-        m_corr_gpu->correction_from_covs(pre_res, dT);
+        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
+        // m_corr_gpu->correction_from_covs(pre_res, dT);
     } else {
         std::cout << "0 sensors" << std::endl;
         // set identity
@@ -1175,7 +1176,8 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        m_corr_cpu->correction_from_covs(pre_res, dT);
+        // m_corr_cpu->correction_from_covs(pre_res, dT);
+        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
 
         // std::cout << "don" << std::endl;
         // el = sw();
@@ -1303,7 +1305,8 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        m_corr_gpu->correction_from_covs(pre_res, dT);
+        // m_corr_gpu->correction_from_covs(pre_res, dT);
+        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
         // el = sw();
         // el_total += el;
 
@@ -1439,7 +1442,8 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        m_corr_cpu->correction_from_covs(pre_res, dT);
+        // m_corr_cpu->correction_from_covs(pre_res, dT);
+        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
         // el = sw();
         // el_total += el;
 

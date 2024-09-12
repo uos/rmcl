@@ -5,6 +5,7 @@
 #include "rmcl/correction/optix/CorrectionDataOptix.hpp"
 
 #include <rmagine/math/math_batched.cuh>
+#include <rmagine/math/math.cuh>
 
 #include <rmcl/math/math_batched.cuh>
 #include <rmcl/math/math.cuh>
@@ -77,8 +78,9 @@ CorrectionResults<rm::VRAM_CUDA> O1DnCorrectorOptix::correct(
     
     computeCovs(Tbms, ds, ms, Cs, res.Ncorr);
 
-    static CorrectionCuda corr(m_svd);
-    corr.correction_from_covs(ds, ms, Cs, res.Ncorr, res.Tdelta);
+    rm::umeyama_transform(res.Tdelta, ds, ms, Cs, res.Ncorr);
+    // static CorrectionCuda corr(m_svd);
+    // corr.correction_from_covs(ds, ms, Cs, res.Ncorr, res.Tdelta);
 
     return res;
 }

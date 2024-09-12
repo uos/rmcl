@@ -14,6 +14,8 @@
 
 #include <rmagine/util/StopWatch.hpp>
 
+#include <rmagine/math/math.cuh>
+
 
 
 // DEBUG
@@ -81,13 +83,15 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ds(Tbms.size());
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Tbms.size());
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
+    // rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
+    // rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
 
     computeCovs(Tbms, ds, ms, Cs, res.Ncorr);
 
-    static CorrectionCuda corr(m_svd);
-    corr.correction_from_covs(ds, ms, Cs, res.Ncorr, res.Tdelta);
+    rm::umeyama_transform(res.Tdelta, ds, ms, Cs, res.Ncorr);
+
+    // static CorrectionCuda corr(m_svd);
+    // corr.correction_from_covs(ds, ms, Cs, res.Ncorr, res.Tdelta);
 
     return res;
 }

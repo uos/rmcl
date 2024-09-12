@@ -10,6 +10,7 @@
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/map/EmbreeMap.hpp>
+#include <rmagine/math/math.h>
 #include <rmcl/correction/OnDnCorrectorEmbree.hpp>
 #include <rmcl/math/math_batched.h>
 #include <rmcl/math/math.h>
@@ -348,7 +349,8 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
                     res.ds, res.ms,                           // outputs
                     res.Cs, res.Ncorr);
 
-                auto Tdeltas = umeyama->correction_from_covs(res);
+                // auto Tdeltas = umeyama->correction_from_covs(res);
+                auto Tdeltas = rm::umeyama_transform(res.ds, res.ms, res.Cs, res.Ncorr);
                 rm::Transform Tdelta = Tdeltas[0];
                 Tom = Tbm * Tdelta * ~Tbo;
             }
@@ -388,7 +390,8 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
                     res.ds, res.ms,                           // outputs
                     res.Cs, res.Ncorr);
 
-                auto Tdeltas = umeyama->correction_from_covs(res);
+                // auto Tdeltas = umeyama->correction_from_covs(res);
+                auto Tdeltas = rm::umeyama_transform(res.ds, res.ms, res.Cs, res.Ncorr);
 
                 // update total delta
                 Tdelta_total[0] = Tdelta_total[0] * Tdeltas[0];

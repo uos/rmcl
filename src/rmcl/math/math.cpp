@@ -1,6 +1,7 @@
 #include "rmcl/math/math.h"
 #include <Eigen/Dense>
 #include <rmagine/util/prints.h>
+#include <rmagine/math/linalg.h>
 
 using namespace rmagine;
 namespace rm = rmagine;
@@ -32,7 +33,7 @@ void Correction::correction_from_covs(
     {
         if(Ncorr[pid] > 0)
         {
-            Matrix3x3 U, V, S;
+            Matrix3x3 U, S, V;
             Vector s;
 
             m_svd->calcUSV(Cs[pid], U, s, V);

@@ -192,8 +192,9 @@ void correctOnce()
     auto merged_covs = weighted_average({laser_covs, wheel_covs}, {0.5, 0.5});
 
     // Correction corr;
-    static CorrectionCuda corr;
-    auto Tdelta = corr.correction_from_covs(merged_covs);
+    // static CorrectionCuda corr;
+    // auto Tdelta = corr.correction_from_covs(merged_covs);
+    auto Tdelta = rm::umeyama_transform(merged_covs.ds, merged_covs.ms, merged_covs.Cs, merged_covs.Ncorr);
     el = sw();
 
     ROS_INFO_STREAM("easy correctOnce: poses " << Nposes << " in " << el << "s");
