@@ -100,7 +100,7 @@ namespace rmcl
 {
 
 /**
- * @brief 
+ * @brief MICP
  * 
  */
 class MICP
@@ -198,8 +198,6 @@ private:
     std::string m_map_filename;
 
     std::unordered_map<std::string, MICPRangeSensorPtr> m_sensors;
-    
-    
 
     #ifdef RMCL_EMBREE
     rmagine::EmbreeMapPtr m_map_embree;
@@ -208,13 +206,6 @@ private:
     #ifdef RMCL_OPTIX
     rmagine::OptixMapPtr m_map_optix;
     #endif // RMCL_OPTIX
-
-
-    // correctors: initialized once the map is available
-    CorrectionPtr m_corr_cpu;
-    #ifdef RMCL_CUDA
-    CorrectionCudaPtr m_corr_gpu;
-    #endif // RMCL_CUDA
 };
 
 using MICPPtr = std::shared_ptr<MICP>;

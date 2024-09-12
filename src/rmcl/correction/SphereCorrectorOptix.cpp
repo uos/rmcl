@@ -88,6 +88,7 @@ CorrectionResults<rm::VRAM_CUDA> SphereCorrectorOptix::correct(
 
     computeCovs(Tbms, ds, ms, Cs, res.Ncorr);
 
+    // std::cout << "Correct!" << std::endl;
     rm::umeyama_transform(res.Tdelta, ds, ms, Cs, res.Ncorr);
 
     // static CorrectionCuda corr(m_svd);
