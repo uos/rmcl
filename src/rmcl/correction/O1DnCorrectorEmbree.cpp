@@ -501,6 +501,8 @@ void O1DnCorrectorEmbree::findRCC(
     const rmagine::Transform Tsm = Tbm * Tsb;
     const rmagine::Transform Tmb = ~Tbm;
 
+    // (when) should we enable this?
+    // #pragma omp parallel for
     for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
     {
         for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
