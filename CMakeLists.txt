@@ -220,11 +220,33 @@ endif()
 
 # CUDA
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
-    # Build cuda related stuff
-    find_package(CUDA)
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        message(STATUS "Cuda language available!")
 
-    enable_language(CUDA)
-    include_directories(${CUDA_INCLUDE_DIRS})
+        find_package(CUDAToolkit QUIET)
+        if(CUDAToolkit_FOUND)
+            message(STATUS "Found Cuda Toolkit!")
+            enable_language(CUDA)
+            set(CUDA_FOUND True)
+            set(CUDA_LIBRARIES CUDA::cudart)
+            set(CUDA_cusolver_LIBRARY CUDA::cusolver)
+            set(CUDA_cublas_LIBRARY CUDA::cublas)
+            set(CUDA_DEVICE_LIBRARY "")
+            set(CUDA_INCLUDE_DIRS "") # is in target instead
+        else()
+            find_package(CUDA)
+            if(CUDA_FOUND)
+                message(STATUS "Found Cuda!")
+                enable_language(CUDA)
+                set(CUDA_DEVICE_LIBRARY cuda)
+            else()
+                message(STATUS "Neither CudaToolkit nor CUDA found!")
+            endif(CUDA_FOUND)
+        endif(CUDAToolkit_FOUND)
+    endif(CMAKE_CUDA_COMPILER)
+
 
     add_library(rmcl_cuda
         # math
