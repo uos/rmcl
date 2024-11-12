@@ -23,7 +23,6 @@
 </div>
 
 
-
 ## MICP-L
 
 MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Casting.
