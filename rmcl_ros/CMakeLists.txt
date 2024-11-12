@@ -26,10 +26,13 @@ if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
 	endif()
 endif()
 
-set(CMAKE_MODULE_PATH
-	${rmcl_SOURCE_DIR}/cmake
-	${CMAKE_MODULE_PATH}
-)
+
+find_package(rmcl REQUIRED)
+include_directories(${rmcl_INCLUDE_DIR})
+
+message(WARNING "rmcl_LIBRARIES: ${rmcl_LIBRARIES}")
+message(WARNING "rmcl_INCLUDE_DIR: ${rmcl_INCLUDE_DIR}")
+
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.3.0")
@@ -60,7 +63,6 @@ set(RMCL_ROS_DEPS
 	image_transport
 	visualization_msgs
 	rmcl_msgs
-	rmcl
 )
 
 find_package(catkin REQUIRED COMPONENTS

@@ -23,7 +23,18 @@ project(rmcl
 # cmake_policy(SET CMP0146 OLD)
 #
 
+# include(GNUInstallDirs)
+
+# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+# set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
 
 add_compile_options(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
@@ -112,7 +123,7 @@ include_directories(
 )
 
 # CORE LIB
-add_library(rmcl
+add_library(rmcl SHARED
     # Math
     src/rmcl/math/math.cpp
     src/rmcl/math/math_batched.cpp
@@ -130,16 +141,16 @@ target_link_libraries(rmcl
 )
 
 install(TARGETS rmcl
-    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 
 # EMBREE
 if(TARGET rmagine::embree)
 
-    add_library(rmcl_embree
+    add_library(rmcl_embree SHARED
         # Correction
         src/rmcl/correction/SphereCorrectorEmbree.cpp
         src/rmcl/correction/PinholeCorrectorEmbree.cpp
@@ -155,9 +166,9 @@ if(TARGET rmagine::embree)
     )
 
     install(TARGETS rmcl_embree
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
     add_definitions(-DRMCL_EMBREE)
@@ -194,7 +205,7 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     endif(CMAKE_CUDA_COMPILER)
 
 
-    add_library(rmcl_cuda
+    add_library(rmcl_cuda SHARED
         # math
         src/rmcl/math/math_batched.cu
         src/rmcl/math/math.cu
@@ -206,9 +217,9 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     )
 
     install(TARGETS rmcl_cuda
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
     add_definitions(-DRMCL_CUDA)
@@ -274,7 +285,7 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
             -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernels.cmake"
     )
 
-    add_library(rmcl_optix
+    add_library(rmcl_optix SHARED
         # Correction
         src/rmcl/correction/SphereCorrectorOptix.cpp
         src/rmcl/correction/PinholeCorrectorOptix.cpp
@@ -301,9 +312,9 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     )
 
     install(TARGETS rmcl_optix
-        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
     add_definitions(-DRMCL_OPTIX)
@@ -311,4 +322,28 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 endif()
 
 
+
+### INSTALL
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(cmake/rmcl-config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config-version.cmake
+    COMPATIBILITY SameMajorVersion
+)
+
+## INSTALL
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
+)
+
+
+install(FILES package.xml
+    DESTINATION share/rmcl
+)
 
