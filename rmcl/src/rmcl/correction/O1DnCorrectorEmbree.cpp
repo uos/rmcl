@@ -668,10 +668,9 @@ void O1DnCorrectorEmbree::findRCC(
             {
                 dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
                 model_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_scene_ids[loc_id] = RTC_INVALID_GEOMETRY_ID;
+                model_geom_ids[loc_id] = RTC_INVALID_GEOMETRY_ID;
                 corr_valid[loc_id] = 0;
-                // TODO this does not make sense.
-                //scene_ids[loc_id] = -1;
-                //geometry_ids[loc_id] = -1;
                 continue;
             }
 
@@ -718,6 +717,14 @@ void O1DnCorrectorEmbree::findRCC(
                 const rm::Vector preal_b = Tsb * preal_s;
                 const rm::Vector pint_b = Tsb * pint_s;
                 const rm::Vector nint_b = Tmb.R * nint_m;
+
+                // scene with instatiated objects
+                // scene_id = X && geom_id = 0
+
+                // scene with geometries only
+                // scene_id = 0 && geom_id = X
+
+
 
                 dataset_points[loc_id] = preal_b;
                 model_points[loc_id] = pint_b;

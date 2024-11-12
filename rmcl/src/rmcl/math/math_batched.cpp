@@ -169,8 +169,6 @@ void means_covs_p2l_online_batched(
         const rm::MemoryView<unsigned int> scene_mask_batch = scene_mask(i * batchSize, (i+1) * batchSize);
         const rm::MemoryView<unsigned int> object_mask_batch = object_mask(i * batchSize, (i+1) * batchSize);
 
-
-
         rm::Vector d_mean = {0.0f, 0.0f, 0.0f};
         rm::Vector m_mean = {0.0f, 0.0f, 0.0f};
         rm::Matrix3x3 C = rm::Matrix3x3::Zeros();
@@ -196,8 +194,7 @@ void means_covs_p2l_online_batched(
                 if(fabs(signed_plane_dist) < max_corr_dist)
                 {
                     // nearest point on model
-                    const rm::Vector Mi = Di + Ni * signed_plane_dist;  
-
+                    const rm::Vector Mi = Di + Ni * signed_plane_dist;
 
                     const rm::Vector d_mean_old = d_mean; // read
                     const rm::Vector m_mean_old = m_mean; // read
@@ -207,16 +204,14 @@ void means_covs_p2l_online_batched(
                     const float w1 = N_1/N;
                     const float w2 = 1.0/N;
 
-                    
-
                     // update means
                     
                     // save old means for covariance
                     const rm::Vector d_mean_new = d_mean_old * w1 + Di * w2; 
                     const rm::Vector m_mean_new = m_mean_old * w1 + Mi * w2;
 
-                    auto P1 = (Mi - m_mean_new).multT(Di - d_mean_new);
-                    auto P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
+                    const rm::Matrix3x3 P1 = (Mi - m_mean_new).multT(Di - d_mean_new);
+                    const rm::Matrix3x3 P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
 
                     // Write
                     C = C * w1 + P1 * w2 + P2 * w1;
@@ -311,8 +306,8 @@ void incremental_covariance_object_wise(
                 const rm::Vector d_mean_new = d_mean_old * w1 + Di * w2; 
                 const rm::Vector m_mean_new = m_mean_old * w1 + Mi * w2;
 
-                auto P1 = (Mi - m_mean_new).multT(Di - d_mean_new);
-                auto P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
+                const rm::Matrix3x3 P1 = (Mi - m_mean_new).multT(Di - d_mean_new);
+                const rm::Matrix3x3 P2 = (m_mean_old - m_mean_new).multT(d_mean_old - d_mean_new);
 
                 // Write
                 dataset_centers[Oi] = d_mean_new; // write

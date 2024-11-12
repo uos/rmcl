@@ -87,6 +87,52 @@ void means_covs_online_batched(
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
     rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr);
 
+
+
+
+template<typename MemT>
+struct PcdView
+{
+    rmagine::MemoryView<rmagine::Vector, MemT>  points;
+    rmagine::MemoryView<unsigned int,    MemT>  mask;
+    rmagine::MemoryView<rmagine::Vector, MemT>  normals; // optional: if memory view not set
+    rmagine::MemoryView<unsigned int, MemT>    object_ids;
+
+    // TODO: check if initializer list works: func(PcdView bla) -> func({points, mask, normals})
+    // PcdView inputs;
+    // inputs.points = ;
+    // func(inputs); // not good
+
+    // func({})
+};
+
+struct UmeyamaReductionParams 
+{
+    float max_dist;
+};
+
+
+
+void means_covs_p2l(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& pre_transforms, // N
+    
+    const PcdView<rmagine::RAM>& dataset, // from, M
+    const PcdView<rmagine::RAM>& model,
+    const UmeyamaReductionParams params,
+
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& dataset_center,
+    rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_center,
+    rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr,
+
+    // this should not belong here, but this allows for defaults.
+    int scene_id = -1,
+    int object_id = -1,
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& scene_mask = rmagine::Memory<unsigned int, rmagine::RAM>(0), // NxM
+    const rmagine::MemoryView<unsigned int, rmagine::RAM>& object_mask = rmagine::Memory<unsigned int, rmagine::RAM>(0)// NxM
+    );
+
+
 // Poses: N
 // Scan size: M
 void means_covs_p2l_online_batched(
