@@ -30,9 +30,10 @@ endif()
 find_package(rmcl REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
+
 message(WARNING "rmcl_LIBRARIES: ${rmcl_LIBRARIES}")
 message(WARNING "rmcl_INCLUDE_DIR: ${rmcl_INCLUDE_DIR}")
-
+message(WARNING "rmcl_LIB_DIR: ${rmcl_LIB_DIR}")
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.3.0")

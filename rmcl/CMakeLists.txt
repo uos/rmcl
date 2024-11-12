@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.16)
 project(rmcl
+    LANGUAGES CXX C
 	VERSION 1.2.0
 	)
 
@@ -23,27 +24,9 @@ project(rmcl
 # cmake_policy(SET CMP0146 OLD)
 #
 
-# include(GNUInstallDirs)
-
-# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-# set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-
-# include(CMakePackageConfigHelpers)
-include(GNUInstallDirs)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
-
-add_compile_options(-std=c++17)
+## Compile as C++17
 set(CMAKE_CXX_STANDARD 17)
-
-message(STATUS "CMake Version: ${CMAKE_VERSION}")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
-    message(STATUS ">= 3.9 - Enabling Link Time Optimization")
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # DEFAULT RELEASE
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
@@ -51,6 +34,28 @@ if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
   endif()
 endif()
+
+set_property(GLOBAL PROPERTY USE_FOLDERS On)
+set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(GNUInstallDirs)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
+
+
+
+# message(STATUS "CMake Version: ${CMAKE_VERSION}")
+# if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
+#     message(STATUS ">= 3.9 - Enabling Link Time Optimization")
+#     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+# endif()
+
+
 
 set(CMAKE_MODULE_PATH
   ${rmcl_SOURCE_DIR}/cmake
@@ -105,15 +110,15 @@ include_directories(${nanoflann_INCLUDE_DIR})
 set(RMCL_LIBRARIES rmcl)
 
 if(TARGET rmagine::embree AND NOT ${DISABLE_EMBREE})
-    list(APPEND RMCL_LIBRARIES rmcl_embree)
+    list(APPEND RMCL_LIBRARIES rmcl-embree)
 endif()
 
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
-    list(APPEND RMCL_LIBRARIES rmcl_cuda)
+    list(APPEND RMCL_LIBRARIES rmcl-cuda)
 endif()
 
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
-    list(APPEND RMCL_LIBRARIES rmcl_optix)
+    list(APPEND RMCL_LIBRARIES rmcl-optix)
 endif()
 
 
@@ -134,23 +139,28 @@ add_library(rmcl SHARED
 )
 
 # add_dependencies(rmcl nanoflann)
-
 target_link_libraries(rmcl
     rmagine::core
     Eigen3::Eigen
 )
 
-install(TARGETS rmcl
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+set_target_properties(rmcl
+    PROPERTIES
+      SOVERSION ${rmcl_VERSION_MAJOR}
+      VERSION ${rmcl_VERSION}
+      # CXX_STANDARD 17
 )
 
+install(TARGETS rmcl
+    EXPORT rmcl-targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
 # EMBREE
 if(TARGET rmagine::embree)
 
-    add_library(rmcl_embree SHARED
+    add_library(rmcl-embree SHARED
         # Correction
         src/rmcl/correction/SphereCorrectorEmbree.cpp
         src/rmcl/correction/PinholeCorrectorEmbree.cpp
@@ -158,17 +168,24 @@ if(TARGET rmagine::embree)
         src/rmcl/correction/OnDnCorrectorEmbree.cpp
     )
 
-    target_link_libraries(rmcl_embree
+    target_link_libraries(rmcl-embree
         rmagine::core
         rmagine::embree
         ${rmagine_ext_LIBRARIES}
         rmcl
     )
 
-    install(TARGETS rmcl_embree
+    set_target_properties(rmcl-embree
+        PROPERTIES
+            SOVERSION ${rmcl_VERSION_MAJOR}
+            VERSION ${rmcl_VERSION}
+            # CXX_STANDARD 17
+    )
+
+    install(TARGETS rmcl-embree
+        EXPORT rmcl-targets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
     add_definitions(-DRMCL_EMBREE)
@@ -205,21 +222,28 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     endif(CMAKE_CUDA_COMPILER)
 
 
-    add_library(rmcl_cuda SHARED
+    add_library(rmcl-cuda SHARED
         # math
         src/rmcl/math/math_batched.cu
         src/rmcl/math/math.cu
     )
 
-    target_link_libraries(rmcl_cuda
+    target_link_libraries(rmcl-cuda
         rmagine::cuda
         ${CUDA_LIBRARIES}
     )
 
-    install(TARGETS rmcl_cuda
+    set_target_properties(rmcl-cuda
+        PROPERTIES
+            SOVERSION ${rmcl_VERSION_MAJOR}
+            VERSION ${rmcl_VERSION}
+            # CXX_STANDARD 17
+    )
+
+    install(TARGETS rmcl-cuda
+        EXPORT rmcl-targets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
     add_definitions(-DRMCL_CUDA)
@@ -285,7 +309,7 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
             -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernels.cmake"
     )
 
-    add_library(rmcl_optix SHARED
+    add_library(rmcl-optix SHARED
         # Correction
         src/rmcl/correction/SphereCorrectorOptix.cpp
         src/rmcl/correction/PinholeCorrectorOptix.cpp
@@ -297,24 +321,31 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
         src/rmcl/correction/optix/corr_pipelines.cpp
     )
 
-    add_dependencies(rmcl_optix
+    add_dependencies(rmcl-optix
         rmcl_optix_ptx
     )
 
-    target_include_directories(rmcl_optix PUBLIC
+    set_target_properties(rmcl-optix
+        PROPERTIES
+            SOVERSION ${rmcl_VERSION_MAJOR}
+            VERSION ${rmcl_VERSION}
+            # CXX_STANDARD 17
+    )
+
+    target_include_directories(rmcl-optix PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     )
 
-    target_link_libraries(rmcl_optix
+    target_link_libraries(rmcl-optix
         rmcl
-        rmcl_cuda
+        rmcl-cuda
         rmagine::optix
     )
 
-    install(TARGETS rmcl_optix
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    install(TARGETS rmcl-optix
+        EXPORT rmcl-targets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 
     add_definitions(-DRMCL_OPTIX)
@@ -326,6 +357,8 @@ endif()
 ### INSTALL
 include(CMakePackageConfigHelpers)
 
+
+
 configure_package_config_file(cmake/rmcl-config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
@@ -336,12 +369,25 @@ write_basic_package_version_file(
     COMPATIBILITY SameMajorVersion
 )
 
-## INSTALL
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config-version.cmake
+
+install(EXPORT rmcl-targets
+    FILE rmcl-targets.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
 )
 
+## INSTALL
+install(
+    FILES 
+        ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
+)
+
+# HEADERS
+install(
+  DIRECTORY include/rmcl/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rmcl
+)
 
 install(FILES package.xml
     DESTINATION share/rmcl

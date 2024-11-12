@@ -2,25 +2,25 @@
 # rmagine's cmake configuration
 #
 # provided interface variables:
-# - rmagine_INCLUDE_DIRS
-# - rmagine_LIBRARIES
-# - rmagine_DEFINITIONS
+# - rmcl_INCLUDE_DIRS
+# - rmcl_LIBRARIES
+# - rmcl_DEFINITIONS
 # 
 #
-# Do not forget to add_defintions(${rmagine_DEFINITIONS}) as they
-# describe the build configuration of rmagine.
+# Do not forget to add_defintions(${rmcl_DEFINITIONS}) as they
+# describe the build configuration of rmcl.
 #
 # -----------------------------------------------------------------
 @PACKAGE_INIT@
 
 set(RMCL_ROOT_DIR ${PACKAGE_PREFIX_DIR})
 
-###########
-### INCLUDE
-###########
+set(rmcl_LIB_DIR @CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@)
 set(rmcl_INCLUDE_DIR @CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_INCLUDEDIR@/rmcl)
 set(rmcl_INCLUDE_DIRS ${rmcl_INCLUDE_DIR})
 
 set(rmcl_FOUND TRUE)
 
 set(rmcl_LIBRARIES @RMCL_LIBRARIES@)
+
+message(WARNING "HELLO")
