@@ -23,6 +23,22 @@ endif()
 find_package(rmcl REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
+# TODO: we can do this better. maybe but definitions to each target?
+if(TARGET rmcl-embree)
+    add_definitions(-DRMCL_EMBREE)
+    set(RMCL_EMBREE TRUE)
+endif(TARGET rmcl-embree)
+
+if(TARGET rmcl-cuda)
+    add_definitions(-DRMCL_CUDA)
+    set(RMCL_CUDA True)
+endif(TARGET rmcl-cuda)
+
+if(TARGET rmcl-optix)
+    add_definitions(-DRMCL_OPTIX)
+    set(RMCL_OPTIX True)
+endif(TARGET rmcl-optix)
+
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.3.0")
 
