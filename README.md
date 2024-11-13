@@ -1,10 +1,10 @@
 
 <div align="center" min-width=519px>
-  <img src="dat/rmcl_logo_landscape_small.png" alt="RMCL" height=150 />  
+  <img src=".resources/rmcl_logo_landscape_small.png" alt="RMCL" height=150 />  
 </div>
 
 
-<!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
+<!-- ![RMCL](.resources/rmcl_logo_landscape_small.png) -->
 <div align="center">
 <h4 align="center">Software Tools for Mobile Robot Localization in 3D Meshes</h4>
 </div>
@@ -28,7 +28,7 @@
 MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Casting.
 An approach to directly register range sensor data to a mesh in order to localize a mobile robot using hardware-accelerated ray casting correspondences (See publications).
 
-[![Teaser](dat/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
+[![Teaser](.resources/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
 
 
 |  Hilti: 6DoF Localization  | MulRan: Large-scale scenes |
@@ -61,9 +61,9 @@ Starting the following Launch-File
 <launch>
 
 <arg name="map" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
-<arg name="config" default="$(find rmcl)/config/examples/micp_velodyne_cpu.yaml" />
+<arg name="config" default="$(find rmcl_ros)/config/examples/micp_velodyne_cpu.yaml" />
 
-<node pkg="rmcl" type="micp_localization" name="micp_localization" output="screen">
+<node pkg="rmcl_ros" type="micp_localization" name="micp_localization" output="screen">
     <param name="map_file" type="string" value="$(arg map)" />
     <rosparam command="load" file="$(arg config)" />
     <remap from="pose_wc" to="/initialpose" />
@@ -287,7 +287,7 @@ To learn how to use RMCL library in your Node: `src/nodes/examples`.
 
 To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented on [ROSCon 2023](https://vimeo.com/879000775):
 
-<a href="https://vimeo.com/879000775" target="_blank" ><img src="dat/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
+<a href="https://vimeo.com/879000775" target="_blank" ><img src=".resources/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
 
 ## Roadmap
 

@@ -13,10 +13,13 @@
 # -----------------------------------------------------------------
 @PACKAGE_INIT@
 
+include(${CMAKE_CURRENT_LIST_DIR}/rmcl-config-version.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/rmcl-targets.cmake)
+
 set(RMCL_ROOT_DIR ${PACKAGE_PREFIX_DIR})
 
 set(rmcl_LIB_DIR @CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@)
-set(rmcl_INCLUDE_DIR @CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_INCLUDEDIR@/rmcl)
+set(rmcl_INCLUDE_DIR @CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_INCLUDEDIR@/rmcl-@rmcl_VERSION@)
 set(rmcl_INCLUDE_DIRS ${rmcl_INCLUDE_DIR})
 
 set(rmcl_FOUND TRUE)

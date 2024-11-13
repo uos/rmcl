@@ -50,7 +50,7 @@
 #include <ros/ros.h>
 #include <memory>
 #include <variant>
-#include <rmcl/util/ros_defines.h>
+#include <rmcl_ros/util/ros_defines.h>
 #include <rmagine/types/sensor_models.h>
 
 #include <tf2_ros/transform_listener.h>

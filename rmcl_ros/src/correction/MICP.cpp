@@ -12,9 +12,11 @@
 #ifdef RMCL_CUDA
 #include <rmcl/math/math.cuh>
 #include <rmagine/math/math.cuh>
+#include <rmagine/math/linalg.cuh>
 #endif // RMCL_CUDA
 
 #include <rmagine/util/StopWatch.hpp>
+#include <rmagine/math/linalg.h>
 
 
 namespace rm = rmagine;

@@ -144,6 +144,12 @@ target_link_libraries(rmcl
     Eigen3::Eigen
 )
 
+target_include_directories(rmcl
+    PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
+)
+
 set_target_properties(rmcl
     PROPERTIES
       SOVERSION ${rmcl_VERSION_MAJOR}
@@ -151,11 +157,11 @@ set_target_properties(rmcl
       # CXX_STANDARD 17
 )
 
-install(TARGETS rmcl
-    EXPORT rmcl-targets
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
+# install(TARGETS rmcl
+#     EXPORT rmcl-targets
+#     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+# )
 
 # EMBREE
 if(TARGET rmagine::embree)
@@ -173,6 +179,12 @@ if(TARGET rmagine::embree)
         rmagine::embree
         ${rmagine_ext_LIBRARIES}
         rmcl
+    )
+
+    target_include_directories(rmcl-embree
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
     )
 
     set_target_properties(rmcl-embree
@@ -231,6 +243,12 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     target_link_libraries(rmcl-cuda
         rmagine::cuda
         ${CUDA_LIBRARIES}
+    )
+
+    target_include_directories(rmcl-cuda
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
     )
 
     set_target_properties(rmcl-cuda
@@ -334,6 +352,8 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 
     target_include_directories(rmcl-optix PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
     )
 
     target_link_libraries(rmcl-optix
@@ -357,22 +377,24 @@ endif()
 ### INSTALL
 include(CMakePackageConfigHelpers)
 
+install(TARGETS rmcl 
+  EXPORT rmcl-targets
+)
 
-
-configure_package_config_file(cmake/rmcl-config.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
+install(EXPORT rmcl-targets
+    FILE rmcl-targets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl-${rmcl_VERSION}
 )
 
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config-version.cmake
+    VERSION ${rmcl_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 
-
-install(EXPORT rmcl-targets
-    FILE rmcl-targets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
+configure_package_config_file(cmake/rmcl-config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl-${rmcl_VERSION}
 )
 
 ## INSTALL
@@ -385,8 +407,8 @@ install(
 
 # HEADERS
 install(
-  DIRECTORY include/rmcl/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rmcl
+  DIRECTORY include/rmcl
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}
 )
 
 install(FILES package.xml

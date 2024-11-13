@@ -13,12 +13,6 @@ include(GNUInstallDirs)
 add_compile_options(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
 
-message(STATUS "CMake Version: ${CMAKE_VERSION}")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
-	message(STATUS ">= 3.9 - Enabling Link Time Optimization")
-	set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
-
 # DEFAULT RELEASE
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
 	if (NOT CMAKE_BUILD_TYPE)
@@ -26,14 +20,8 @@ if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
 	endif()
 endif()
 
-
 find_package(rmcl REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
-
-
-message(WARNING "rmcl_LIBRARIES: ${rmcl_LIBRARIES}")
-message(WARNING "rmcl_INCLUDE_DIR: ${rmcl_INCLUDE_DIR}")
-message(WARNING "rmcl_LIB_DIR: ${rmcl_LIB_DIR}")
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.3.0")
@@ -54,7 +42,6 @@ else()
 endif()
 
 include_directories(${rmagine_INCLUDE_DIRS})
-
 
 set(RMCL_ROS_DEPS
 	roscpp
@@ -131,19 +118,19 @@ target_link_libraries(micp_localization
 
 if(RMCL_EMBREE)
     target_link_libraries(micp_localization
-        rmcl_embree
+        rmcl-embree
     )
 endif(RMCL_EMBREE)
     
 if(RMCL_CUDA)
     target_link_libraries(micp_localization
-        rmcl_cuda
+        rmcl-cuda
     )
 endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
     target_link_libraries(micp_localization
-        rmcl_optix
+        rmcl-optix
     )
 endif(RMCL_OPTIX)
 
@@ -180,8 +167,6 @@ if(BUILD_CONV)
         rmcl_ros
     )
 
-
-
     ####### PCL2 to DEPTH CONVERTER
     add_executable(conv_pcl2_to_depth src/conv/pcl2_to_depth.cpp)
 
@@ -214,8 +199,6 @@ if(BUILD_CONV)
 endif(BUILD_CONV)
 
 
-
-
 ################
 ### EXAMPLES ###
 ################
@@ -234,7 +217,7 @@ add_dependencies(micp_hilti
 ## Specify libraries to link a library or executable target against
 target_link_libraries(micp_hilti
     ${catkin_LIBRARIES}
-    rmcl_embree
+    rmcl-embree
 )
 
 ### EVAL ###
@@ -248,7 +231,7 @@ add_dependencies(micp_eval
 ## Specify libraries to link a library or executable target against
 target_link_libraries(micp_eval
     ${catkin_LIBRARIES}
-    rmcl_embree
+    rmcl-embree
 )
 
 endif(RMCL_EMBREE)
@@ -270,7 +253,7 @@ if(RMCL_EMBREE)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_lidar_corrector_embree
         ${catkin_LIBRARIES}
-        rmcl_embree
+        rmcl-embree
     )
 
     add_executable(ex_depth_corrector_embree src/examples/depth_corrector_embree.cpp)
@@ -283,7 +266,7 @@ if(RMCL_EMBREE)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_depth_corrector_embree
         ${catkin_LIBRARIES}
-        rmcl_embree
+        rmcl-embree
     )
 
     add_executable(ex_ondn_corrector_embree src/examples/ondn_corrector_embree.cpp)
@@ -296,7 +279,7 @@ if(RMCL_EMBREE)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_ondn_corrector_embree
         ${catkin_LIBRARIES}
-        rmcl_embree
+        rmcl-embree
     )
 
     add_executable(ex_combined_corrector_embree src/examples/combined_corrector_embree.cpp)
@@ -309,7 +292,7 @@ if(RMCL_EMBREE)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_combined_corrector_embree
         ${catkin_LIBRARIES}
-        rmcl_embree
+        rmcl-embree
     )
 endif(RMCL_EMBREE)
 
@@ -325,7 +308,7 @@ if(RMCL_OPTIX)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_lidar_corrector_optix
         ${catkin_LIBRARIES}
-        rmcl_optix
+        rmcl-optix
     )
 
     add_executable(ex_depth_corrector_optix src/examples/depth_corrector_optix.cpp)
@@ -338,7 +321,7 @@ if(RMCL_OPTIX)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_depth_corrector_optix
         ${catkin_LIBRARIES}
-        rmcl_optix
+        rmcl-optix
     )
 
     add_executable(ex_ondn_corrector_optix src/examples/ondn_corrector_optix.cpp)
@@ -351,7 +334,7 @@ if(RMCL_OPTIX)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_ondn_corrector_optix
         ${catkin_LIBRARIES}
-        rmcl_optix
+        rmcl-optix
     )
 
     add_executable(ex_combined_corrector_optix src/examples/combined_corrector_optix.cpp)
@@ -364,7 +347,7 @@ if(RMCL_OPTIX)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(ex_combined_corrector_optix
         ${catkin_LIBRARIES}
-        rmcl_optix
+        rmcl-optix
     )
 
 
@@ -439,7 +422,7 @@ if(RMCL_OPTIX)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(scan_map_segmentation_optix_node
         ${catkin_LIBRARIES}
-        rmcl_optix
+        rmcl-optix
         rmcl_ros
     )
 
@@ -453,7 +436,7 @@ if(RMCL_EMBREE)
     )
 
     target_link_libraries(rmcl_correction_embree_benchmark
-        rmcl_embree
+        rmcl-embree
     )
 
     add_executable(scan_map_segmentation_embree_node src/filter/scan_map_segmentation_embree_node.cpp)
@@ -466,7 +449,7 @@ if(RMCL_EMBREE)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(scan_map_segmentation_embree_node
         ${catkin_LIBRARIES}
-        rmcl_embree
+        rmcl-embree
         rmcl_ros
     )
 
@@ -480,7 +463,7 @@ if(RMCL_EMBREE)
     ## Specify libraries to link a library or executable target against
     target_link_libraries(o1dn_map_segmentation_embree_node
         ${catkin_LIBRARIES}
-        rmcl_embree
+        rmcl-embree
         rmcl_ros
     )
     
