@@ -402,7 +402,7 @@ install(
     FILES 
         ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/rmcl-config-version.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rmcl-${rmcl_VERSION}
 )
 
 # HEADERS
@@ -412,6 +412,6 @@ install(
 )
 
 install(FILES package.xml
-    DESTINATION share/rmcl
+    DESTINATION share/rmcl-${rmcl_VERSION}
 )
 
