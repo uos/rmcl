@@ -5,21 +5,21 @@
 <arg name="meshfile" default="/home/amock/hilti_uzh_tracking_area/reduced_mesh_09.ply" />
 <arg name="device" default="cpu" />
 
-<node pkg="rmcl" type="conv_pcl2_to_scan" name="conv_pcl2_to_scan" output="screen">
+<node pkg="rmcl_ros" type="conv_pcl2_to_scan" name="conv_pcl2_to_scan" output="screen">
     <remap from="cloud" to="/ouster/points" />
 
     <param name="debug_cloud" type="bool" value="true" />
-    <rosparam file="$(find rmcl)/config/sensors/OS0-64.yaml" />
+    <rosparam file="$(find rmcl_ros)/config/sensors/OS0-64.yaml" />
     
     <!-- UNCOMMENT FOR REAL VELODYNE -->
-    <!-- <rosparam file="$(find rmcl)/config/sensors/VLP-16.yaml" /> -->
+    <!-- <rosparam file="$(find rmcl_ros)/config/sensors/VLP-16.yaml" /> -->
 </node>
 
 <!-- ICP with given pose estimate -->
 
 <group if="$(eval arg('device') == 'cpu')">
 
-<node pkg="rmcl" type="ex_lidar_corrector_embree" name="lidar_corrector" 
+<node pkg="rmcl_ros" type="ex_lidar_corrector_embree" name="lidar_corrector" 
     output="screen">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom" />

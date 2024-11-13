@@ -4,19 +4,28 @@
 <arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
 <arg name="device" default="cpu" />
 
+<!-- <node pkg="rmcl" type="conv_pcl2_to_depth" name="depth_conv" output="screen">
+    <remap from="cloud" to="kinect/depth/points" />
+    <remap from="info" to="kinect/depth/camera_info" />
+</node> -->
+
+<node pkg="rmcl_ros" type="conv_image_to_depth" name="conv_image_to_depth" output="screen">
+    <remap from="image" to="kinect/depth/image_raw" />
+    <remap from="info" to="kinect/depth/camera_info" />
+</node>
 
 <!-- ICP with given pose estimate -->
-<node pkg="rmcl" type="ex_ondn_corrector_embree" name="ondn_corrector" 
+<node pkg="rmcl_ros" type="ex_depth_corrector_embree" name="depth_corrector" 
     output="screen" if="$(eval arg('device') == 'cpu')">
     <param name="map_file" type="string" value="$(arg meshfile)" />
-    <param name="odom_frame" type="string" value="odom_combined" />
+    <param name="odom_frame" type="string" value="odom" />
     <param name="base_frame" type="string" value="base_footprint" />
-    <remap from="scan" to="scan"/>
+    <remap from="depth" to="/conv_image_to_depth/depth"/>
     <remap from="pose" to="/move_base_simple/goal"/>
     <param name="max_distance" type="double" value="0.5" />
 </node>
 
-<node pkg="rmcl" type="ex_ondn_corrector_optix" name="ondn_corrector" 
+<node pkg="rmcl_ros" type="ex_depth_corrector_optix" name="depth_corrector" 
     output="screen" if="$(eval arg('device') == 'gpu')">
     <param name="map_file" type="string" value="$(arg meshfile)" />
     <param name="odom_frame" type="string" value="odom_combined" />
@@ -27,7 +36,7 @@
     <param name="tf_rate" type="double" value="30" />
     <param name="corr_rate_max" type="double" value="600" />
 
-    <remap from="scan" to="scan"/>
+    <remap from="depth" to="/conv_image_to_depth/depth"/>
     <remap from="pose" to="/move_base_simple/goal"/>
 </node>
 
