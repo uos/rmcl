@@ -13,6 +13,19 @@ include(GNUInstallDirs)
 add_compile_options(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
 
+set(RMCL_ROS_DEPS
+	roscpp
+	geometry_msgs
+	sensor_msgs
+	tf2_ros
+	image_transport
+	visualization_msgs
+	rmcl_msgs
+)
+
+find_package(catkin REQUIRED COMPONENTS
+	${RMCL_ROS_DEPS}
+)
 # DEFAULT RELEASE
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
 	if (NOT CMAKE_BUILD_TYPE)
@@ -88,19 +101,7 @@ endif()
 
 include_directories(${rmagine_INCLUDE_DIRS})
 
-set(RMCL_ROS_DEPS
-	roscpp
-	geometry_msgs
-	sensor_msgs
-	tf2_ros
-	image_transport
-	visualization_msgs
-	rmcl_msgs
-)
 
-find_package(catkin REQUIRED COMPONENTS
-	${RMCL_ROS_DEPS}
-)
 
 include_directories(
     ${catkin_INCLUDE_DIRS}
