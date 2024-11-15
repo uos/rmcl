@@ -13,6 +13,13 @@ include(GNUInstallDirs)
 add_compile_options(-std=c++17)
 set(CMAKE_CXX_STANDARD 17)
 
+# DEFAULT RELEASE
+if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
+	if (NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+	endif()
+endif()
+
 set(RMCL_ROS_DEPS
 	roscpp
 	geometry_msgs
@@ -26,12 +33,6 @@ set(RMCL_ROS_DEPS
 find_package(catkin REQUIRED COMPONENTS
 	${RMCL_ROS_DEPS}
 )
-# DEFAULT RELEASE
-if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
-	if (NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
-	endif()
-endif()
 
 find_package(rmcl REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
