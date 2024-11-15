@@ -25,5 +25,3 @@ set(rmcl_INCLUDE_DIRS ${rmcl_INCLUDE_DIR})
 set(rmcl_FOUND TRUE)
 
 set(rmcl_LIBRARIES @RMCL_LIBRARIES@)
-
-message(WARNING "HELLO")

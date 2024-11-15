@@ -55,12 +55,7 @@ set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
 #     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 # endif()
 
-
-
-set(CMAKE_MODULE_PATH
-  ${rmcl_SOURCE_DIR}/cmake
-  ${CMAKE_MODULE_PATH}
-)
+list(APPEND CMAKE_MODULE_PATH ${rmcl_SOURCE_DIR}/cmake)
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.3.0")
@@ -120,8 +115,6 @@ endif()
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     list(APPEND RMCL_LIBRARIES rmcl-optix)
 endif()
-
-
 
 include_directories(
     include
