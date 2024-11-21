@@ -210,7 +210,6 @@ int main(int argc, char** argv)
     {
         // find RCC at estimated pose of robot
         rm::MemoryView<rm::Transform> Tbm_est_view(&Tbm_est, 1);
-        // sim.simulate(Tbm_est_view, model);
 
         corr.findRCC(Tbm_est_view,
           dataset_points,
