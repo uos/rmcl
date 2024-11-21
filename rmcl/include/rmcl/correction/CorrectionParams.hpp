@@ -45,4 +45,4 @@ struct CorrectionParams {
 
 } // namespace rmcl
 
-#endif // MAMCL_CORRECTION_CORRECTION_PARAMS_HPP
+#endif // RMCL_CORRECTION_CORRECTION_PARAMS_HPP

@@ -4,6 +4,9 @@ project(rmcl
 	VERSION 1.2.0
 	)
 
+
+option(BUILD_TESTS "Build tests" ON)
+
 # This gives an compiler error for standard ubuntu 20 setup including
 # - ROS noetic
 # - CUDA 11.4
@@ -337,6 +340,12 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     set(RMCL_OPTIX True)
 endif()
 
+
+#### TESTS
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif(BUILD_TESTS)
 
 
 ### INSTALL
