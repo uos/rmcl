@@ -87,6 +87,9 @@ endif()
 
 if(TARGET rmagine::cuda)
     option(DISABLE_CUDA "Disable CUDA related compilations" FALSE)
+    if(CMAKE_CUDA_COMPILER)
+        enable_language(CUDA)
+    endif(CMAKE_CUDA_COMPILER)
 endif()
 
 if(TARGET rmagine::optix)
