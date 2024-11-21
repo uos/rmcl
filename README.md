@@ -44,9 +44,18 @@ IMU prior is also possible as long as it is integrated as TF-Transform, e.g. wit
 
 ### Publication
 
-- Title: "MICP-L: Mesh-based ICP for Robot Localization using Hardware-Accelerated Ray Casting"
-- Preprint: https://arxiv.org/abs/2210.13904
-- Experiments: https://github.com/aock/micp_experiments
+Please reference the following paper when using the MICP-L method in your scientific work.
+
+```latex
+@inproceedings{mock2024micpl,
+  title={{MICP-L: Mesh-based ICP for Robot Localization using Hardware-Accelerated Ray Casting}}, 
+  author={Mock, Alexander and Wiemann, Thomas and Pütz, Sebastian and Hertzberg, Joachim},
+  booktitle={IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 
+  year={2024},
+}
+```
+
+Experiments: https://github.com/amock/micp_experiments
 
 ### Usage
 
@@ -273,7 +282,6 @@ Dependencies:
   - Recommended: Install OptiX backend if NVIDIA GPU is available
   - For rmagine version >= 2.2.2 it is possible to put rmagine into your ROS workspace for easier compilation
 - ROS (tested with ROS-noetic)
-- Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
 
 Clone this repository into your ROS workspace and build it.
 
