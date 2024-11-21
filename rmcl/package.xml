@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>rmcl</name>
+    <version>1.2.0</version>
+    <description>The rmcl package</description>
+
+    <maintainer email="amock@uos.de">Alexander Mock</maintainer>
+
+    <license>BSD</license>
+    <author email="amock@uos.de">Alexander Mock</author>
+    
+    <buildtool_depend>cmake</buildtool_depend>
+    
+    <depend>rmagine</depend>
+
+    <export>
+        <build_type>cmake</build_type>
+    </export>
+    
+</package>

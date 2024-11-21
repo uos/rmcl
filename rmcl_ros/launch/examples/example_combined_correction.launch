@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<launch>
+
+<arg name="meshfile" default="$(find uos_gazebo_worlds)/Media/models/avz_neu.dae" />
+<arg name="device" default="cpu" />
+
+
+<!-- ICP with given pose estimate -->
+<node pkg="rmcl_ros" type="ex_combined_corrector_embree" name="combined_corrector" 
+    output="screen" if="$(eval arg('device') == 'cpu')">
+    <param name="map_file" type="string" value="$(arg meshfile)" />
+    <param name="odom_frame" type="string" value="odom_combined" />
+    <param name="base_frame" type="string" value="base_footprint" />
+
+    <param name="max_distance" type="double" value="0.5" />
+    <param name="adaptive_max_dist" type="bool" value="true" />
+    <param name="adaptive_max_dist_min" type="double" value="0.15" />
+
+    <param name="poses" type="int" value="1" />
+    <param name="tf_rate" type="double" value="50" />
+    <param name="corr_rate_max" type="double" value="100" />
+
+    <remap from="scan" to="scan"/>
+    <remap from="pose" to="/move_base_simple/goal"/>
+</node>
+
+<node pkg="rmcl_ros" type="ex_combined_corrector_optix" name="combined_corrector" 
+    output="screen" if="$(eval arg('device') == 'gpu')">
+    <param name="map_file" type="string" value="$(arg meshfile)" />
+    <param name="odom_frame" type="string" value="odom" />
+    <param name="base_frame" type="string" value="base_footprint" />
+    <remap from="scan" to="scan"/>
+    <remap from="pose" to="/move_base_simple/goal"/>
+    <param name="max_distance" type="double" value="0.5" />
+</node>
+
+</launch>
