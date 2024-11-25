@@ -1,6 +1,6 @@
 
 <div align="center" min-width=519px>
-  <img src="dat/rmcl_logo_landscape_small.png" alt="RMCL" height=150 />  
+  <img src=".resources/rmcl_logo_landscape_small.png" alt="RMCL" height=150 />  
 </div>
 
 
@@ -31,7 +31,7 @@ This repository contains algorithms designed for map-based robot localization, s
 MICP-L: Mesh ICP for Robot Localization using Hardware-Accelerated Ray Casting.
 An approach to directly register range sensor data to a mesh in order to localize a mobile robot using hardware-accelerated ray casting correspondences (See publications).
 
-[![Teaser](dat/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
+[![Teaser](.resources/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
 
 
 |  Hilti: 6DoF Localization  | MulRan: Large-scale scenes |
@@ -141,7 +141,7 @@ For example, once there is no data available on the given `PointCloud2`-Topic it
 ### Params
 
 The following sections describe example configuration files.
-More example files for configuration are placed in the `config/examples`.
+More example files for configuration are placed in the `rmcl_ros/config/examples`.
 
 ### Params - 3D LiDAR only - CPU
 
@@ -298,18 +298,17 @@ $ colcon build
 Optional, but recommended: RMCL itself doesn't provide any tools to visualize the triangle mesh maps.
 If you want to see the map in RViz, use for example the `rviz_mesh_tools_plugins` of the [mesh_tools](https://github.com/naturerobots/mesh_tools).
 
-
 ## Examples
 
 To learn how to use RMCL ROS nodes in your project, visit https://github.com/aock/rmcl_examples.
 
-To learn how to use RMCL library in your Node: `src/nodes/examples`.
+To learn how to use RMCL library in your ROS-Node: `rmcl_ros/src/nodes`.
 
 ## Mesh Navigation
 
 To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented on [ROSCon 2023](https://vimeo.com/879000775):
 
-<a href="https://vimeo.com/879000775" target="_blank" ><img src="dat/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
+<a href="https://vimeo.com/879000775" target="_blank" ><img src=".resources/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
 
 ## Roadmap
 
