@@ -4,14 +4,14 @@ map_frame: map
 odom_frame: odom
 
 # rate of broadcasting tf transformations
-tf_rate: 50
+tf_rate: 50.0
 
 micp:
   # merging on gpu or cpu
   combining_unit: gpu
   # maximum number of correction steps per second
   # lower this to decrease the correction speed but save energy 
-  corr_rate_max: 100
+  corr_rate_max: 100.0
   
   # adjust max distance dependend of the state of localization
   adaptive_max_dist: True # enable adaptive max dist

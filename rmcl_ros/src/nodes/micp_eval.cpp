@@ -1,30 +1,41 @@
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
+
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <tf2_ros/buffer.h>
 
-#include <sensor_msgs/PointCloud2.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+
+#include <sensor_msgs/msg/point_cloud2.hpp>
+
+#include <std_msgs/msg/header.hpp>
 
 #include <rmagine/math/types.h>
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
 #include <rmagine/map/EmbreeMap.hpp>
-#include <rmagine/math/math.h>
 #include <rmcl/correction/OnDnCorrectorEmbree.hpp>
 #include <rmcl/math/math_batched.h>
 #include <rmcl/math/math.h>
+#include <rmcl_ros/util/ros_helper.h>
 
+#include <chrono>
 #include <memory>
-
 #include <fstream>
+
+
+using namespace std::chrono_literals;
 
 namespace rm = rmagine;
 
+rclcpp::Node::SharedPtr nh;
+
 std::shared_ptr<tf2_ros::Buffer> tf_buffer;
 std::shared_ptr<tf2_ros::TransformListener> tf_listener;
+std::unique_ptr<tf2_ros::TransformBroadcaster> br;
 
-ros::Publisher pub_pose;
+rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose;
 
 std::string map_frame = "map";
 std::string odom_frame = "odom";
@@ -75,7 +86,7 @@ std::ofstream eval_file;
 double outlier_dist = 5.0;
 
 void convert(
-    const geometry_msgs::Transform &Tros,
+    const geometry_msgs::msg::Transform &Tros,
     rm::Transform &Trm)
 {
     Trm.R.x = Tros.rotation.x;
@@ -89,7 +100,7 @@ void convert(
 
 void convert(
     const rm::Transform &Trm,
-    geometry_msgs::Transform &Tros)
+    geometry_msgs::msg::Transform &Tros)
 {
     Tros.rotation.x = Trm.R.x;
     Tros.rotation.y = Trm.R.y;
@@ -102,7 +113,7 @@ void convert(
 
 void convert(
     const rm::Transform &Trm,
-    geometry_msgs::Pose &Pros)
+    geometry_msgs::msg::Pose &Pros)
 {
     Pros.orientation.x = Trm.R.x;
     Pros.orientation.y = Trm.R.y;
@@ -113,9 +124,9 @@ void convert(
     Pros.position.z = Trm.t.z;
 }
 
-void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
+void pclCB(const sensor_msgs::msg::PointCloud2::SharedPtr pcl)
 {
-    ROS_INFO("Got Cloud");
+    RCLCPP_INFO_STREAM(nh->get_logger(), "Got cloud at frame " << pcl->header.frame_id);
 
     rm::Transform Tsb; // Transform sensor -> base (urdf)
     rm::Transform Tbo; // Transform base -> odom (odometry estimation)
@@ -123,35 +134,53 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     rm::Transform Tls = rm::Transform::Identity();
     double Tbo_time_error = 0.0;
 
+    geometry_msgs::msg::TransformStamped T;
+
     try
     {
-        geometry_msgs::TransformStamped T;
-
         // static
-        T = tf_buffer->lookupTransform(base_frame, pcl->header.frame_id, pcl->header.stamp);
+        T = tf_buffer->lookupTransform(base_frame, 
+            pcl->header.frame_id, pcl->header.stamp);
         convert(T.transform, Tsb);
+    } catch (const tf2::TransformException &ex) {
+        RCLCPP_WARN(nh->get_logger(), "micp_eval - T_sensor->base - %s", ex.what());
+        return;
+    }
 
+    try 
+    {
         // dynamic
         T = tf_buffer->lookupTransform(
             odom_frame, base_frame,
-            pcl->header.stamp, ros::Duration(1.0));
+            pcl->header.stamp, 1s);
         convert(T.transform, Tbo);
-
-        Tbo_time_error = (pcl->header.stamp - T.header.stamp).toSec();
-
-        if (pcl->header.frame_id != lidar_frame)
-        {
-            T = tf_buffer->lookupTransform(lidar_frame, pcl->header.frame_id,
-                                           pcl->header.stamp);
-            convert(T.transform, Tsl);
-            Tls = ~Tsl;
-        }
-    }
-    catch (tf2::TransformException &ex)
-    {
-        ROS_WARN("micp_eval - %s", ex.what());
+    } catch (const tf2::TransformException& ex) {
+        RCLCPP_WARN(nh->get_logger(), "micp_eval - T_base->odom - %s", ex.what());
         return;
     }
+    // auto balbal = nh->now() - T.header.stamp;
+
+    // builtin_interfaces::msg::Time testA = pcl->header.stamp;
+    // builtin_interfaces::msg::Time testB = T.header.stamp;
+    // auto diff = testA - testB;
+
+    rclcpp::Time pcl_stamp = pcl->header.stamp;
+    rclcpp::Time T_stamp = T.header.stamp;
+    Tbo_time_error = (pcl_stamp - T_stamp).seconds();
+
+    if (pcl->header.frame_id != lidar_frame)
+    {
+        try {
+            T = tf_buffer->lookupTransform(lidar_frame, pcl->header.frame_id,
+                                        pcl->header.stamp);
+        } catch(const tf2::TransformException& ex) {
+            RCLCPP_WARN(nh->get_logger(), "micp_eval - T_cloud->sensor - %s", ex.what());
+            return;
+        }
+        convert(T.transform, Tsl);
+        Tls = ~Tsl;
+    }
+
 
     if (first_iteration)
     {
@@ -212,9 +241,9 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     ouster_model.width = pcl->width;
     ouster_model.height = pcl->height;
 
-    sensor_msgs::PointField field_x;
-    sensor_msgs::PointField field_y;
-    sensor_msgs::PointField field_z;
+    sensor_msgs::msg::PointField field_x;
+    sensor_msgs::msg::PointField field_y;
+    sensor_msgs::msg::PointField field_z;
 
     for(size_t i = 0; i < pcl->fields.size(); i++)
     {
@@ -239,14 +268,14 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
 
         rm::Vector ps;
 
-        if (field_x.datatype == sensor_msgs::PointField::FLOAT32)
+        if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
         {
             // Float
             ps.x = *reinterpret_cast<const float *>(data_ptr + field_x.offset);
             ps.y = *reinterpret_cast<const float *>(data_ptr + field_y.offset);
             ps.z = *reinterpret_cast<const float *>(data_ptr + field_z.offset);
         }
-        else if (field_x.datatype == sensor_msgs::PointField::FLOAT64)
+        else if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT64)
         {
             // Double
             ps.x = *reinterpret_cast<const double *>(data_ptr + field_x.offset);
@@ -349,8 +378,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
                     res.ds, res.ms,                           // outputs
                     res.Cs, res.Ncorr);
 
-                // auto Tdeltas = umeyama->correction_from_covs(res);
-                auto Tdeltas = rm::umeyama_transform(res.ds, res.ms, res.Cs, res.Ncorr);
+                auto Tdeltas = umeyama->correction_from_covs(res);
                 rm::Transform Tdelta = Tdeltas[0];
                 Tom = Tbm * Tdelta * ~Tbo;
             }
@@ -390,8 +418,7 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
                     res.ds, res.ms,                           // outputs
                     res.Cs, res.Ncorr);
 
-                // auto Tdeltas = umeyama->correction_from_covs(res);
-                auto Tdeltas = rm::umeyama_transform(res.ds, res.ms, res.Cs, res.Ncorr);
+                auto Tdeltas = umeyama->correction_from_covs(res);
 
                 // update total delta
                 Tdelta_total[0] = Tdelta_total[0] * Tdeltas[0];
@@ -417,23 +444,21 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
     }
 
     { // broadcast transform from odom -> map: Tom
-        static tf2_ros::TransformBroadcaster br;
-
-        geometry_msgs::TransformStamped Tom_ros;
+        geometry_msgs::msg::TransformStamped Tom_ros;
         Tom_ros.header.stamp = pcl->header.stamp;
         Tom_ros.header.frame_id = map_frame;
         Tom_ros.child_frame_id = odom_frame;
         convert(Tom, Tom_ros.transform);
 
-        br.sendTransform(Tom_ros);
+        br->sendTransform(Tom_ros);
     }
 
     { // publish pose in map frame
-        geometry_msgs::PoseStamped micp_pose;
+        geometry_msgs::msg::PoseStamped micp_pose;
         micp_pose.header.stamp = pcl->header.stamp;
         micp_pose.header.frame_id = map_frame;
         convert(Tom * Tbo, micp_pose.pose);
-        pub_pose.publish(micp_pose);
+        pub_pose->publish(micp_pose);
     }
 
     if (generate_evaluation)
@@ -527,21 +552,27 @@ void pclCB(const sensor_msgs::PointCloud2ConstPtr &pcl)
             eval_file << ", Estamp, Ncorr, P2M_min, P2M_max, P2M_mean, P2M_median\n";
         }
 
-        eval_file << Tbm.t.x << ", " << Tbm.t.y << ", " << Tbm.t.z << ", " << Tbm.R.x << ", " << Tbm.R.y << ", " << Tbm.R.z << ", " << Tbm.R.w << ", " << pcl->header.stamp.toSec();
+        rclcpp::Time pcl_stamp = pcl->header.stamp;
+        eval_file << Tbm.t.x << ", " << Tbm.t.y << ", " << Tbm.t.z << ", " << Tbm.R.x << ", " << Tbm.R.y << ", " << Tbm.R.z << ", " << Tbm.R.w << ", " << pcl_stamp.seconds();
         eval_file << ", ";
-        eval_file << Tbm_rel.t.x << ", " << Tbm_rel.t.y << ", " << Tbm_rel.t.z << ", " << Tbm_rel.R.x << ", " << Tbm_rel.R.y << ", " << Tbm_rel.R.z << ", " << Tbm_rel.R.w << ", " << pcl->header.stamp.toSec();
+        eval_file << Tbm_rel.t.x << ", " << Tbm_rel.t.y << ", " << Tbm_rel.t.z << ", " << Tbm_rel.R.x << ", " << Tbm_rel.R.y << ", " << Tbm_rel.R.z << ", " << Tbm_rel.R.w << ", " << pcl_stamp.seconds();
         eval_file << ", ";
         eval_file << Tbo_time_error << ", " << n_corr << ", " << p2m_min << ", " << p2m_max << ", " << p2m_mean << ", " << p2m_median;
         eval_file << "\n";
     }
 }
 
-void loadParameters(ros::NodeHandle nh_p)
+bool loadParameters(rclcpp::Node::SharedPtr nh)
 {
     T_mesh_to_map = rm::Transform::Identity();
-    std::vector<double> transform_params;
-    if (nh_p.getParam("mesh_to_map_transform", transform_params))
+
+    auto transform_params_opt = rmcl::get_parameter(nh, "mesh_to_map_transform");
+
+    if(transform_params_opt)
     {
+        std::vector<double> transform_params
+                        = (*transform_params_opt).as_double_array();
+
         if (transform_params.size() == 6)
         {
             T_mesh_to_map.t = rm::Vector{
@@ -568,9 +599,12 @@ void loadParameters(ros::NodeHandle nh_p)
     }
 
     Tbm_init = rm::Transform::Identity();
-    std::vector<double> initial_guess_params;
-    if (nh_p.getParam("initial_guess", initial_guess_params))
+    auto initial_guess_params_opt = rmcl::get_parameter(nh, "initial_guess");
+    if(initial_guess_params_opt)
     {
+        std::vector<double> initial_guess_params
+                = (*initial_guess_params_opt).as_double_array();
+
         if (initial_guess_params.size() == 6)
         {
             Tbm_init.t = rm::Vector{
@@ -596,24 +630,29 @@ void loadParameters(ros::NodeHandle nh_p)
         }
     }
 
-    std::string mesh_file = "/home/amock/hilti_uzh_tracking_area/reduced_mesh_09.ply";
-    nh_p.param<std::string>("mesh_file", mesh_file, "/home/amock/hilti_uzh_tracking_area/reduced_mesh_09.ply");
-
-    mesh = rm::import_embree_map(mesh_file);
+    std::string map_file;
+    auto map_file_opt = rmcl::get_parameter(nh, "map_file");
+    if(!map_file_opt)
+    {
+        std::cout << "ERROR: No mesh map found in parameter set. Please set the parameter 'map_file' before running this node!" << std::endl;
+        return false;
+    } else {
+        map_file = (*map_file_opt).as_string();
+    }
+    
+    mesh = rm::import_embree_map(map_file);
     corr = std::make_shared<rmcl::OnDnCorrectorEmbree>(mesh);
     umeyama = std::make_shared<rmcl::Correction>();
 
     // because float is not possible
-    
-
-    nh_p.param<int>("correction_mode", correction_mode, 1);
-    nh_p.param<int>("iterations", iterations, 10);
-    nh_p.param<bool>("disable_registration", disable_registration, false);
-    nh_p.param<bool>("generate_evaluation", generate_evaluation, false);
-    nh_p.param<double>("max_distance", max_distance, 0.5);
-    nh_p.param<double>("min_range", min_range, 0.3);
-    nh_p.param<double>("max_range", max_range, 80.0);
-    nh_p.param<double>("outlier_dist", outlier_dist, 5.0);
+    correction_mode = rmcl::get_parameter<int>(nh, "correction_mode", 1);
+    iterations = rmcl::get_parameter<int>(nh, "iterations", 10);
+    disable_registration = rmcl::get_parameter<bool>(nh, "disable_registration", false);
+    generate_evaluation = rmcl::get_parameter<bool>(nh, "generate_evaluation", false);
+    max_distance = rmcl::get_parameter<double>(nh, "max_distance", 0.5);
+    min_range = rmcl::get_parameter<double>(nh, "min_range", 0.3);
+    max_range = rmcl::get_parameter<double>(nh, "max_range", 80.0);
+    outlier_dist = rmcl::get_parameter<double>(nh, "outlier_dist", 5.0);
 
     corr_params.max_distance = max_distance;
     corr->setParams(corr_params);
@@ -621,10 +660,10 @@ void loadParameters(ros::NodeHandle nh_p)
     ouster_model.range.min = min_range;
     ouster_model.range.max = max_range;
 
-    nh_p.param<std::string>("map_frame", map_frame, "map");
-    nh_p.param<std::string>("odom_frame", odom_frame, "odom");
-    nh_p.param<std::string>("base_frame", base_frame, "base_link");
-    nh_p.param<std::string>("lidar_frame", lidar_frame, "os_lidar");
+    map_frame = rmcl::get_parameter<std::string>(nh, "map_frame", "map");
+    odom_frame = rmcl::get_parameter<std::string>(nh, "odom_frame", "odom");
+    base_frame = rmcl::get_parameter<std::string>(nh, "base_frame", "base_link");
+    lidar_frame = rmcl::get_parameter<std::string>(nh, "lidar_frame", "os_lidar");
 
     {
         rm::OnDnSimulatorEmbreePtr test_corr = std::make_shared<rm::OnDnSimulatorEmbree>(mesh);
@@ -694,31 +733,38 @@ void loadParameters(ros::NodeHandle nh_p)
             std::cout << "- obj_id: " << results.object_ids[i] << std::endl;
             std::cout << "- geom_id: " << results.geom_ids[i] << std::endl;
         }
-
     }
+    return true;
 }
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "micp_eval");
+    rclcpp::init(argc, argv);
 
-    ros::NodeHandle nh;
-    ros::NodeHandle nh_p("~");
+    rclcpp::NodeOptions options = rclcpp::NodeOptions()
+        .allow_undeclared_parameters(true)
+        .automatically_declare_parameters_from_overrides(true);
 
-    ROS_INFO("MICP EVALUATION SCRIPT STARTED.");
+    nh = rclcpp::Node::make_shared("micp_eval", options);
 
+    RCLCPP_INFO(nh->get_logger(), "MICP EVALUATION SCRIPT STARTED.");
 
-    loadParameters(nh_p);
+    if(!loadParameters(nh))
+    {
+        RCLCPP_ERROR(nh->get_logger(), "Could not load required parameters. Exitting.");
+        return 0;
+    }
 
     // get all necessary transformations
-    tf_buffer = std::make_shared<tf2_ros::Buffer>();
+    tf_buffer = std::make_shared<tf2_ros::Buffer>(nh->get_clock());
     tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
+    br = std::make_unique<tf2_ros::TransformBroadcaster>(nh);
 
-    pub_pose = nh.advertise<geometry_msgs::PoseStamped>("micp_pose", 1);
+    pub_pose = nh->create_publisher<geometry_msgs::msg::PoseStamped>("micp_pose", 1);
+    auto sub_pcl = nh->create_subscription<sensor_msgs::msg::PointCloud2>("ouster/points", 10, pclCB);
 
-    ros::Subscriber sub_pcl = nh.subscribe<sensor_msgs::PointCloud2>("ouster/points", 10, pclCB);
-
-    ros::spin();
+    rclcpp::spin(nh);
+    rclcpp::shutdown();
 
     tf_listener.reset();
     tf_buffer.reset();

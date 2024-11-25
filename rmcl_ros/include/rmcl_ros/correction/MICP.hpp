@@ -45,10 +45,12 @@
 #ifndef RMCL_CORRECTION_MICP_HPP
 #define RMCL_CORRECTION_MICP_HPP
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
+#include <rmcl_ros/util/ros_helper.h>
 #include <rmagine/types/sensor_models.h>
 #include <memory>
 #include <unordered_map>
+
 
 // rmcl core
 #include <rmcl/math/math.h>
@@ -79,20 +81,21 @@
 
 
 // supported sensor data
-#include <rmcl_msgs/ScanStamped.h>
-#include <rmcl_msgs/DepthStamped.h>
-#include <rmcl_msgs/O1DnStamped.h>
-#include <rmcl_msgs/OnDnStamped.h>
+#include <rmcl_msgs/msg/scan_stamped.hpp>
+#include <rmcl_msgs/msg/depth_stamped.hpp>
+#include <rmcl_msgs/msg/o1_dn_stamped.hpp>
+#include <rmcl_msgs/msg/on_dn_stamped.hpp>
 
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/PointCloud.h>
-#include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 
 
 #include <tf2_ros/transform_listener.h>
-#include <image_transport/image_transport.h>
+#include <tf2_ros/buffer.h>
+#include <image_transport/image_transport.hpp>
 
 #include "MICPRangeSensor.hpp"
 
@@ -100,19 +103,19 @@ namespace rmcl
 {
 
 /**
- * @brief MICP
+ * @brief 
  * 
  */
 class MICP
 {
 public:
-    MICP();
+    MICP(rclcpp::Node::SharedPtr node);
     ~MICP();
 
     void loadParams();
 
-    bool loadSensor(std::string sensor_name, 
-        XmlRpc::XmlRpcValue sensor_params);
+    bool loadSensor(
+        ParamTree<rclcpp::Parameter>::SharedPtr sensor_params);
 
     void loadMap(std::string filename);
     
@@ -157,7 +160,7 @@ public:
         return m_sensors;
     }
 
-    void useInThisThread()
+    inline void useInThisThread()
     {
         #ifdef RMCL_OPTIX
         // TODO hold a context ptr at MICP object
@@ -178,13 +181,13 @@ protected:
 
     void checkTopic(
         TopicInfo& info, 
-        ros::Duration timeout = ros::Duration(5.0));
+        rclcpp::Duration timeout);
 
     void initCorrectors();
 private:
     // ROS
-    NodeHandlePtr   m_nh;
-    NodeHandlePtr   m_nh_p;
+    rclcpp::Node::SharedPtr m_nh;
+    rclcpp::Node::SharedPtr m_nh_p;
     TFBufferPtr     m_tf_buffer;
     TFListenerPtr   m_tf_listener;
 
@@ -198,6 +201,8 @@ private:
     std::string m_map_filename;
 
     std::unordered_map<std::string, MICPRangeSensorPtr> m_sensors;
+    
+    
 
     #ifdef RMCL_EMBREE
     rmagine::EmbreeMapPtr m_map_embree;
@@ -206,6 +211,13 @@ private:
     #ifdef RMCL_OPTIX
     rmagine::OptixMapPtr m_map_optix;
     #endif // RMCL_OPTIX
+
+
+    // correctors: initialized once the map is available
+    CorrectionPtr m_corr_cpu;
+    #ifdef RMCL_CUDA
+    CorrectionCudaPtr m_corr_gpu;
+    #endif // RMCL_CUDA
 };
 
 using MICPPtr = std::shared_ptr<MICP>;

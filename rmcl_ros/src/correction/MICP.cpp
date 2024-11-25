@@ -1,11 +1,7 @@
 #include "rmcl_ros/correction/MICP.hpp"
-#include <ros/master.h>
-#include <vector>
-
-
-#include <geometry_msgs/TransformStamped.h>
 
 #include <rmcl_ros/util/conversions.h>
+#include <rmcl_ros/util/ros_helper.h>
 
 #include <rmcl/math/math.h>
 
@@ -15,20 +11,35 @@
 #endif // RMCL_CUDA
 
 #include <rmagine/util/StopWatch.hpp>
-#include <rmagine/math/linalg.h>
 
+#include <rclcpp/wait_for_message.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+
+#include <chrono>
+#include <vector>
+
+using namespace std::chrono_literals;
 
 namespace rm = rmagine;
 
 namespace rmcl
 {
 
-MICP::MICP()
-:m_nh(new ros::NodeHandle())
-,m_nh_p(new ros::NodeHandle("~"))
-,m_tf_buffer(new tf2_ros::Buffer)
+MICP::MICP(rclcpp::Node::SharedPtr node)
+:m_nh(node)
+,m_tf_buffer(new tf2_ros::Buffer(m_nh->get_clock()))
 ,m_tf_listener(new tf2_ros::TransformListener(*m_tf_buffer))
 {
+    std::string nh_name = m_nh->get_fully_qualified_name();
+
+    if(nh_name[0] == '/')
+    {
+        // remove leasing '/'
+        nh_name.erase(0, 1);
+    }
+
+    m_nh_p = m_nh->create_sub_node(nh_name);
+
     std::cout << "MICP initiailized" << std::endl;
 
     std::cout << std::endl;
@@ -42,8 +53,7 @@ MICP::MICP()
     std::cout << "- " << TC_BACKENDS << "GPU" << TC_END << std::endl; 
     #endif // RMCL_CUDA
 
-    std::string combining_unit_str;
-    m_nh_p->param<std::string>("micp/combining_unit", combining_unit_str, "cpu");
+    std::string combining_unit_str = get_parameter(m_nh, "micp.combining_unit", "cpu");
 
     if(combining_unit_str == "cpu")
     {
@@ -77,59 +87,51 @@ void MICP::loadParams()
 {
     std::cout << "MICP load params" << std::endl;
 
-
     // loading frames
-    m_nh_p->param<std::string>("base_frame", m_base_frame, "base_link");
-    m_nh_p->param<std::string>("map_frame", m_map_frame, "map");
+    m_base_frame = get_parameter(m_nh, "base_frame", "base_link");
+    m_map_frame = get_parameter(m_nh, "map_frame", "map");
 
-    m_use_odom_frame = m_nh_p->getParam("odom_frame", m_odom_frame);
-
+    m_odom_frame = get_parameter(m_nh, "odom_frame", "");
+    m_use_odom_frame = (m_odom_frame != "");
     // check frames
 
-
-    if(!m_nh_p->getParam("map_file", m_map_filename))
+    m_map_filename = get_parameter(m_nh, "map_file", "");
+    if(m_map_filename == "")
     {
-        ROS_ERROR("User must provide ~map_file");
+        RCLCPP_ERROR(m_nh->get_logger(), "User must provide ~map_file");
+        throw std::runtime_error("User must provide ~map_file");
     }
 
     checkTF(true);
 
     loadMap(m_map_filename);
 
-    XmlRpc::XmlRpcValue sensors_xml;
-    if(m_nh_p->getParam("sensors", sensors_xml))
+    std::map<std::string, rclcpp::Parameter> sensors_param;
+
+    if(m_nh->get_parameters("sensors", sensors_param))
     {
         std::cout << std::endl;
         std::cout << "-------------------------" << std::endl;
         std::cout << "     --- SENSORS ---     " << std::endl;
         std::cout << "-------------------------" << std::endl;
-        for(auto sensor_xml : sensors_xml)
+
+        ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree = get_parameter_tree(m_nh, "sensors");
+        for(auto elem : *sensors_param_tree)
         {
-            loadSensor(sensor_xml.first, sensor_xml.second);
+            loadSensor(elem.second);
         }
     } else {
         std::cout << "ERROR: NO SENSORS" << std::endl;
     }
 
     std::cout << "MICP load params - done. Valid Sensors: " << m_sensors.size() << std::endl;
-    
 }
 
-std::unordered_map<std::string, std::string> get_topic_type_map()
+bool MICP::loadSensor(
+    ParamTree<rclcpp::Parameter>::SharedPtr sensor_params)
 {
-    std::unordered_map<std::string, std::string> ret;
-    std::vector<ros::master::TopicInfo> topic_infos;
-    ros::master::getTopics(topic_infos);
-    for(auto topic_info : topic_infos)
-    {
-        ret[topic_info.name] = topic_info.datatype;
-    }
+    std::string sensor_name = sensor_params->name;
 
-    return ret;
-}
-
-bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params)
-{
     MICPRangeSensorPtr sensor = std::make_shared<MICPRangeSensor>();
 
     bool loading_error = false;
@@ -143,9 +145,12 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     sensor->name = sensor_name;
     sensor->base_frame = m_base_frame;
 
-    if(sensor_params.hasMember("type"))
+    if(sensor_params->find("type") != sensor_params->end())
     {
-        sensor_type = (std::string)sensor_params["type"];
+        auto param = sensor_params->at("type")->data;
+
+        // std::cout << "Searching for parameter: " << ss.str() << std::endl;
+        sensor_type = param->as_string();
         if(sensor_type == "spherical") {
             sensor->type = 0;
         } else if(sensor_type == "pinhole") {
@@ -162,40 +167,63 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         sensor_type_found = true;
     }
 
-    if(sensor_params.hasMember("frame"))
+    if(sensor_params->find("frame") != sensor_params->end())
     {
-        sensor->frame = (std::string)sensor_params["frame"];
+        auto param = sensor_params->at("frame")->data;
+        sensor->frame = param->as_string();
     }
 
     std::cout << "- " << TC_SENSOR << sensor_name << TC_END << std::endl;
 
     // load data or connect to a data topic
-    if(sensor_params.hasMember("topic"))
+    if(sensor_params->find("topic") != sensor_params->end())
     {
         std::cout << "  - data:\t\tTopic" << std::endl;
         // std::cout << "has topic" << std::endl;
-        std::string topic_name = (std::string)sensor_params["topic"];
-        if(topic_name[0] != '/')
+        std::string topic_name;
         {
-            topic_name = m_nh->getNamespace() + topic_name;
-        }
+            topic_name = sensor_params->at("topic")->data->as_string();
 
+            if(topic_name[0] != '/')
+            {
+                topic_name = m_nh->get_namespace() + topic_name;
+            }
+        }
+        
         sensor->data_topic.name = topic_name;
         std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->data_topic.name << TC_END << std::endl;
 
-        if(sensor_params.hasMember("topic_type"))
+        if(sensor_params->find("topic_type") != sensor_params->end())
         {
-            sensor->data_topic.msg = (std::string)sensor_params["topic_type"];
+            sensor->data_topic.msg = sensor_params->at("topic_type")->data->as_string();
         }
+        
 
-        std::unordered_map<std::string, std::string> topic_map
-            = get_topic_type_map();
+        std::map<std::string, std::vector<std::string> > topic_map = m_nh->get_topic_names_and_types();
+
         if(topic_map.find(sensor->data_topic.name) != topic_map.end())
         {
-            auto topic_type = topic_map[sensor->data_topic.name];
+            // found topic
+            auto topic_types = topic_map[sensor->data_topic.name];
+            
+            if(topic_types.size() > 1)
+            {
+                std::stringstream ss;
+                ss << "Cannot handle topics that have more than one type!\n";
+                ss << sensor->data_topic.name << ":\n";
+                for(auto topic_type : topic_types)
+                {
+                    ss << "-- " << topic_type << "\n";
+                }
+                throw std::runtime_error(ss.str());
+            }
+
+            std::string topic_type = topic_types[0];
 
             if(sensor->data_topic.msg != "")
             {
+                // compare actual topic type with user input
+                // if they dont match. act accordingly
                 if(sensor->data_topic.msg != topic_type)
                 {
                     // WARNING
@@ -207,6 +235,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             }
 
             sensor->data_topic.msg = topic_type;
+
         } else {
             // could not find topic. maybe its not existing yet?
             // suggestion how to handle it: (TODO implement properly)
@@ -221,14 +250,14 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
         if(sensor->data_topic.msg != "")
         {
-            if(sensor->data_topic.msg == "sensor_msgs/LaserScan" 
-                || sensor->data_topic.msg == "rmcl_msgs/ScanStamped")
+            if(sensor->data_topic.msg == "sensor_msgs/msg/LaserScan" 
+                || sensor->data_topic.msg == "rmcl_msgs/msg/ScanStamped")
             {
                 sensor_type = "spherical";
                 sensor_type_found = true;
                 sensor->type = 0;
-            } else if(sensor->data_topic.msg == "sensor_msgs/Image" 
-                || sensor->data_topic.msg == "rmcl_msgs/DepthStamped") 
+            } else if(sensor->data_topic.msg == "sensor_msgs/msg/Image" 
+                || sensor->data_topic.msg == "rmcl_msgs/msg/DepthStamped") 
             {
                 // is image always pinhole? counterexample: cylindrical image e.g. panorama
                 sensor_type = "pinhole";
@@ -238,7 +267,8 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
             std::cout << "    - msg:\t\t" << TC_MSG << sensor->data_topic.msg << TC_END << std::endl;
             // check if topic is valid
-            checkTopic(sensor->data_topic, ros::Duration(5.0));
+
+            checkTopic(sensor->data_topic, rclcpp::Duration(5s));
 
             if(sensor->data_topic.data)
             {
@@ -252,33 +282,28 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             std::cout << "    - msg:\t\t" << TC_RED << "not found" << TC_END << std::endl;
             loading_error = true;
         }
-    } else if(sensor_params.hasMember("ranges")) {
+    } else if(sensor_params->find("ranges") != sensor_params->end()) {
         // std::cout << "  - topic:\t\t" << TC_RED << "not found" << TC_END << std::endl;
         // check if there is data in the parameters instead
 
         std::cout << "  - data:\t\tParams" << std::endl;
-        // fixed ranges are in params!
-        auto ranges_xml = sensor_params["ranges"];
 
-        if(ranges_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
+        std::vector<double> ranges = sensor_params->at("ranges")->data->as_double_array();
+
+        sensor->ranges.resize(ranges.size());
+        for(size_t i=0; i<ranges.size(); i++)
         {
-            sensor->ranges.resize(ranges_xml.size());
-            for(size_t i=0; i<ranges_xml.size(); i++)
-            {
-                sensor->ranges[i] = (double)ranges_xml[i];
-            }
-            #ifdef RMCL_CUDA
-            sensor->ranges_gpu = sensor->ranges;
-            #endif // RMCL_CUDA
-            sensor->data_received_once = true;
-        } else {
-            std::cout << "error: 'data/ranges' param is not an array" << std::endl;
+            sensor->ranges[i] = ranges[i];
         }
+        #ifdef RMCL_CUDA
+        sensor->ranges_gpu = sensor->ranges;
+        #endif // RMCL_CUDA
+        sensor->data_received_once = true;
+
     } else {
         std::cout << "Where is the data?" << std::endl;
         loading_error = true;
     }
-
 
     // std::cout << "LOADING MODEL" << std::endl;
 
@@ -288,42 +313,42 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     // 3. Data: model parameters are included in the data
 
     bool model_loaded = false;
-    if(sensor_params.hasMember("model")) /// PARAMS
+    if(sensor_params->find("model") != sensor_params->end()) /// PARAMS
     {
-        std::cout << "  - model:\t\tParams" << std::endl;
+        std::cout << "  - model source:\t\tParams" << std::endl;
 
-        auto model_xml = sensor_params["model"];
+        auto model_params = sensor_params->at("model");
 
         if(sensor_type == "spherical") {
             rm::SphericalModel model;
 
             // fill
-            model.theta.min = (double)model_xml["theta_min"];
-            model.theta.inc = (double)model_xml["theta_inc"];
-            model.theta.size = (int)model_xml["theta_N"];
+            model.theta.min = model_params->at("theta_min")->data->as_double();
+            model.theta.inc = model_params->at("theta_inc")->data->as_double();
+            model.theta.size = model_params->at("theta_n")->data->as_int();
 
-            model.phi.min = (double)model_xml["phi_min"];
-            model.phi.inc = (double)model_xml["phi_inc"];
-            model.phi.size = (int)model_xml["phi_N"];
+            model.phi.min = model_params->at("phi_min")->data->as_double();;
+            model.phi.inc = model_params->at("phi_inc")->data->as_double();;
+            model.phi.size = model_params->at("phi_n")->data->as_int();;
 
-            model.range.min = (double)model_xml["range_min"];
-            model.range.max = (double)model_xml["range_max"];
+            model.range.min = model_params->at("range_min")->data->as_double();
+            model.range.max = model_params->at("range_max")->data->as_double();
 
             sensor->model = model;
             model_loaded = true;
         } else if(sensor_type == "pinhole") {
             rm::PinholeModel model;
 
-            model.width = (int)model_xml["width"];
-            model.height = (int)model_xml["height"];
+            model.width  = model_params->at("width")->data->as_int();
+            model.height = model_params->at("height")->data->as_int();
 
-            model.f[0] = (double)(model_xml["f"][0]);
-            model.f[1] = (double)(model_xml["f"][1]);
-            model.c[0] = (double)(model_xml["c"][0]);
-            model.c[1] = (double)(model_xml["c"][1]);
+            model.f[0] = model_params->at("f")->data->as_double_array()[0];
+            model.f[1] = model_params->at("f")->data->as_double_array()[1];
+            model.c[0] = model_params->at("c")->data->as_double_array()[0];
+            model.c[1] = model_params->at("c")->data->as_double_array()[1];
 
-            model.range.min = (double)model_xml["range_min"];
-            model.range.max = (double)model_xml["range_max"];
+            model.range.min = model_params->at("range_min")->data->as_double();
+            model.range.max = model_params->at("range_max")->data->as_double();
 
             sensor->model = model;
             model_loaded = true;
@@ -331,73 +356,57 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             rm::O1DnModel model;
             bool model_loading_error = false;
 
-            // could also be loaded by data using rmcl_msgs
-            model.range.min = (double)model_xml["range_min"];
-            model.range.max = (double)model_xml["range_max"];
+            model.range.min = model_params->at("range_min")->data->as_double();
+            model.range.max = model_params->at("range_max")->data->as_double();
 
-            model.orig = {0.0, 0.0, 0.0};
-            if(model_xml.hasMember("orig"))
+            if(model_params->exists("width"))
             {
-                auto orig_xml = model_xml["orig"];
-                if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
-                {
-                    model.orig.x = (double)orig_xml[0];
-                    model.orig.y = (double)orig_xml[1];
-                    model.orig.z = (double)orig_xml[2];
-                } else {
-                    std::cout << "reading o1dn model error: orig muste be a list of three numbers (x,y,z)" << std::endl;
-                    model_loading_error = true;
-                }
-            }
-
-            if(model_xml.hasMember("width"))
-            {
-                model.width = (int)model_xml["width"];
+                // model.widt
+                model.width = model_params->at("width")->data->as_double();
             } else {
                 // loading actual width from sensor data
                 model.width = 0;
             }
 
-            if(model_xml.hasMember("height"))
+            if(model_params->exists("height"))
             {
-                model.width = (int)model_xml["height"];
+                // model.widt
+                model.height = model_params->at("height")->data->as_double();
             } else {
                 // loading actual height from sensor data
-                model.width = 0;
+                model.height = 0;
             }
-            
-            if(model_xml.hasMember("dirs"))
+
+            std::vector<double> orig = {0.0, 0.0, 0.0};
+            if(model_params->exists("orig"))
             {
-                auto dirs_xml = model_xml["dirs"];
-                if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
-                {   
-                    model.dirs.resize(dirs_xml.size());
-                    for(size_t i=0; i<dirs_xml.size(); i++)
-                    {
-                        auto dir_xml = dirs_xml[i];
-                        if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
-                            && dir_xml.size() == 3) 
-                        {
-                            rm::Vector dir;
-                            dir.x = (double)dir_xml[0];
-                            dir.y = (double)dir_xml[1];
-                            dir.z = (double)dir_xml[2];
-                            model.dirs[i] = dir;
-                        } else {
-                            // better error message
-                            std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
-                        }
-                    }
-                } 
-                else 
+              orig = model_params->at("orig")->data->as_double_array();
+            }
+             
+            if(orig.size() != 3)
+            {
+                // error
+                std::cout << "ERROR: origin point is not 3D" << std::endl;
+            }
+
+            model.orig.x = orig[0];
+            model.orig.y = orig[1];
+            model.orig.z = orig[2];
+
+            if(model_params->exists("dirs"))
+            {
+                std::vector<double> dirs = model_params->at("dirs")->data->as_double_array();
+                model.dirs.resize(dirs.size() / 3);
+                for(size_t i=0; i<dirs.size() / 3; i++)
                 {
-                    model_loading_error = true;
-                    std::cout << "o1dn model - dirs: is no array" << std::endl;
+                    model.dirs[i].x = dirs[i * 3 + 0];
+                    model.dirs[i].y = dirs[i * 3 + 1];
+                    model.dirs[i].z = dirs[i * 3 + 2];
                 }
             } else {
                 model.dirs.resize(0);
             }
-            
+
             sensor->model = model;
             model_loaded = !model_loading_error;
         } else if(sensor_type == "ondn") {
@@ -405,88 +414,55 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
             bool model_loading_error = false;
 
-            model.range.min = (double)model_xml["range_min"];
-            model.range.max = (double)model_xml["range_max"];
-            
-            if(model_xml.hasMember("origs"))
-            {
-                auto origs_xml = model_xml["origs"];
-                if(origs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
-                {
-                    model.origs.resize(origs_xml.size());
+            model.range.min = model_params->at("range_min")->data->as_double();
+            model.range.max = model_params->at("range_max")->data->as_double();
 
-                    for(size_t i=0; i<origs_xml.size(); i++)
-                    {
-                        auto orig_xml = origs_xml[i];
-                        if(orig_xml.getType() == XmlRpc::XmlRpcValue::TypeArray
-                            && orig_xml.size() == 3) 
-                        {
-                            rm::Vector orig;
-                            orig.x = (double)orig_xml[0];
-                            orig.y = (double)orig_xml[1];
-                            orig.z = (double)orig_xml[2];
-                            model.origs[i] = orig;
-                        } else {
-                            // better error message
-                            std::cout << "ERROR: malformed vector in parameters (origs, " << i << ")" << std::endl;
-                        }
-                    }
-                } else {
-                    model_loading_error = true;
-                    std::cout << "ondn model - origs: is no array" << std::endl;
-                }
-            } else {
-                model.origs.resize(0);
-            }
-
-            if(model_xml.hasMember("dirs"))
+            if(model_params->exists("width"))
             {
-                auto dirs_xml = model_xml["dirs"];
-                if(dirs_xml.getType() == XmlRpc::XmlRpcValue::TypeArray)
-                {   
-                    model.dirs.resize(dirs_xml.size());
-                    for(size_t i=0; i<dirs_xml.size(); i++)
-                    {
-                        auto dir_xml = dirs_xml[i];
-                        if(dir_xml.getType() == XmlRpc::XmlRpcValue::TypeArray 
-                            && dir_xml.size() == 3)
-                        {
-                            rm::Vector dir;
-                            dir.x = (double)dir_xml[0];
-                            dir.y = (double)dir_xml[1];
-                            dir.z = (double)dir_xml[2];
-                            model.dirs[i] = dir;
-                        } else {
-                            // better error message
-                            std::cout << "ERROR: malformed vector in parameters (dirs, " << i << ")" << std::endl;
-                        }
-                    }
-                } 
-                else 
-                {
-                    model_loading_error = true;
-                    std::cout << "ondn model - dirs: is no array" << std::endl;
-                }
-            } else {
-                model.dirs.resize(0);
-            }
-
-            if(model_xml.hasMember("width"))
-            {
-                model.width = (int)model_xml["width"];
+                // model.widt
+                model.width = model_params->at("width")->data->as_double();
             } else {
                 // loading actual width from sensor data
                 model.width = 0;
             }
 
-            if(model_xml.hasMember("height"))
+            if(model_params->exists("height"))
             {
-                model.width = (int)model_xml["height"];
+                // model.widt
+                model.height = model_params->at("height")->data->as_double();
             } else {
                 // loading actual height from sensor data
-                model.width = 0;
+                model.height = 0;
             }
 
+            if(model_params->exists("origs"))
+            {
+                std::vector<double> origs = model_params->at("origs")->data->as_double_array();
+                model.origs.resize(origs.size() / 3);
+                for(size_t i=0; i<origs.size() / 3; i++)
+                {
+                    model.origs[i].x = origs[i * 3 + 0];
+                    model.origs[i].y = origs[i * 3 + 1];
+                    model.origs[i].z = origs[i * 3 + 2];
+                }
+            } else {
+                model.origs.resize(0);
+            }
+
+            if(model_params->exists("dirs"))
+            {
+                std::vector<double> dirs = model_params->at("dirs")->data->as_double_array();
+                model.dirs.resize(dirs.size() / 3);
+                for(size_t i=0; i<dirs.size() / 3; i++)
+                {
+                    model.dirs[i].x = dirs[i * 3 + 0];
+                    model.dirs[i].y = dirs[i * 3 + 1];
+                    model.dirs[i].z = dirs[i * 3 + 2];
+                }
+            } else {
+                model.dirs.resize(0);
+            }
+           
             sensor->model = model;
             model_loaded = !model_loading_error;
         } else {
@@ -495,31 +471,46 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             loading_error = true;
         }
 
-    } else if(sensor_params.hasMember("model_topic")) { /// TOPIC
+    } else if(sensor_params->find("model_topic") != sensor_params->end()) { /// TOPIC
 
-        std::cout << "  - model:\t\tTopic" << std::endl;
+        std::cout << "  - model source:\t\tTopic" << std::endl;
 
         sensor->has_info_topic = true;
 
-        std::string info_topic_name = sensor_params["model_topic"];
+        std::string info_topic_name = sensor_params->at("model_topic")->data->as_string();
         if(info_topic_name[0] != '/')
         {
-            info_topic_name = m_nh->getNamespace() + info_topic_name;
+            info_topic_name = m_nh->get_namespace() + info_topic_name;
         }
         sensor->info_topic.name = info_topic_name;
 
         std::cout << "    - topic:\t\t" << TC_TOPIC << sensor->info_topic.name  << TC_END << std::endl;
 
-        if(sensor_params.hasMember("topic_type"))
+        if(sensor_params->find("model_topic_type") != sensor_params->end())
         {
-            sensor->data_topic.msg = (std::string)sensor_params["topic_type"];
+            sensor->info_topic.msg = sensor_params->at("model_topic_type")->data->as_string();
         }
 
-        std::unordered_map<std::string, std::string> topic_map
-            = get_topic_type_map();
+        std::map<std::string, std::vector<std::string> > topic_map = m_nh->get_topic_names_and_types();
+        
         if(topic_map.find(sensor->info_topic.name) != topic_map.end())
         {
-            std::string topic_type = topic_map[sensor->info_topic.name];
+            auto topic_types = topic_map[sensor->info_topic.name];
+            
+            if(topic_types.size() > 1)
+            {
+                std::stringstream ss;
+                ss << "Cannot handle topics that have more than one type!\n";
+                ss << sensor->info_topic.name << ":\n";
+                for(auto topic_type : topic_types)
+                {
+                    ss << "-- " << topic_type << "\n";
+                }
+                throw std::runtime_error(ss.str());
+            }
+
+            std::string topic_type = topic_types[0];
+
             if(sensor->info_topic.msg != "")
             {
                 // compare actual topic type with user input
@@ -547,7 +538,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
         if(!sensor_type_found)
         {
-            if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
+            if(sensor->info_topic.msg == "sensor_msgs/msg/CameraInfo")
             {
                 sensor_type = "pinhole";
                 sensor_type_found = true;
@@ -563,14 +554,13 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
         if(sensor_type == "spherical")
         {
-            if(sensor->info_topic.msg == "rmcl_msgs/ScanInfo")
+            if(sensor->info_topic.msg == "rmcl_msgs/msg/ScanInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
-                {   
+                rmcl_msgs::msg::ScanInfo msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
+                {
                     rm::SphericalModel model;
-                    convert(*msg, model);
+                    convert(msg, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
@@ -579,21 +569,19 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             }
         } else if(sensor_type == "pinhole") {
             
-            if(sensor->info_topic.msg == "sensor_msgs/CameraInfo")
+            if(sensor->info_topic.msg == "sensor_msgs/msg/CameraInfo")
             {
                 // std::cout << "Waiting for message on topic: " << sensor->info_topic.name << std::endl;
-                auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
-            
-                if(msg)
+                sensor_msgs::msg::CameraInfo msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
                 {
-                    if(msg->header.frame_id != sensor->frame)
+                    if(msg.header.frame_id != sensor->frame)
                     {
                         std::cout << "WARNING: Image and CameraInfo are not in the same frame" << std::endl;
                     }
                     
                     rm::PinholeModel model;
-                    convert(*msg, model);
-                    
+                    convert(msg, model);
 
                     // manually setting range limits
                     // TODO: change this
@@ -607,14 +595,13 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
                 }
             }
 
-            if(sensor->info_topic.msg == "rmcl_msgs/DepthInfo")
+            if(sensor->info_topic.msg == "rmcl_msgs/msg/DepthInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
-                {   
+                rmcl_msgs::msg::DepthInfo msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
+                {
                     rm::PinholeModel model;
-                    convert(*msg, model);
+                    convert(msg, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
@@ -625,14 +612,13 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
         } else if(sensor_type == "o1dn") {
             
-            if(sensor->info_topic.msg == "rmcl_msgs/O1DnInfo")
+            if(sensor->info_topic.msg == "rmcl_msgs/msg/O1DnInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
-                {   
+                rmcl_msgs::msg::O1DnInfo msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
+                {
                     rm::O1DnModel model;
-                    convert(*msg, model);
+                    convert(msg, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
@@ -641,14 +627,13 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             }
 
         } else if(sensor_type == "ondn") {
-            if(sensor->info_topic.msg == "rmcl_msgs/OnDnInfo")
+            if(sensor->info_topic.msg == "rmcl_msgs/msg/OnDnInfo")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnInfo>(sensor->info_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
-                {   
+                rmcl_msgs::msg::OnDnInfo msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
+                {
                     rm::OnDnModel model;
-                    convert(*msg, model);
+                    convert(msg, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
@@ -658,87 +643,81 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
         }
 
     } else { /// DATA
-        std::cout << "  - model:\t\tData" << std::endl;
+        std::cout << "  - model source:\t\tData" << std::endl;
 
         if(sensor_type == "spherical")
         {
-            if(!model_loaded && sensor->data_topic.msg == "sensor_msgs/LaserScan")
+            if(!model_loaded && sensor->data_topic.msg == "sensor_msgs/msg/LaserScan")
             {
-                auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
+                sensor_msgs::msg::LaserScan msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
                 {
                     rm::SphericalModel model;
-                    convert(*msg, model);
+                    convert(msg, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
-                    std::cout << "error: get sensor_msgs/LaserScan to init model" << std::endl;
+                    std::cout << "error: get sensor_msgs/msg/LaserScan to init model" << std::endl;
                 }
             }
             
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/ScanStamped")
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/ScanStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
+                rmcl_msgs::msg::ScanStamped msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
                 {
                     rm::SphericalModel model;
-                    convert(msg->scan.info, model);
+                    convert(msg.scan.info, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
-                    std::cout << "error: get rmcl_msgs/ScanStamped to init model" << std::endl;
+                    std::cout << "error: get rmcl_msgs/msg/ScanStamped to init model" << std::endl;
                 }
             }
         } else if(sensor_type == "pinhole") {
 
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/DepthStamped")
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/DepthStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
+                rmcl_msgs::msg::DepthStamped msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
                 {
                     rm::PinholeModel model;
-                    convert(msg->depth.info, model);
+                    convert(msg.depth.info, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
-                    std::cout << "error: get rmcl_msgs/DepthStamped to init model" << std::endl;
+                    std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
                 }
             }
 
         } else if(sensor_type == "o1dn") {
 
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/O1DnStamped")
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/O1DnStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
+                rmcl_msgs::msg::O1DnStamped msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
                 {
                     rm::O1DnModel model;
-                    convert(msg->o1dn.info, model);
+                    convert(msg.o1dn.info, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
-                    std::cout << "error: get rmcl_msgs/DepthStamped to init model" << std::endl;
+                    std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
                 }
             }
-
         } else if(sensor_type == "ondn") {
 
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/OnDnStamped")
+            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/OnDnStamped")
             {
-                auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnStamped>(sensor->data_topic.name, *m_nh, ros::Duration(3.0));
-
-                if(msg)
+                rmcl_msgs::msg::OnDnStamped msg;
+                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
                 {
                     rm::OnDnModel model;
-                    convert(msg->ondn.info, model);
+                    convert(msg.ondn.info, model);
                     sensor->model = model;
                     model_loaded = true;
                 } else {
-                    std::cout << "error: get rmcl_msgs/DepthStamped to init model" << std::endl;
+                    std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
                 }
             }
         }
@@ -758,14 +737,14 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     }
 
     // MICP params
-    if(sensor_params.hasMember("micp"))
+    if(sensor_params->find("micp") != sensor_params->end())
     {
         std::cout << "  - micp:" << std::endl;
-        auto micp_xml = sensor_params["micp"];
+        auto micp_params = sensor_params->at("micp");
 
-        if(micp_xml.hasMember("backend"))
+        if(micp_params->find("backend") != micp_params->end())
         {
-            std::string backend_name = micp_xml["backend"];
+            std::string backend_name = micp_params->at("backend")->data->as_string();
             if(backend_name == "embree")
             {
                 sensor->backend = 0;
@@ -787,47 +766,21 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
             #endif // RMCL_OPTIX
         }
 
-        if(micp_xml.hasMember("max_dist"))
+        if(micp_params->find("max_dist") != micp_params->end())
         {
-            auto max_dist_xml = micp_xml["max_dist"];
-            if(max_dist_xml.getType() == XmlRpc::XmlRpcValue::TypeDouble) {
-                sensor->corr_params_init.max_distance = (double)max_dist_xml;
-            } else if(max_dist_xml.getType() == XmlRpc::XmlRpcValue::TypeInt) {
-                sensor->corr_params_init.max_distance = (int)max_dist_xml;
-            } else {
-                // ERROR
-                std::cout << "Could not load 'micp/max_dist'" << std::endl;
-            }
+            sensor->corr_params_init.max_distance = micp_params->at("max_dist")->data->as_double();
         }
         sensor->corr_params = sensor->corr_params_init;
 
 
-        if(micp_xml.hasMember("adaptive_max_dist_min"))
+        if(micp_params->find("adaptive_max_dist_min") != micp_params->end())
         {
-            auto ada_max_dist_min_xml = micp_xml["adaptive_max_dist_min"];
-            if(ada_max_dist_min_xml.getType() == XmlRpc::XmlRpcValue::TypeDouble) {
-                sensor->adaptive_max_dist_min = (double)ada_max_dist_min_xml;
-            } else 
-            if(ada_max_dist_min_xml.getType() == XmlRpc::XmlRpcValue::TypeInt) {
-                sensor->adaptive_max_dist_min = (int)ada_max_dist_min_xml;
-            } else {
-                // ERROR
-                std::cout << "Could not load 'micp/adaptive_max_dist_min'" << std::endl;
-            }
+            sensor->adaptive_max_dist_min = micp_params->at("adaptive_max_dist_min")->data->as_double();
         }
 
-        if(micp_xml.hasMember("weight"))
+        if(micp_params->find("weight") != micp_params->end())
         {
-            auto weight_xml = micp_xml["weight"];
-
-            if(weight_xml.getType() == XmlRpc::XmlRpcValue::TypeDouble) {
-                sensor->corr_weight = (double)micp_xml["weight"];
-            } else if(weight_xml.getType() == XmlRpc::XmlRpcValue::TypeInt) {
-                sensor->corr_weight = (int)micp_xml["weight"];
-            } else {
-                // ERROR
-                std::cout << "Could not load 'micp/weight'" << std::endl;
-            }
+            sensor->corr_weight = micp_params->at("weight")->data->as_double();
         } else {
             sensor->corr_weight = 1.0;
         }
@@ -870,7 +823,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
     // connect sensor to ROS
     sensor->nh = m_nh;
     sensor->nh_p = m_nh_p;
-    sensor->tf_buffer = m_tf_buffer; 
+    sensor->tf_buffer = m_tf_buffer;
 
     // load additional params: duplicated from above
     sensor->fetchMICPParams();
@@ -910,7 +863,7 @@ bool MICP::loadSensor(std::string sensor_name, XmlRpc::XmlRpcValue sensor_params
 
     // add sensor to class
     m_sensors[sensor->name] = sensor;
-    
+
     return true;
 }
 
@@ -919,11 +872,18 @@ void MICP::loadMap(std::string filename)
     #ifdef RMCL_EMBREE
     m_map_embree = rm::import_embree_map(filename);
     setMap(m_map_embree);
+    #else 
+    m_corr_cpu = std::make_shared<Correction>();
     #endif // RMCL_EMBREE
 
     #ifdef RMCL_OPTIX
     m_map_optix = rm::import_optix_map(filename);
     setMap(m_map_optix);
+    #else
+    #ifdef RMCL_CUDA
+    // initialize cuda correction without optix
+    m_corr_gpu = std::make_shared<CorrectionCuda>(); 
+    #endif // RMCL_CUDA
     #endif // RMCL_OPTIX
 }
 
@@ -931,6 +891,7 @@ void MICP::loadMap(std::string filename)
 void MICP::setMap(rmagine::EmbreeMapPtr map)
 {
     m_map_embree = map;
+    m_corr_cpu = std::make_shared<Correction>();
 
     // update sensors
     for(auto elem : m_sensors)
@@ -944,6 +905,7 @@ void MICP::setMap(rmagine::EmbreeMapPtr map)
 void MICP::setMap(rmagine::OptixMapPtr map)
 {
     m_map_optix = map;
+    m_corr_gpu = std::make_shared<CorrectionCuda>(m_map_optix->scene()->stream());
     
     // update sensors
     for(auto elem : m_sensors)
@@ -1054,7 +1016,7 @@ void MICP::correct(
             weights,
             pre_res);
 
-        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
+        m_corr_gpu->correction_from_covs(pre_res, dT);
     } else {
         std::cout << "0 sensors" << std::endl;
         // set identity
@@ -1167,7 +1129,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
+        m_corr_cpu->correction_from_covs(pre_res, dT);
 
         // std::cout << "don" << std::endl;
         // el = sw();
@@ -1295,7 +1257,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
+        m_corr_gpu->correction_from_covs(pre_res, dT);
         // el = sw();
         // el_total += el;
 
@@ -1431,7 +1393,7 @@ void MICP::correct(
         // std::cout << "- weighted average: " << el * 1000.0 << " ms" << std::endl;
 
         // sw();
-        rm::umeyama_transform(dT, pre_res.ds, pre_res.ms, pre_res.Cs, pre_res.Ncorr);
+        m_corr_cpu->correction_from_covs(pre_res, dT);
         // el = sw();
         // el_total += el;
 
@@ -1463,19 +1425,23 @@ bool MICP::checkTF(bool prints)
         bool odom_to_base_available = false;
         
         int num_tries = 10;
-        ros::Rate r(20);
 
-        while(ros::ok() && num_tries > 0 && !odom_to_base_available )
+        rclcpp::ExecutorOptions opts;
+        rclcpp::executors::SingleThreadedExecutor executor(opts);
+        executor.add_node(m_nh);
+        rclcpp::Rate r(20);
+
+        while(rclcpp::ok() && num_tries > 0 && !odom_to_base_available )
         {
             try {
-                auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, ros::Time(0));
+                auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, tf2::TimePointZero);
                 odom_to_base_available = true;
             } catch (tf2::TransformException &ex) {
                 odom_to_base_available = false;
             }
 
             r.sleep();
-            ros::spinOnce();
+            executor.spin_once();
             num_tries--;
         }
 
@@ -1505,100 +1471,80 @@ bool MICP::checkTF(bool prints)
 
 void MICP::checkTopic(
     TopicInfo& info, 
-    ros::Duration timeout)
+    rclcpp::Duration timeout)
 {
     info.data = false;
     info.frame = "";
 
-    ros::Time curr = ros::Time::now();
+    using ChronoDuration = std::chrono::duration<int64_t, std::milli>;
 
-    // returns zero on startup
-    while(curr == ros::Time(0))
+    if(info.msg == "sensor_msgs/msg/PointCloud2")
     {
-        ros::Duration(0.01).sleep();
-        ros::spinOnce();
-        curr = ros::Time::now();
-    }
-
-    ros::Time end = curr + timeout;
-    // std::cout << curr.toSec() << " -> " << end.toSec() << std::endl;
-
-    ros::Duration timeout_inner(0.2);
-
-    while(ros::ok() && curr < end && !info.data)
-    {
-        if(info.msg == "sensor_msgs/PointCloud2")
+        sensor_msgs::msg::PointCloud2 msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
         {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/PointCloud") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::PointCloud>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/LaserScan") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/Image") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::Image>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "sensor_msgs/CameraInfo") {
-            auto msg = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "rmcl_msgs/ScanStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::ScanStamped>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "rmcl_msgs/DepthStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::DepthStamped>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "rmcl_msgs/O1DnStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::O1DnStamped>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else if(info.msg == "rmcl_msgs/OnDnStamped") {
-            auto msg = ros::topic::waitForMessage<rmcl_msgs::OnDnStamped>(info.name, *m_nh, timeout_inner);
-            if(msg)
-            {
-                info.data = true;
-                info.frame = msg->header.frame_id;
-            }
-        } else {
-            // unknown type
-            return;
+            info.data = true;
+            info.frame = msg.header.frame_id;
         }
-
-        ros::spinOnce();
-        timeout_inner.sleep();
-        curr = ros::Time::now();
+    } else if(info.msg == "sensor_msgs/msg/PointCloud") {
+        sensor_msgs::msg::PointCloud msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else if(info.msg == "sensor_msgs/msg/LaserScan") {
+        sensor_msgs::msg::LaserScan msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else if(info.msg == "sensor_msgs/msg/Image") {
+        sensor_msgs::msg::Image msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else if(info.msg == "sensor_msgs/msg/CameraInfo") {
+        sensor_msgs::msg::CameraInfo msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else if(info.msg == "rmcl_msgs/msg/ScanStamped") {
+        rmcl_msgs::msg::ScanStamped msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else if(info.msg == "rmcl_msgs/msg/DepthStamped") {
+        rmcl_msgs::msg::DepthStamped msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else if(info.msg == "rmcl_msgs/msg/O1DnStamped") {
+        rmcl_msgs::msg::O1DnStamped msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else if(info.msg == "rmcl_msgs/msg/OnDnStamped") {
+        rmcl_msgs::msg::OnDnStamped msg;
+        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
+        {
+            info.data = true;
+            info.frame = msg.header.frame_id;
+        }
+    } else {
+        // unknown type
+        return;
     }
 }
 

@@ -136,11 +136,6 @@ int main(int argc, char** argv)
 
     std::cout << "- runtime: " << std::endl;
     std::cout << Nfaces << "," << Nposes << "," << el_total/static_cast<double>(Nruns) << std::endl;
-
-
-
-    
-
     
     // TIMINGS 0
 
@@ -212,12 +207,6 @@ int main(int argc, char** argv)
     // - Total: 2.9596
     // - Relative: 
     // 0.954815,0.0450229,0.000162119
-
-
-
-
-
-
 
     return 0;
 }
