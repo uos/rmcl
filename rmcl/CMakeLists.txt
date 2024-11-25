@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(rmcl
     LANGUAGES CXX C
-	VERSION 1.2.0
+	VERSION 2.1.0
 	)
 
 

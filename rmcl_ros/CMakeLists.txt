@@ -60,7 +60,7 @@ find_package(rmagine 2.2.8
         optix
 )
 
-find_package(rmcl 1.2 REQUIRED)
+find_package(rmcl 2.1 REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
 # TODO: we can do this better. maybe but definitions to each target?

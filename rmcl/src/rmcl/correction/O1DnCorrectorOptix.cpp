@@ -73,11 +73,8 @@ CorrectionResults<rm::VRAM_CUDA> O1DnCorrectorOptix::correct(
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ds(Tbms.size());
     rm::Memory<rm::Vector, rm::VRAM_CUDA> ms(Tbms.size());
     rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Cs(Tbms.size());
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Us(Cs.size());
-    rm::Memory<rm::Matrix3x3, rm::VRAM_CUDA> Vs(Cs.size());
     
     computeCovs(Tbms, ds, ms, Cs, res.Ncorr);
-
     rm::umeyama_transform(res.Tdelta, ds, ms, Cs, res.Ncorr);
 
     return res;
