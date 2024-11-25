@@ -4,7 +4,7 @@
 </div>
 
 
-<!-- ![RMCL](dat/rmcl_logo_landscape_small.png) -->
+<!-- ![RMCL](.resources/rmcl_logo_landscape_small.png) -->
 <div align="center">
 <h4 align="center">Software Tools for Mobile Robot Localization in 3D Meshes</h4>
 </div>
@@ -291,7 +291,7 @@ Dependencies:
 
 Clone this repository into your ROS workspace and build it.
 
-```
+```bash
 $ colcon build
 ```
 
@@ -308,7 +308,7 @@ To learn how to use RMCL library in your Node: `src/nodes/examples`.
 
 To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented on [ROSCon 2023](https://vimeo.com/879000775):
 
-<a href="https://vimeo.com/879000775" target="_blank" ><img src="dat/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
+<a href="https://vimeo.com/879000775" target="_blank" ><img src=".resources/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
 
 ## Roadmap
 
