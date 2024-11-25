@@ -885,12 +885,6 @@ void O1DnCorrectorEmbree::findRCC(
     rmagine::MemoryView<unsigned int> model_geom_ids,
     rm::MemoryView<unsigned int>      corr_valid) const
 {
-    const float max_distance = m_params.max_distance;
-
-    auto scene = m_map->scene->handle();
-
-    const rm::Transform Tsb = m_Tsb[0];
-
     #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
