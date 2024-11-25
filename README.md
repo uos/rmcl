@@ -72,7 +72,7 @@ The following Launch-File
 ```xml
 <launch>
 
-<node pkg="rmcl" exec="micp_localization" name="micp_localization" output="screen">
+<node pkg="rmcl_ros" exec="micp_localization" name="micp_localization" output="screen">
     <param name="map_file" value="/path/to/mesh/map.dae" />
     <param from="/path/to/config/file.yaml" />
     <remap from="pose_wc" to="/initialpose" />
@@ -150,7 +150,7 @@ Here the 3D LiDAR is a Velodyne VLP-16 with 16 scan lines.
 The horizontal number of points is reduced to 440 and might be adjusted for your own Velodyne.
 
 <details>
-<summary>File: `config/examples/micp_velodyne_cpu.yaml` </summary>
+<summary>File: `rmcl_ros/config/examples/micp_velodyne_cpu.yaml` </summary>
 
 ```yaml
 # required
@@ -220,7 +220,7 @@ The robot has four wheels of which the highest points are located relative to `b
 By setting a virtual scanner to the wheel positions scanning downwards with a constant scanning range equal to the wheel diameter it is possible to pull the robot to the mesh.
 
 <details>
-<summary>File: `config/examples/micp_sick_gpu.yaml`</summary>
+<summary>File: `rmcl_ros/config/examples/micp_sick_gpu.yaml`</summary>
 
 ```yaml
 # required
@@ -284,13 +284,20 @@ sensors: # list of range sensors - at least one is required
 ## Installation
 
 Dependencies:
-- Download and install [Rmagine](https://github.com/uos/rmagine) (v > 2.2.0): Compile from source (not debian packages).
+- Download and install [Rmagine](https://github.com/uos/rmagine) (v >= 2.2.9): Compile from source (not debian packages).
   - Recommended: Install OptiX backend if NVIDIA GPU is available
-  - For rmagine version >= 2.2.2 it is possible to put rmagine into your ROS workspace for easier compilation
+  - For rmagine version >= 2.2.9 it is possible to put rmagine into your ROS workspace for easier compilation
 - ROS2 (check compatible branches)
-- Clone [rmcl_msgs](https://github.com/uos/rmcl_msgs) to your workspace
 
 Clone this repository into your ROS workspace and build it.
+
+```
+$ colcon build
+```
+
+Optional, but recommended: RMCL itself doesn't provide any tools to visualize the triangle mesh maps.
+If you want to see the map in RViz, use for example the `rviz_mesh_tools_plugins` of the [mesh_tools](https://github.com/naturerobots/mesh_tools).
+
 
 ## Examples
 
@@ -313,6 +320,16 @@ The planned Roadmap is as follows:
 - [ ] RMCL (Global Localization)
 
 ## News
+
+### 2024-11-25: ROS1 and ROS2 refactoring
+
+We had to do minor structural changes to the repository in order to better integrate new features into RMCL. This repository is now devided into
+- "rmcl" which is a ROS-agnostic library that can be compiled and installed as regular CMake project,
+- "rmcl_ros" which contains all the nodes,
+- "rmcl_msgs" which are the message moved from to this repository. The original msgs repository is not required anymore.
+
+Using the latest rmcl version might break your launch files as the nodes are now located in "rmcl_ros" package. However, it's rather simple to fix that.
+The new versions of RMCL are v2.1.0 for ROS 2 and v1.3.0 for ROS 1.
 
 ### 2024-02-11: ROS2 release - v2.0.0
 
