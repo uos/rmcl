@@ -158,4 +158,4 @@ using O1DnCorrectorOptixPtr = std::shared_ptr<O1DnCorrectorOptix>;
 
 } // namespace rmcl
 
-#endif // RMCL_ONDN_CORRECTOR_OPTIX_HPP
+#endif // RMCL_O1DN_CORRECTOR_OPTIX_HPP

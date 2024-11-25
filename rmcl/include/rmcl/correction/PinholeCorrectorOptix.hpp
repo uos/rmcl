@@ -38,8 +38,8 @@
  * 
  */
 
-#ifndef RMCL_Pinhole_CORRECTOR_OPTIX_HPP
-#define RMCL_Pinhole_CORRECTOR_OPTIX_HPP
+#ifndef RMCL_PINHOLE_CORRECTOR_OPTIX_HPP
+#define RMCL_PINHOLE_CORRECTOR_OPTIX_HPP
 
 #include <rmagine/map/OptixMap.hpp>
 #include <rmagine/types/sensor_models.h>
@@ -154,4 +154,4 @@ using PinholeCorrectorOptixPtr = std::shared_ptr<PinholeCorrectorOptix>;
 
 } // namespace rmcl
 
-#endif // RMCL_Pinhole_CORRECTOR_OPTIX_HPP
+#endif // RMCL_PINHOLE_CORRECTOR_OPTIX_HPP

@@ -37,7 +37,7 @@ void PinholeCorrectorEmbree::setOptical(bool optical)
 }
 
 CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms) const
 {
     CorrectionResults<RAM> res;
     res.Tdelta.resize(Tbms.size());
@@ -195,13 +195,12 @@ CorrectionResults<rmagine::RAM> PinholeCorrectorEmbree::correct(
     return res;
 }
 
-
 void PinholeCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ds,
     rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& ms,
     rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
-    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr)
+    rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr) const
 {
     const float max_distance = m_params.max_distance;
 
@@ -353,13 +352,13 @@ void PinholeCorrectorEmbree::computeCovs(
 
 void PinholeCorrectorEmbree::computeCovs(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-    CorrectionPreResults<rmagine::RAM>& res)
+    CorrectionPreResults<rmagine::RAM>& res) const
 {
     computeCovs(Tbms, res.ds, res.ms, res.Cs, res.Ncorr);
 }
 
 CorrectionPreResults<rmagine::RAM> PinholeCorrectorEmbree::computeCovs(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms)
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms) const
 {
     CorrectionPreResults<rmagine::RAM> res;
     res.ds.resize(Tbms.size());
@@ -373,10 +372,10 @@ CorrectionPreResults<rmagine::RAM> PinholeCorrectorEmbree::computeCovs(
 }
 
 void PinholeCorrectorEmbree::findSPC(
-    const rm::MemoryView<rm::Transform, rm::RAM>& Tbms,
+    const rm::Transform& Tbm,
     rm::MemoryView<rm::Point> dataset_points,
     rm::MemoryView<rm::Point> model_points,
-    rm::MemoryView<unsigned int> corr_valid)
+    rm::MemoryView<unsigned int> corr_valid) const
 {
     const float max_distance = m_params.max_distance;
 
@@ -384,113 +383,121 @@ void PinholeCorrectorEmbree::findSPC(
 
     const rm::Transform Tsb = m_Tsb[0];
 
+    const rmagine::Transform Tsm = Tbm * Tsb;
+    const rmagine::Transform Tms = ~Tsm;
+
+    // #pragma omp parallel for
+    for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
+    {
+        for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
+        {
+            const unsigned int loc_id = m_model->getBufferId(vid, hid);
+            const float range_real = m_ranges[loc_id];
+            
+            if(range_real < m_model->range.min 
+                || range_real > m_model->range.max)
+            {
+                dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                corr_valid[loc_id] = 0;
+                continue;
+            }
+
+            Vector ray_dir_s;
+            if(m_optical)
+            {
+                ray_dir_s = m_model->getDirectionOptical(vid, hid);
+            } else {
+                ray_dir_s = m_model->getDirection(vid, hid);
+            }
+            
+            const Vector ray_dir_m = Tsm.R * ray_dir_s;
+
+            RTCRayHit rayhit;
+            rayhit.ray.org_x = Tsm.t.x;
+            rayhit.ray.org_y = Tsm.t.y;
+            rayhit.ray.org_z = Tsm.t.z;
+            rayhit.ray.dir_x = ray_dir_m.x;
+            rayhit.ray.dir_y = ray_dir_m.y;
+            rayhit.ray.dir_z = ray_dir_m.z;
+            rayhit.ray.tnear = 0;
+            rayhit.ray.tfar = std::numeric_limits<float>::infinity();
+            rayhit.ray.mask = -1;
+            rayhit.ray.flags = 0;
+            rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+            rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
+
+            rtcIntersect1(scene, &rayhit);
+
+            bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
+            if(sim_valid)
+            {
+                // map space
+                Vector nint_m;
+                nint_m.x = rayhit.hit.Ng_x;
+                nint_m.y = rayhit.hit.Ng_y;
+                nint_m.z = rayhit.hit.Ng_z;
+                nint_m.normalizeInplace();
+
+                // Do point to plane ICP here
+                Vector preal_s, pint_s, nint_s;
+                preal_s = ray_dir_s * range_real;
+
+                // search point on surface that is more nearby
+                pint_s = ray_dir_s * rayhit.ray.tfar;
+                
+                // transform normal from global to local
+                nint_s = Tms.R * nint_m;
+
+                // flip to base: no
+                // if(ray_dir_s.dot(nint_s) > 0.0)
+                // {
+                //     nint_s = -nint_s;
+                // }
+
+                // distance of real point to plane at simulated point
+                const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
+                // project point to plane results in correspondence
+                const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
+
+                const float distance = (pmesh_s - preal_s).l2norm();
+
+                // convert back to base (sensor shared coordinate system)
+                const Vector preal_b = Tsb * preal_s;
+                const Vector pmesh_b = Tsb * pmesh_s;
+
+                dataset_points[loc_id] = preal_b;
+                model_points[loc_id] = pmesh_b;
+
+                if(distance < max_distance)
+                {
+                    corr_valid[loc_id] = 1;
+                } else {
+                    corr_valid[loc_id] = 0;
+                }
+            } else {
+                dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                corr_valid[loc_id] = 0;
+            }
+        }
+    }
+}
+
+void PinholeCorrectorEmbree::findSPC(
+    const rm::MemoryView<rm::Transform, rm::RAM>& Tbms,
+    rm::MemoryView<rm::Point> dataset_points,
+    rm::MemoryView<rm::Point> model_points,
+    rm::MemoryView<unsigned int> corr_valid) const
+{
     #pragma omp parallel for default(shared) if(Tbms.size() > 4)
     for(size_t pid=0; pid < Tbms.size(); pid++)
     {
-        const rmagine::Transform Tbm = Tbms[pid];
-        const rmagine::Transform Tsm = Tbm * Tsb;
-        const rmagine::Transform Tms = ~Tsm;
-
         const unsigned int glob_shift = pid * m_model->size();
-
-        // #pragma omp parallel for
-        for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
-        {
-            for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
-            {
-                const unsigned int loc_id = m_model->getBufferId(vid, hid);
-                const unsigned int glob_id = glob_shift + loc_id;
-
-                const float range_real = m_ranges[loc_id];
-                
-                if(range_real < m_model->range.min 
-                    || range_real > m_model->range.max)
-                {
-                    dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
-                    model_points[glob_id] = {0.0f, 0.0f, 0.0f};
-                    corr_valid[glob_id] = 0;
-                    continue;
-                }
-
-                Vector ray_dir_s;
-                if(m_optical)
-                {
-                    ray_dir_s = m_model->getDirectionOptical(vid, hid);
-                } else {
-                    ray_dir_s = m_model->getDirection(vid, hid);
-                }
-                
-                const Vector ray_dir_m = Tsm.R * ray_dir_s;
-
-                RTCRayHit rayhit;
-                rayhit.ray.org_x = Tsm.t.x;
-                rayhit.ray.org_y = Tsm.t.y;
-                rayhit.ray.org_z = Tsm.t.z;
-                rayhit.ray.dir_x = ray_dir_m.x;
-                rayhit.ray.dir_y = ray_dir_m.y;
-                rayhit.ray.dir_z = ray_dir_m.z;
-                rayhit.ray.tnear = 0;
-                rayhit.ray.tfar = std::numeric_limits<float>::infinity();
-                rayhit.ray.mask = -1;
-                rayhit.ray.flags = 0;
-                rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
-                rayhit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
-
-                rtcIntersect1(scene, &rayhit);
-
-                bool sim_valid = rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID;
-                if(sim_valid)
-                {
-                    // map space
-                    Vector nint_m;
-                    nint_m.x = rayhit.hit.Ng_x;
-                    nint_m.y = rayhit.hit.Ng_y;
-                    nint_m.z = rayhit.hit.Ng_z;
-                    nint_m.normalizeInplace();
-
-                    // Do point to plane ICP here
-                    Vector preal_s, pint_s, nint_s;
-                    preal_s = ray_dir_s * range_real;
-
-                    // search point on surface that is more nearby
-                    pint_s = ray_dir_s * rayhit.ray.tfar;
-                    
-                    // transform normal from global to local
-                    nint_s = Tms.R * nint_m;
-
-                    // flip to base: no
-                    // if(ray_dir_s.dot(nint_s) > 0.0)
-                    // {
-                    //     nint_s = -nint_s;
-                    // }
-
-                    // distance of real point to plane at simulated point
-                    const float signed_plane_dist = (pint_s - preal_s).dot(nint_s);
-                    // project point to plane results in correspondence
-                    const Vector pmesh_s = preal_s + nint_s * signed_plane_dist;  
-
-                    const float distance = (pmesh_s - preal_s).l2norm();
-
-                    // convert back to base (sensor shared coordinate system)
-                    const Vector preal_b = Tsb * preal_s;
-                    const Vector pmesh_b = Tsb * pmesh_s;
-
-                    dataset_points[glob_id] = preal_b;
-                    model_points[glob_id] = pmesh_b;
-
-                    if(distance < max_distance)
-                    {
-                        corr_valid[glob_id] = 1;
-                    } else {
-                        corr_valid[glob_id] = 0;
-                    }
-                } else {
-                    dataset_points[glob_id] = {0.0f, 0.0f, 0.0f};
-                    model_points[glob_id] = {0.0f, 0.0f, 0.0f};
-                    corr_valid[glob_id] = 0;
-                }
-            }
-        }
+        auto dataset_points_ = dataset_points(glob_shift, glob_shift + m_model->size());
+        auto model_points_ = model_points(glob_shift, glob_shift + m_model->size());
+        auto corr_valid_ = corr_valid(glob_shift, glob_shift + m_model->size());
+        findSPC(Tbms[pid], dataset_points_, model_points_, corr_valid_);
     }
 }
 
@@ -498,7 +505,7 @@ void PinholeCorrectorEmbree::findSPC(
     const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
     rmagine::Memory<rmagine::Point>& dataset_points,
     rmagine::Memory<rmagine::Point>& model_points,
-    rmagine::Memory<unsigned int>& corr_valid)
+    rmagine::Memory<unsigned int>& corr_valid) const
 {
     size_t Nrays = Tbms.size() * m_model->size();
     if(dataset_points.size() < Nrays)
@@ -553,7 +560,13 @@ void PinholeCorrectorEmbree::findRCC(
             }
 
             const rm::Vector ray_orig_s = m_model->getOrigin(vid, hid);
-            const rm::Vector ray_dir_s = m_model->getDirection(vid, hid);
+            Vector ray_dir_s;
+            if(m_optical)
+            {
+                ray_dir_s = m_model->getDirectionOptical(vid, hid);
+            } else {
+                ray_dir_s = m_model->getDirection(vid, hid);
+            }
 
             const rm::Vector ray_orig_m = Tsm * ray_orig_s;
             const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
@@ -668,6 +681,142 @@ void PinholeCorrectorEmbree::findRCC(
         dataset_points(0, Nrays), 
         model_points(0, Nrays), 
         model_normals(0, Nrays), 
+        corr_valid(0, Nrays));
+}
+
+void PinholeCorrectorEmbree::findCPC(
+    const rmagine::Transform& Tbm,
+    rmagine::MemoryView<rmagine::Point> dataset_points,
+    rmagine::MemoryView<rmagine::Point> model_points,
+    rmagine::MemoryView<rmagine::Vector> model_normals,
+    rmagine::MemoryView<unsigned int> corr_valid) const
+{
+    // TODO: check if max distance should be used here.
+    // - contra point: how would we know here which actual distance is used for optimization?: point to plane for example
+    // - pro point: we could still set the max_distance value to inf to produce the same behavior
+    const float max_distance = m_params.max_distance;
+
+    auto scene = m_map->scene->handle();
+
+    const rm::Transform Tsb = m_Tsb[0];
+
+    const rmagine::Transform Tsm = Tbm * Tsb;
+    const rmagine::Transform Tmb = ~Tbm;
+
+    for(unsigned int vid = 0; vid < m_model->getHeight(); vid++)
+    {
+        for(unsigned int hid = 0; hid < m_model->getWidth(); hid++)
+        {
+            const unsigned int loc_id = m_model->getBufferId(vid, hid);
+            const float range_real = m_ranges[loc_id];
+            
+            if(range_real < m_model->range.min 
+                || range_real > m_model->range.max)
+            {
+                dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                corr_valid[loc_id] = 0;
+                continue;
+            }
+
+            const rm::Vector ray_orig_s = m_model->getOrigin(vid, hid);
+            Vector ray_dir_s;
+            if(m_optical)
+            {
+                ray_dir_s = m_model->getDirectionOptical(vid, hid);
+            } else {
+                ray_dir_s = m_model->getDirection(vid, hid);
+            }
+
+
+            const rm::Vector ray_orig_m = Tsm * ray_orig_s;
+            const rm::Vector ray_dir_m = Tsm.R * ray_dir_s;
+
+            const rm::Point P_est_m = ray_orig_m + ray_dir_m * range_real;
+
+            // use embree's closest point functionality (TODO: improve speed)
+            const rm::EmbreeClosestPointResult res = m_map->closestPoint(P_est_m, max_distance);
+
+            const bool res_valid = res.geomID != RTC_INVALID_GEOMETRY_ID && res.primID != RTC_INVALID_GEOMETRY_ID;
+
+            if(res_valid)
+            {
+                // map space
+                rm::Vector nint_m = res.n;
+                nint_m.normalizeInplace();
+                rm::Vector nint_b = Tmb.R * nint_m;
+
+                const rm::Point pint_m = res.p;
+                const rm::Point pint_b = Tmb * pint_m;
+
+                const rm::Vector preal_s = ray_orig_s + ray_dir_s * range_real;
+                const rm::Vector preal_b = Tsb * preal_s;
+                
+                dataset_points[loc_id] = preal_b;
+                model_points[loc_id] = pint_b;
+                model_normals[loc_id] = nint_b;
+                corr_valid[loc_id] = 1;
+            } else {
+                dataset_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_points[loc_id] = {0.0f, 0.0f, 0.0f};
+                model_normals[loc_id] = {0.0f, 0.0f, 0.0f};
+                corr_valid[loc_id] = 0;
+            }
+        }
+    }
+}
+
+void PinholeCorrectorEmbree::findCPC(
+    const rm::MemoryView<rm::Transform, rm::RAM>& Tbms,
+    rm::MemoryView<rm::Point> dataset_points,
+    rm::MemoryView<rm::Point> model_points,
+    rm::MemoryView<rm::Vector> model_normals,
+    rm::MemoryView<unsigned int> corr_valid) const
+{
+    #pragma omp parallel for default(shared) if(Tbms.size() > 4)
+    for(size_t pid=0; pid < Tbms.size(); pid++)
+    {
+        const unsigned int glob_shift = pid * m_model->size();
+        auto dataset_points_ = dataset_points(glob_shift, glob_shift + m_model->size());
+        auto model_points_ = model_points(glob_shift, glob_shift + m_model->size());
+        auto model_normals_ = model_normals(glob_shift, glob_shift + m_model->size());
+        auto corr_valid_ = corr_valid(glob_shift, glob_shift + m_model->size());
+        findCPC(Tbms[pid], dataset_points_, model_points_, model_normals_, corr_valid_);
+    }
+}
+
+void PinholeCorrectorEmbree::findCPC(
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+    rmagine::Memory<rmagine::Point>& dataset_points,
+    rmagine::Memory<rmagine::Point>& model_points,
+    rmagine::Memory<rmagine::Vector>& model_normals,
+    rmagine::Memory<unsigned int>& corr_valid) const
+{
+    size_t Nrays = Tbms.size() * m_model->size();
+    if(dataset_points.size() < Nrays)
+    {
+        dataset_points.resize(Nrays);
+    }
+
+    if(model_points.size() < Nrays)
+    {
+        model_points.resize(Nrays);
+    }
+
+    if(model_normals.size() < Nrays)
+    {
+        model_normals.resize(Nrays);
+    }
+
+    if(corr_valid.size() < Nrays)
+    {
+        corr_valid.resize(Nrays);
+    }
+
+    findCPC(Tbms, 
+        dataset_points(0, Nrays),
+        model_points(0, Nrays),
+        model_normals(0, Nrays),
         corr_valid(0, Nrays));
 }
 

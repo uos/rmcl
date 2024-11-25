@@ -85,17 +85,21 @@ public:
     void setOptical(bool optical = true);
 
     /**
-     * @brief Correct one ore multiple Poses towards the map
+     * @brief Correct one ore multiple poses towards the map
+     * 
+     * 1. find ray casting correspondences
+     * 2. parallel covariance reduction
+     * 3. singular value decomposition
      * 
      * @param Tbm Poses represented as transformations (rmagine::Transform)
      * @return Memory<Transform, RAM> Correction in robots base coordinates
      */
     CorrectionResults<rmagine::RAM> correct(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
-    );
+    ) const;
 
     /**
-     * @brief Compute Covs. Required for fusion of different sensors
+     * @brief Compute covariances. Required for fusion of different sensors
      * 
      * @param Tbms 
      * @param ms 
@@ -109,18 +113,16 @@ public:
         rmagine::MemoryView<rmagine::Vector, rmagine::RAM>& model_means, // model means
         rmagine::MemoryView<rmagine::Matrix3x3, rmagine::RAM>& Cs,
         rmagine::MemoryView<unsigned int, rmagine::RAM>& Ncorr
-    );
-
+    ) const;
     void computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
         CorrectionPreResults<rmagine::RAM>& res
-    );
-
+    ) const;
     CorrectionPreResults<rmagine::RAM> computeCovs(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms
-    );
+    ) const;
 
-     /**
+    /**
      * @brief Find Simulative Projective Correspondences (SPC)
      * 
      * @param Tbms 
@@ -129,50 +131,92 @@ public:
      * @param corr_valid 
      */
     void findSPC(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Point> data_points,
-        rmagine::MemoryView<rmagine::Point> model_points,
-        rmagine::MemoryView<unsigned int> corr_valid
-    );
-
+        const rmagine::Transform& Tbm,
+        rmagine::MemoryView<rmagine::Point>   dataset_points,
+        rmagine::MemoryView<rmagine::Point>   model_points,
+        rmagine::MemoryView<unsigned int>     corr_valid
+        ) const;
     void findSPC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::Memory<rmagine::Point>& data_points,
-        rmagine::Memory<rmagine::Point>& model_points,
-        rmagine::Memory<unsigned int>& corr_valid
-    );
+        rmagine::MemoryView<rmagine::Point>   data_points,
+        rmagine::MemoryView<rmagine::Point>   model_points,
+        rmagine::MemoryView<unsigned int>     corr_valid
+    ) const;
+    void findSPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>&      dataset_points,
+        rmagine::Memory<rmagine::Point>&      model_points,
+        rmagine::Memory<unsigned int>&        corr_valid
+    ) const;
 
     /**
-     * @brief Find Raycasting Correspondences (RCC)
+     * @brief Find Ray Casting Correspondences (RCC)
      * 
-     * @param Tbms 
-     * @param dataset_points 
-     * @param model_points 
+     * assignment
+     * measurements / dataset -> model / map
+     * 
+     * one correspondence contains
+     * dataset(point) -> model(point, normal)
+     * 
+     * @param Tbms
+     * outputs: 
+     * @param dataset_points
+     * @param model_points
+     * @param model_normals
      * @param corr_valid
      */
     void findRCC(
-        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::MemoryView<rmagine::Point> data_points,
-        rmagine::MemoryView<rmagine::Point> model_points,
-        rmagine::MemoryView<rmagine::Vector> model_normals,
-        rmagine::MemoryView<unsigned int> corr_valid
-    ) const;
-
-    void findRCC(
         const rmagine::Transform& Tbm,
-        rmagine::MemoryView<rmagine::Point> dataset_points,
-        rmagine::MemoryView<rmagine::Point> model_points,
-        rmagine::MemoryView<rmagine::Vector> model_normals,
-        rmagine::MemoryView<unsigned int> corr_valid
-    ) const;
-
+        rmagine::MemoryView<rmagine::Point>   dataset_points,
+        rmagine::MemoryView<rmagine::Point>   model_points,
+        rmagine::MemoryView<rmagine::Vector>  model_normals,
+        rmagine::MemoryView<unsigned int>     corr_valid
+        ) const;
     void findRCC(
         const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
-        rmagine::Memory<rmagine::Point>& dataset_points,
-        rmagine::Memory<rmagine::Point>& model_points,
-        rmagine::Memory<rmagine::Vector>& model_normals,
-        rmagine::Memory<unsigned int>& corr_valid
+        rmagine::MemoryView<rmagine::Point>   data_points,
+        rmagine::MemoryView<rmagine::Point>   model_points,
+        rmagine::MemoryView<rmagine::Vector>  model_normals,
+        rmagine::MemoryView<unsigned int>     corr_valid
     ) const;
+    void findRCC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>&      data_points,
+        rmagine::Memory<rmagine::Point>&      model_points,
+        rmagine::Memory<rmagine::Vector>&     model_normals,
+        rmagine::Memory<unsigned int>&        corr_valid
+    ) const;
+
+    /**
+     * @brief Find Closest Point Correspondences (CPC)
+     * 
+     * @param Tbms 
+     * @param dataset_points 
+     * @param model_points
+     * @param corr_valid
+     */
+    void findCPC(
+        const rmagine::Transform& Tbm,
+        rmagine::MemoryView<rmagine::Point>   dataset_points, // model
+        rmagine::MemoryView<rmagine::Point>   model_points,   // model
+        rmagine::MemoryView<rmagine::Vector>  model_normals,  // model
+        rmagine::MemoryView<unsigned int>     corr_valid      
+    ) const;
+    void findCPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::MemoryView<rmagine::Point>   data_points,
+        rmagine::MemoryView<rmagine::Point>   model_points,
+        rmagine::MemoryView<rmagine::Vector>  model_normals,
+        rmagine::MemoryView<unsigned int>     corr_valid
+    ) const;
+    void findCPC(
+        const rmagine::MemoryView<rmagine::Transform, rmagine::RAM>& Tbms,
+        rmagine::Memory<rmagine::Point>&      dataset_points,
+        rmagine::Memory<rmagine::Point>&      model_points,
+        rmagine::Memory<rmagine::Vector>&     model_normals,
+        rmagine::Memory<unsigned int>&        corr_valid
+    ) const;
+    
 
     // TODO: add properly - rmagine
     inline CorrectionParams params() const
