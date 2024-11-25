@@ -320,7 +320,7 @@ The planned Roadmap is as follows:
 
 ## News
 
-### 2024-11-25: ROS1 and ROS2 refactoring
+### 2024-11-25: Restructuring - ROS 1 + ROS 2
 
 We had to do minor structural changes to the repository in order to better integrate new features into RMCL. This repository is now devided into
 - "rmcl" which is a ROS-agnostic library that can be compiled and installed as regular CMake project,
