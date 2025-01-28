@@ -203,6 +203,60 @@ if(TARGET rmagine::embree)
     set(RMCL_EMBREE TRUE)
 endif()
 
+
+if(TARGET rmagine::cuda OR TARGET rmagine::optix)
+
+    # copied from rmagine:
+    # I am aware find_package(CUDA) is deprecated.
+    # - TODO: support find_package(CUDAToolkit) as well
+    # -- Example: https://github.com/ceres-solver/ceres-solver/blob/master/CMakeLists.txt
+    # - TODO: this becomes quite messy. make a seperate file from this
+    # Or wait until all targeted platforms use `find_package(CUDAToolkit)`, then remove everything
+
+    # default flags are not set when including cuda
+    if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
+        if(NOT CUDA_NVCC_FLAGS_DEBUG)
+            set(CUDA_NVCC_FLAGS_DEBUG "-g" CACHE STRING "" FORCE)
+        endif()
+        if(NOT CUDA_NVCC_FLAGS_MINSIZEREL)
+            set(CUDA_NVCC_FLAGS_MINSIZEREL "-Os -DNDEBUG" CACHE STRING "" FORCE)
+        endif()
+        if(NOT CUDA_NVCC_FLAGS_RELEASE)
+            set(CUDA_NVCC_FLAGS_RELEASE "-O3 -DNDEBUG" CACHE STRING "" FORCE)
+        endif()
+        if(NOT CUDA_NVCC_FLAGS_RELWITHDEBINFO)
+            set(CUDA_NVCC_FLAGS_RELWITHDEBINFO "-O2 -g -DNDEBUG" CACHE STRING "" FORCE)
+        endif()
+    endif()
+
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        message(STATUS "Cuda language available!")
+
+        find_package(CUDAToolkit QUIET)
+        if(CUDAToolkit_FOUND)
+            message(STATUS "Found Cuda Toolkit!")
+            enable_language(CUDA)
+            set(CUDA_FOUND True)
+            set(CUDA_LIBRARIES CUDA::cudart)
+            set(CUDA_cusolver_LIBRARY CUDA::cusolver)
+            set(CUDA_cublas_LIBRARY CUDA::cublas)
+            set(CUDA_DRIVER_LIBRARY CUDA::cuda_driver)
+            set(CUDA_INCLUDE_DIRS "") # is in target instead
+        else()
+            find_package(CUDA)
+            if(CUDA_FOUND)
+                message(STATUS "Found Cuda!")
+                enable_language(CUDA)
+                set(CUDA_DRIVER_LIBRARY cuda)
+            else()
+                message(STATUS "Neither CudaToolkit nor CUDA found!")
+            endif(CUDA_FOUND)
+        endif(CUDAToolkit_FOUND)
+    endif(CMAKE_CUDA_COMPILER)
+endif()
+
 # CUDA
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     add_library(rmcl-cuda SHARED
@@ -240,18 +294,15 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
 endif()
 
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
-    # Build optix related stuff
-    find_package(CUDA)
-
-    enable_language(CUDA)
+    # Build optix-related targets
 
     set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")
     set(RMCL_OPTIX_PTX_GLOB_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/rmcl_optix_ptx")
 
     set(CUDA_GENERATED_OUTPUT_DIR ${RMCL_OPTIX_PTX_DIR})
 
-    add_definitions( -DRMCL_OPTIX_PTX_DIR="${RMCL_OPTIX_PTX_DIR}" )
-    add_definitions( -DRMCL_OPTIX_PTX_GLOB_DIR="${RMCL_OPTIX_PTX_GLOB_DIR}")
+    # add_definitions( -DRMCL_OPTIX_PTX_DIR="${RMCL_OPTIX_PTX_DIR}" )
+    # add_definitions( -DRMCL_OPTIX_PTX_GLOB_DIR="${RMCL_OPTIX_PTX_GLOB_DIR}")
 
     message(STATUS "Writing Optix Kernels to ${RMCL_OPTIX_PTX_DIR}")
 
@@ -274,29 +325,76 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     # TODO: move this to rmagine
     get_target_property(RMAGINE_OPTIX_INCLUDES rmagine::optix INTERFACE_INCLUDE_DIRECTORIES)
 
-    cuda_include_directories(
-        ${RMAGINE_OPTIX_INCLUDES}
-    )
+    if(CUDAToolkit_FOUND)
+        # NEW VERSION
 
-    cuda_compile_ptx(RMAGINE_OPTIX_PTX_FILES
-        ${OPTIX_KERNEL_FILES}
-    )
+        add_library(rmcl_optix_cu_to_ptx OBJECT
+            ${OPTIX_KERNEL_FILES}
+        )
 
-    add_custom_target(rmcl_optix_ptx ALL
-        DEPENDS ${RMCL_OPTIX_PTX_FILES} ${OPTIX_KERNEL_FILES}
-        SOURCES ${OPTIX_KERNEL_FILES}
-        VERBATIM)
+        target_include_directories(rmcl_optix_cu_to_ptx PRIVATE
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            ${RMAGINE_OPTIX_INCLUDES} # Can we remove this?
+            ${OptiX_INCLUDE_DIRS}
+        )
 
-    message(STATUS "CMAKE_SOURCE_DIR: ${rmcl_SOURCE_DIR}")
+        set_target_properties(rmcl_optix_cu_to_ptx 
+            PROPERTIES
+                CUDA_PTX_COMPILATION ON
+                # CUDA_ARCHITECTURES all
+        )
 
-    add_custom_command(
-        TARGET rmcl_optix_ptx POST_BUILD
-        COMMAND ${CMAKE_COMMAND} 
-            -DRMCL_SOURCE_DIR=${rmcl_SOURCE_DIR} 
-            -DRMCL_OPTIX_PTX_DIR=${RMCL_OPTIX_PTX_DIR} 
-            -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}" 
-            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernels.cmake"
-    )
+        target_link_libraries(rmcl_optix_cu_to_ptx
+            ${OptiX_LIBRARIES}
+            rmagine::core
+            rmagine::cuda
+        )
+
+        add_custom_target(rmcl_optix_ptx ALL
+            DEPENDS 
+                rmagine::core 
+                rmcl_optix_cu_to_ptx 
+                ${OPTIX_KERNEL_FILES}
+            SOURCES ${OPTIX_KERNEL_FILES}
+            VERBATIM)
+
+        add_custom_command(
+            TARGET rmcl_optix_ptx POST_BUILD
+            COMMAND ${CMAKE_COMMAND} 
+                -DRMCL_SOURCE_DIR=${rmcl_SOURCE_DIR} 
+                -DRMCL_OPTIX_PTX_DIR=${RMCL_OPTIX_PTX_DIR}
+                -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernelsCudaToolkit.cmake"
+        )
+    else(CUDAToolkit_FOUND)
+        # THIS IS GOING TO BE OBSOLETE
+
+        cuda_include_directories(
+            ${RMAGINE_OPTIX_INCLUDES}
+        )
+
+        cuda_compile_ptx(RMCL_OPTIX_PTX_FILES
+            ${OPTIX_KERNEL_FILES}
+        )
+
+        add_custom_target(rmcl_optix_ptx ALL
+            DEPENDS
+                ${RMCL_OPTIX_PTX_FILES}
+                ${OPTIX_KERNEL_FILES}
+            SOURCES ${OPTIX_KERNEL_FILES}
+            VERBATIM)
+
+        message(STATUS "CMAKE_SOURCE_DIR: ${rmcl_SOURCE_DIR}")
+
+        add_custom_command(
+            TARGET rmcl_optix_ptx POST_BUILD
+            COMMAND ${CMAKE_COMMAND} 
+                -DRMCL_SOURCE_DIR=${rmcl_SOURCE_DIR} 
+                -DRMCL_OPTIX_PTX_DIR=${RMCL_OPTIX_PTX_DIR} 
+                -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}" 
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernels.cmake"
+        )
+    endif(CUDAToolkit_FOUND)
 
     add_library(rmcl-optix SHARED
         # Correction
