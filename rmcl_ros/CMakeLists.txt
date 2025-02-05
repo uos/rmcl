@@ -312,6 +312,7 @@ add_library(o1dn_map_segmentation_embree SHARED
     src/nodes/filter/o1dn_map_segmentation_embree_node.cpp)
 
 target_link_libraries(o1dn_map_segmentation_embree
+    rmcl_ros
     rmcl-embree
 )
 
