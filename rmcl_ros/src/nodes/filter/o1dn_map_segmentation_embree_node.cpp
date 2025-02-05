@@ -136,8 +136,9 @@ public:
       );
     }
     catch (tf2::TransformException &ex) {
+      rclcpp::Clock clock = *get_clock();
       RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 5000,
+        get_logger(), clock, 5000,
         "Could not transform from '%s' to '%s': %s",
         msg->header.frame_id.c_str(), map_frame_.c_str(), ex.what()
       );
