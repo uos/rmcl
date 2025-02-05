@@ -26,10 +26,10 @@ namespace rmcl
 class Pcl2ToO1DnNode : public rclcpp::Node
 {
 public:
-  explicit Pcl2ToO1DnNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()
-        .allow_undeclared_parameters(true)
-        .automatically_declare_parameters_from_overrides(true))
-  :rclcpp::Node("pcl2_to_o1dn_node", options)
+  explicit Pcl2ToO1DnNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
+  :rclcpp::Node("pcl2_to_o1dn_node", rclcpp::NodeOptions(options)
+    .allow_undeclared_parameters(true)
+    .automatically_declare_parameters_from_overrides(true))
   {
     fetchParameters();
 
@@ -59,10 +59,8 @@ private:
 
   void fetchParameters()
   {
-    if(this->has_parameter("sensor_frame"))
+    if(!this->get_parameter("sensor_frame", sensor_frame))
     {
-      sensor_frame = this->get_parameter("sensor_frame").as_string();
-    } else {
       sensor_frame = "";
     }
     
@@ -79,10 +77,8 @@ private:
         return;
     }
 
-    if(this->has_parameter("debug_cloud"))
+    if(!this->get_parameter("debug_cloud", debug_cloud))
     {
-        this->get_parameter("debug_cloud").as_bool();
-    } else {
         debug_cloud = false;
     }
   }
@@ -119,6 +115,7 @@ private:
     scan.o1dn.info.width  = pcl->width;
     scan.o1dn.info.height = pcl->height;
     scan.o1dn.info.dirs.resize(scan.o1dn.info.width * scan.o1dn.info.height);
+    scan.o1dn.data.ranges.resize(scan.o1dn.info.width * scan.o1dn.info.height);
     
     scan.o1dn.info.orig.x = 0.0;
     scan.o1dn.info.orig.y = 0.0;

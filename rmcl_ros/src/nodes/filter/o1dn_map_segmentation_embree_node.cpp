@@ -36,10 +36,13 @@ class O1DnMapSegmentationEmbreeNode
 : public rclcpp::Node
 {
 public:
-  explicit O1DnMapSegmentationEmbreeNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()
-        .allow_undeclared_parameters(true)
-        .automatically_declare_parameters_from_overrides(true))
-  :rclcpp::Node("o1dn_map_segmentation_embree_node", options)
+  explicit O1DnMapSegmentationEmbreeNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
+  :rclcpp::Node(
+    "o1dn_map_segmentation_embree_node",
+    rclcpp::NodeOptions(options)
+      .allow_undeclared_parameters(true)
+      .automatically_declare_parameters_from_overrides(true)
+  )
   {
     std::cout << "O1DnMapSegmentationEmbreeNode started" << std::endl;
 
@@ -52,9 +55,30 @@ public:
 
     map_frame_ = rmcl::get_parameter(this, "map_frame", "map");
 
-    min_dist_outlier_scan_ = rmcl::get_parameter(this, "min_dist_outlier_scan", 0.15);
-    min_dist_outlier_map_ = rmcl::get_parameter(this, "min_dist_outlier_map", 0.15);
-    
+    {
+      rcl_interfaces::msg::ParameterDescriptor descriptor;
+      descriptor.name = "min_dist_outlier_scan";
+      descriptor.floating_point_range.push_back(
+        rcl_interfaces::msg::FloatingPointRange()
+        .set__from_value(0.0)
+        .set__to_value(1.0));
+      descriptor.description = "Minimum distance for point to be considered as outlier from scan";
+      min_dist_outlier_scan_ = this->declare_parameter(descriptor.name, 0.15, descriptor);
+    }
+    {
+      rcl_interfaces::msg::ParameterDescriptor descriptor;
+      descriptor.name = "min_dist_outlier_map";
+      descriptor.floating_point_range.push_back(
+        rcl_interfaces::msg::FloatingPointRange()
+        .set__from_value(0.0)
+        .set__to_value(1.0));
+      descriptor.description = "Minimum distance for point to be considered as outlier from map";
+      min_dist_outlier_map_ = this->declare_parameter(descriptor.name, 0.15, descriptor);
+    }
+
+    dyn_params_handler_ = this->add_on_set_parameters_callback(
+      std::bind(&O1DnMapSegmentationEmbreeNode::reconfigureCallback, this, std::placeholders::_1)
+    );
     
     rm::EmbreeMapPtr map = rm::import_embree_map(meshfile);
     scan_sim_ = std::make_shared<rm::O1DnSimulatorEmbree>(map);
@@ -79,20 +103,46 @@ public:
         "outlier_map", 10);
   }
 
+  rcl_interfaces::msg::SetParametersResult reconfigureCallback(const std::vector<rclcpp::Parameter>& params)
+  {
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+
+    for (const auto& param: params)
+    {
+      if ("min_dist_outlier_map" == param.get_name())
+      {
+        min_dist_outlier_map_ = param.as_double();
+      }
+      else if ("min_dist_outlier_scan" == param.get_name())
+      {
+        min_dist_outlier_scan_ = param.as_double();
+      }
+    }
+
+    return result;
+  }
+
   void scanCB(const rmcl_msgs::msg::O1DnStamped::ConstSharedPtr& msg) const
   {
     geometry_msgs::msg::TransformStamped T_sensor_map;
     
     try{
-        T_sensor_map = tf_buffer_->lookupTransform(
-          map_frame_,
-          msg->header.frame_id, 
-          msg->header.stamp);
+      T_sensor_map = tf_buffer_->lookupTransform(
+        map_frame_,
+        msg->header.frame_id,
+        msg->header.stamp,
+        rclcpp::Duration(1, 0)
+      );
     }
     catch (tf2::TransformException &ex) {
-        // ROS_WARN("%s", ex.what());
-        // ROS_WARN_STREAM("Source: " << msg->header.frame_id << ", Target: " << map_frame);
-        return;
+      rclcpp::Clock clock = *get_clock();
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), clock, 5000,
+        "Could not transform from '%s' to '%s': %s",
+        msg->header.frame_id.c_str(), map_frame_.c_str(), ex.what()
+      );
+      return;
     }
 
     rm::Memory<rm::Transform, rm::RAM> T(1);
@@ -220,6 +270,7 @@ private:
   rclcpp::Subscription<rmcl_msgs::msg::O1DnStamped>::SharedPtr sub_scan_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_outlier_scan_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_outlier_map_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
 };
 
 } // namespace rmcl
