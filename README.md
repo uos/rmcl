@@ -33,7 +33,6 @@ An approach to directly register range sensor data to a mesh in order to localiz
 
 [![Teaser](.resources/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
 
-
 |  Hilti: 6DoF Localization  | MulRan: Large-scale scenes |
 |:--:|:--:|
 | <a href="http://www.youtube.com/watch?v=5pubwlbrpro" target="_blank" ><img src="https://i.ytimg.com/vi/5pubwlbrpro/maxresdefault.jpg" alt="MICP-L Hilti Video" width="100%" style="max-width: 500px" height="auto" /></a> | <a href="http://www.youtube.com/watch?v=8j6ZtYPnFzw" target="_blank" ><img src="https://i.ytimg.com/vi/8j6ZtYPnFzw/maxresdefault.jpg" alt="MICP-L MulRan Video" width="100%" style="max-width: 500px" height="auto" /></a> |
@@ -51,14 +50,16 @@ Please reference the following paper when using the MICP-L method in your scient
 
 ```bib
 @inproceedings{mock2024micpl,
-  title={{MICP-L: Mesh-based ICP for Robot Localization Using Hardware-Accelerated Ray Casting}}, 
+  title={{MICP-L}: Mesh-based ICP for Robot Localization Using Hardware-Accelerated Ray Casting}, 
   author={Mock, Alexander and Wiemann, Thomas and Pütz, Sebastian and Hertzberg, Joachim},
-  booktitle={IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 
+  booktitle={2024 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 
   year={2024},
+  pages={10664-10671},
+  doi={10.1109/IROS58592.2024.10802360}
 }
 ```
 
-The [preprint](https://arxiv.org/abs/2210.13904) will be updated soon. Experiments are available at https://github.com/amock/micp_experiments (mostly for ROS 1).
+The paper is available on [IEEE Xplore](https://ieeexplore.ieee.org/document/10802360) and as preprint on [arXiv](https://arxiv.org/abs/2210.13904). The experiments are available at https://github.com/amock/micp_experiments (mostly for ROS 1).
 
 ### Usage
 
@@ -138,12 +139,12 @@ Every possible mistake in configuration can then be inferred by this output.
 For example, once there is no data available on the given `PointCloud2`-Topic it will print `data: no` instead.
 
 
-### Params
+### Parameters
 
 The following sections describe example configuration files.
 More example files for configuration are placed in the `rmcl_ros/config/examples`.
 
-### Params - 3D LiDAR only - CPU
+### Parameters - 3D LiDAR only - CPU
 
 MICP Localization using a 3D LiDAR and doing the MICP steps completely on the CPU.
 Here the 3D LiDAR is a Velodyne VLP-16 with 16 scan lines.
