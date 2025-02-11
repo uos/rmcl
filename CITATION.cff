@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+preferred-citation:
+  title: "MICP-L: Mesh-based ICP for Robot Localization Using Hardware-Accelerated Ray Casting"
+  doi: "10.1109/IROS58592.2024.10802360"
+  year: "2024"
+  type: conference-paper
+  collection-title: "2024 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)"
+  url: https://kbs.informatik.uos.de/files/pdfs/iros2024_amock_micp.pdf
+  codeurl: https://github.com/uos/rmcl
+  authors:
+    - family-names: Mock
+      given-names: Alexander
+      orcid: 0009-0004-7800-9774
+    - family-names: Wiemann
+      given-names: Thomas
+      orcid: 0000-0003-0710-872X
+    - family-names: Pütz
+      given-names: Sebastian
+      orcid: 0000-0002-4210-4233
+    - family-names: Hertzberg
+      given-names: Joachim
+      orcid: 0000-0002-6371-9624
