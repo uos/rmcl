@@ -211,7 +211,7 @@ sensors: # list of range sensors - at least one is required
 
 </details>
 
-### Params - 2D LiDAR + Wheels - GPU
+### Parameters - 2D LiDAR + Wheels - GPU
 
 MICP also supports to localize a robot only equipped with a 2D LiDAR in a 3D map.
 To correct the third dimension the wheels can be used to pull the robot towards the map's ground plane. 
