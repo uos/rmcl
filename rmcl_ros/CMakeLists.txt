@@ -87,9 +87,10 @@ include_directories(
 
 
 # CORE LIB ROS
-add_library(rmcl_ros
+add_library(rmcl_ros SHARED
     src/util/conversions.cpp
     src/util/scan_operations.cpp
+    src/util/ros_helper.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
@@ -121,7 +122,7 @@ install(TARGETS rmcl_ros
 add_library(micp_localization SHARED
     src/nodes/micp_localization.cpp
     # MICP
-    src/correction/MICP.cpp
+    # src/correction/MICP.cpp
     src/correction/MICPRangeSensor.cpp
 )
 
@@ -297,6 +298,7 @@ add_executable(micp_eval src/nodes/micp_eval.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(micp_eval
     rmcl-embree
+    rmcl_ros
 )
 
 ament_target_dependencies(micp_eval

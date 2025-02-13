@@ -117,10 +117,12 @@ struct TopicInfo
     std::string     frame;
 };
 
+
 class MICPRangeSensor 
 : std::enable_shared_from_this<MICPRangeSensor>
 {
 public: // TODO: dont have everything public
+
     std::string          name;
 
     TopicInfo            data_topic;
@@ -161,8 +163,6 @@ public: // TODO: dont have everything public
     bool            adaptive_max_dist = false;
     size_t          n_ranges_valid = 0;
 
-    
-    
     // subscriber to data
     
     // Main node nh
@@ -177,7 +177,6 @@ public: // TODO: dont have everything public
     rclcpp::SubscriptionBase::SharedPtr data_sub;
     rclcpp::SubscriptionBase::SharedPtr info_sub;
     
-
     ImageTransportPtr it;
     ITSubscriberPtr img_sub;
     bool optical_coordinates = false;

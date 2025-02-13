@@ -2,73 +2,67 @@
 #define RMCL_UTIL_ROS_HELPER_H
 
 #include <rclcpp/rclcpp.hpp>
+#include <optional>
 
 namespace rmcl
 {
 
-// special case for char arrays to be converted properly
-static std::string get_parameter(
-    rclcpp::Node* node,
-    const std::string param_name,
-    const std::string default_value)
-{
-    std::string param_out;
-    if(node->has_parameter(param_name))
-    {
-        node->get_parameter(param_name, param_out);
-    } else {
-        param_out = node->declare_parameter(param_name, default_value);
-    }
-    return param_out;
-}
+std::string replace_char(
+  const std::string& input, 
+  char old_char, 
+  char new_char);
+
+void replace_char_inplace(
+  std::string& input, 
+  char old_char, 
+  char new_char);
+
+std::string make_sub_parameter(
+  rclcpp::Node* node,
+  const std::string& param_name);
+
+std::string make_sub_parameter(
+  rclcpp::Node::SharedPtr node,
+  const std::string& param_name);
 
 // special case for char arrays to be converted properly
-static std::string get_parameter(
+std::string get_parameter(
+    rclcpp::Node* node,
+    const std::string& param_name,
+    const std::string& default_value);
+
+// special case for char arrays to be converted properly
+std::string get_parameter(
     rclcpp::Node::SharedPtr node,
-    const std::string param_name,
-    const std::string default_value)
-{
-  return get_parameter(node.get(), param_name, default_value);
-}
+    const std::string& param_name,
+    const std::string& default_value);
 
 template<typename T> 
-static T get_parameter(
+T get_parameter(
     rclcpp::Node* node, 
     const std::string& param_name,
-    const T& default_value)
-{
-    T param_out;
-    if(node->has_parameter(param_name))
-    {
-        node->get_parameter(param_name, param_out);
-    } else {
-        param_out = node->declare_parameter(param_name, default_value);
-    }
-    return param_out;
-}
+    const T& default_value);
 
 template<typename T> 
-static T get_parameter(
+T get_parameter(
     rclcpp::Node::SharedPtr node, 
     const std::string& param_name,
-    const T& default_value)
-{
-  return get_parameter(node.get(), param_name, default_value);
-}
+    const T& default_value);
 
-static std::optional<rclcpp::Parameter> get_parameter(
+std::optional<rclcpp::Parameter> get_parameter(
     rclcpp::Node::SharedPtr node, 
-    const std::string& param_name)
-{
-    std::optional<rclcpp::Parameter> ret;
+    const std::string& param_name);
 
-    if(node->has_parameter(param_name))
-    {
-        ret = node->get_parameter(param_name);
-    }
 
-    return ret;
-}
+std::map<std::string, rclcpp::Parameter> get_parameters(
+    rclcpp::Node* node,
+    std::string prefix);
+
+std::map<std::string, rclcpp::Parameter> get_parameters(
+    rclcpp::Node::SharedPtr node,
+    std::string prefix);
+
+
 
 
 // Forward declarations
@@ -78,6 +72,17 @@ class ParamTree;
 template<typename ParamT>
 using ParamTreePtr = std::shared_ptr<ParamTree<ParamT> >;
 
+
+/**
+ * This tree structure lets us simply parse dynamic parameter sets
+ * It is required to have the correct node settings:
+ *
+ * @code 
+ * rclcpp::NodeOptions options = rclcpp::NodeOptions()
+ *       .allow_undeclared_parameters(true)
+ *       .automatically_declare_parameters_from_overrides(true);
+ * @endcode
+ */
 template<typename ParamT>
 class ParamTree : public std::unordered_map<std::string, std::shared_ptr<ParamTree<ParamT> > >
 {
@@ -145,43 +150,33 @@ public:
 };
 
 inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
-    rclcpp::Node::SharedPtr node,
+    rclcpp::Node* node,
     std::string prefix)
 {
     ParamTree<rclcpp::Parameter>::SharedPtr ret;
 
-    std::map<std::string, rclcpp::Parameter> param_map;
-    if(node->get_parameters(prefix, param_map))
+    const std::string prefix_path = make_sub_parameter(node, prefix);
+    const std::map<std::string, rclcpp::Parameter> param_map 
+        = get_parameters(node, prefix_path);
+
+    ret = std::make_shared<ParamTree<rclcpp::Parameter> >();
+    for(auto elem : param_map)
     {
-        ret = std::make_shared<ParamTree<rclcpp::Parameter> >();
-        for(auto elem : param_map)
-        {
-            ret->insert(elem.first, elem.second);
-        }
+        ret->insert(elem.first, elem.second);
     }
-    ret->name = prefix;
+    ret->name = prefix_path;
     return ret;
 }
 
 inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
-  rclcpp::Node* node,
-  std::string prefix)
+    rclcpp::Node::SharedPtr node,
+    std::string prefix)
 {
-  ParamTree<rclcpp::Parameter>::SharedPtr ret;
-
-  std::map<std::string, rclcpp::Parameter> param_map;
-  if(node->get_parameters(prefix, param_map))
-  {
-      ret = std::make_shared<ParamTree<rclcpp::Parameter> >();
-      for(auto elem : param_map)
-      {
-          ret->insert(elem.first, elem.second);
-      }
-  }
-  ret->name = prefix;
-  return ret;
+    return get_parameter_tree(node.get(), prefix);
 }
 
 } // namespace rmcl
+
+#include "ros_helper.tcc"
 
 #endif // RMCL_UTIL_ROS_HELPER_H
