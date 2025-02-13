@@ -90,12 +90,13 @@ MICPRangeSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
     = get_parameter_tree(nh_sensor, "~");
 
-  
-
   std::cout << "Param tree:" << std::endl;
   // std::cout << sensor_param_tree->name << std::endl;
 
   sensor_param_tree->print();
+
+  // determine type
+  
 
 
   return none;
