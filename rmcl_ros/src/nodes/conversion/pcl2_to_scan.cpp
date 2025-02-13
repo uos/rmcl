@@ -26,10 +26,10 @@ namespace rmcl
 class Pcl2ToScanNode : public rclcpp::Node
 {
 public:
-  explicit Pcl2ToScanNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions()
-        .allow_undeclared_parameters(true)
-        .automatically_declare_parameters_from_overrides(true))
-  :rclcpp::Node("pcl2_to_scan_node", options)
+  explicit Pcl2ToScanNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
+  :rclcpp::Node("pcl2_to_scan_node", rclcpp::NodeOptions(options)
+    .allow_undeclared_parameters(true)
+    .automatically_declare_parameters_from_overrides(true))
   {
     fetchParameters();
 
@@ -51,7 +51,7 @@ public:
       "cloud", 10, 
       [=](const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg) -> void
       { 
-        cloudCB(msg); 
+        cloudCB(msg);
       });
   }
 
@@ -59,10 +59,8 @@ private:
 
   void fetchParameters()
   {
-    if(this->has_parameter("sensor_frame"))
+    if(!this->get_parameter("sensor_frame", sensor_frame))
     {
-      sensor_frame = this->get_parameter("sensor_frame").as_string();
-    } else {
       sensor_frame = "";
     }
     
@@ -115,10 +113,8 @@ private:
     scanner_model.phi_n = phi_n_tmp;
     scanner_model.theta_n = theta_n_tmp;
 
-    if(this->has_parameter("debug_cloud"))
+    if(!this->get_parameter("debug_cloud", debug_cloud))
     {
-        this->get_parameter("debug_cloud").as_bool();
-    } else {
         debug_cloud = false;
     }
   }
@@ -130,7 +126,7 @@ private:
 
   bool convert(
       const sensor_msgs::msg::PointCloud2::ConstSharedPtr& pcl,
-      rmcl_msgs::msg::ScanStamped& scan)
+      rmcl_msgs::msg::ScanStamped& scan) const
   {
     rm::Transform T = rm::Transform::Identity();
 
@@ -142,8 +138,7 @@ private:
       try
       {
         Tros = tf_buffer_->lookupTransform(sensor_frame, pcl->header.frame_id,
-                                          tf2::TimePointZero);
-        // convert(Tros.transform, T);
+                                            pcl->header.stamp);
         T.t.x = Tros.transform.translation.x;
         T.t.y = Tros.transform.translation.y;
         T.t.z = Tros.transform.translation.z;
@@ -159,7 +154,7 @@ private:
       }
     }
 
-    fillEmpty(scan_.scan);
+    fillEmpty(scan.scan);
 
     sensor_msgs::msg::PointField field_x;
     sensor_msgs::msg::PointField field_y;
@@ -182,7 +177,7 @@ private:
     }
 
     rm::SphericalModel model;
-    rmcl::convert(scan_.scan.info, model);
+    rmcl::convert(scan.scan.info, model);
 
     for (size_t i = 0; i < pcl->width * pcl->height; i++)
     {
@@ -222,30 +217,14 @@ private:
         int phi_id = ((phi_est - model.phi.min) / model.phi.inc) + 0.5;
         int theta_id = ((theta_est - model.theta.min) / model.theta.inc) + 0.5;
 
-        // rm::Vector ps_ = model.getDirection(phi_id, theta_id) * range_est;
-
-        // std::cout << "-------------------" << std::endl;
-
-        // std::cout << "origorig: " << ps_s << std::endl;
-        // std::cout << "orig: " << ps << std::endl;
-
-        // std::cout << "polar (phi, theta, range): " << phi_est << ", " << theta_est << ", " << range_est << std::endl; 
-        // std::cout << "scan id (phi_id, theta_id): " << phi_id << ", " << theta_id << std::endl; 
-
-        // std::cout << "recon: " << ps_ << std::endl;
-
-        if(phi_id >= 0 && phi_id < model.phi.size
-            && theta_id >= 0 && theta_id < model.theta.size)
+        if(phi_id >= 0 && phi_id < (int)model.phi.size
+            && theta_id >= 0 && theta_id < (int)model.theta.size)
         {
           if(model.range.inside(range_est))
           {
-            // std::cout << "Polar (theta, phi, range): " << theta_est << ", " << phi_est << ", " << range_est << std::endl;
-            // std::cout << "- matrix id (theta, phi): " << theta_id << ", " << phi_id << std::endl;
-            // std::cout << "- valid: add" << std::endl;
             unsigned int p_id = model.getBufferId(phi_id, theta_id);
-            scan_.scan.data.ranges[p_id] = range_est;
+            scan.scan.data.ranges[p_id] = range_est;
           }
-          
         } else {
           // std::cout << "- out scanner matrix" << std::endl;
         }

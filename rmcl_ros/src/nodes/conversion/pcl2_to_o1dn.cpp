@@ -85,7 +85,7 @@ private:
 
   bool convert(
       const sensor_msgs::msg::PointCloud2::ConstSharedPtr& pcl,
-      rmcl_msgs::msg::O1DnStamped& scan)
+      rmcl_msgs::msg::O1DnStamped& scan) const
   {
     rm::Transform T = rm::Transform::Identity();
 
@@ -230,7 +230,6 @@ private:
 };
 
 } // namespace rmcl
-
 
 #include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE(rmcl::Pcl2ToO1DnNode)

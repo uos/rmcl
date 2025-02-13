@@ -336,6 +336,34 @@ install(TARGETS
     RUNTIME DESTINATION bin      
 )
 
+add_library(scan_map_segmentation_embree SHARED
+    src/nodes/filter/o1dn_map_segmentation_embree_node.cpp)
+
+target_link_libraries(scan_map_segmentation_embree
+    rmcl_ros
+    rmcl-embree
+)
+
+ament_target_dependencies(scan_map_segmentation_embree
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+    sensor_msgs
+    tf2_ros
+    rmcl_msgs
+)
+
+rclcpp_components_register_node(scan_map_segmentation_embree 
+    PLUGIN "rmcl::ScanMapSegmentationEmbreeNode" 
+    EXECUTABLE scan_map_segmentation_embree_node)
+
+install(TARGETS 
+    o1dn_map_segmentation_embree
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin      
+)
+
 endif(TARGET rmcl-embree)
 
 
