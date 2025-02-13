@@ -109,7 +109,7 @@ namespace rmcl
 class MICP
 {
 public:
-    MICP(rclcpp::Node::SharedPtr node);
+    MICP(rclcpp::Node* node);
     ~MICP();
 
     void loadParams();
@@ -176,6 +176,20 @@ public:
         #endif // RMCL_OPTIX
     }
 
+    inline bool initSharedNode()
+    {
+      if(!m_nh_shared)
+      {
+        auto nh_weak = m_nh->weak_from_this();
+        if(!(m_nh_shared = nh_weak.lock()))
+        {
+          std::cout << "Waiting for node to become alive" << std::endl;
+          return false;
+        }
+      }
+      return true;
+    }
+
 protected:
     bool checkTF(bool prints = false);
 
@@ -186,8 +200,12 @@ protected:
     void initCorrectors();
 private:
     // ROS
-    rclcpp::Node::SharedPtr m_nh;
+    rclcpp::Node* m_nh;
+
+    rclcpp::Node::SharedPtr m_nh_shared;
+
     rclcpp::Node::SharedPtr m_nh_p;
+
     TFBufferPtr     m_tf_buffer;
     TFListenerPtr   m_tf_listener;
 

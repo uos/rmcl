@@ -115,15 +115,20 @@ install(TARGETS rmcl_ros
 
 ## Nodes
 
-##############
-#### MICP ####
-##############
-add_executable(micp_localization 
+#####################
+#### MICP-L Node ####
+#####################
+add_library(micp_localization SHARED
     src/nodes/micp_localization.cpp
     # MICP
     src/correction/MICP.cpp
     src/correction/MICPRangeSensor.cpp
 )
+
+target_include_directories(micp_localization
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(micp_localization
     rmcl_ros
@@ -149,6 +154,7 @@ endif(RMCL_OPTIX)
 
 ament_target_dependencies(micp_localization
     rclcpp
+    rclcpp_components
     geometry_msgs
     sensor_msgs
     tf2_ros
@@ -157,10 +163,16 @@ ament_target_dependencies(micp_localization
     visualization_msgs
 )
 
+rclcpp_components_register_node(micp_localization 
+    PLUGIN "rmcl::MICPLocalizationNode" 
+    EXECUTABLE micp_localization_node)
+
 install(TARGETS 
     micp_localization
-  DESTINATION lib/${PROJECT_NAME})
-
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
 
 # TODO: PORT TO ROS2!
 # ########################

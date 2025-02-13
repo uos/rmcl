@@ -5,6 +5,7 @@
 
 #include <rmcl/math/math.h>
 
+
 #ifdef RMCL_CUDA
 #include <rmcl/math/math.cuh>
 #include <rmagine/math/math.cuh>
@@ -15,6 +16,7 @@
 #include <rclcpp/wait_for_message.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
+#include <memory>
 #include <chrono>
 #include <vector>
 
@@ -25,7 +27,7 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-MICP::MICP(rclcpp::Node::SharedPtr node)
+MICP::MICP(rclcpp::Node* node)
 :m_nh(node)
 ,m_tf_buffer(new tf2_ros::Buffer(m_nh->get_clock()))
 ,m_tf_listener(new tf2_ros::TransformListener(*m_tf_buffer))
@@ -554,92 +556,108 @@ bool MICP::loadSensor(
 
         if(sensor_type == "spherical")
         {
-            if(sensor->info_topic.msg == "rmcl_msgs/msg/ScanInfo")
+          if(sensor->info_topic.msg == "rmcl_msgs/msg/ScanInfo")
+          {
+            if(initSharedNode())
             {
-                rmcl_msgs::msg::ScanInfo msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
-                {
-                    rm::SphericalModel model;
-                    convert(msg, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
-                }
+              rmcl_msgs::msg::ScanInfo msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->info_topic.name, 3s))
+              {
+                  rm::SphericalModel model;
+                  convert(msg, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
+              }
             }
+            
+          }
         } else if(sensor_type == "pinhole") {
             
-            if(sensor->info_topic.msg == "sensor_msgs/msg/CameraInfo")
+          if(sensor->info_topic.msg == "sensor_msgs/msg/CameraInfo")
+          {
+            if(initSharedNode())
             {
-                // std::cout << "Waiting for message on topic: " << sensor->info_topic.name << std::endl;
-                sensor_msgs::msg::CameraInfo msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
+              // std::cout << "Waiting for message on topic: " << sensor->info_topic.name << std::endl;
+              sensor_msgs::msg::CameraInfo msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->info_topic.name, 3s))
+              {
+                if(msg.header.frame_id != sensor->frame)
                 {
-                    if(msg.header.frame_id != sensor->frame)
-                    {
-                        std::cout << "WARNING: Image and CameraInfo are not in the same frame" << std::endl;
-                    }
-                    
-                    rm::PinholeModel model;
-                    convert(msg, model);
-
-                    // manually setting range limits
-                    // TODO: change this
-                    model.range.min = 0.3;
-                    model.range.max = 8.0;
-
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
+                    std::cout << "WARNING: Image and CameraInfo are not in the same frame" << std::endl;
                 }
-            }
+                
+                rm::PinholeModel model;
+                convert(msg, model);
 
-            if(sensor->info_topic.msg == "rmcl_msgs/msg/DepthInfo")
+                // manually setting range limits
+                // TODO: change this
+                model.range.min = 0.3;
+                model.range.max = 8.0;
+
+                sensor->model = model;
+                model_loaded = true;
+              } else {
+                std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
+              }
+            }
+          }
+
+          if(sensor->info_topic.msg == "rmcl_msgs/msg/DepthInfo")
+          {
+            if(initSharedNode())
             {
-                rmcl_msgs::msg::DepthInfo msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
-                {
-                    rm::PinholeModel model;
-                    convert(msg, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
-                }
+              rmcl_msgs::msg::DepthInfo msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->info_topic.name, 3s))
+              {
+                  rm::PinholeModel model;
+                  convert(msg, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "ERROR: Could not receive initial pinhole model!" << std::endl;
+              }
             }
+          }
 
 
         } else if(sensor_type == "o1dn") {
             
-            if(sensor->info_topic.msg == "rmcl_msgs/msg/O1DnInfo")
+          if(sensor->info_topic.msg == "rmcl_msgs/msg/O1DnInfo")
+          {
+            if(initSharedNode())
             {
-                rmcl_msgs::msg::O1DnInfo msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
-                {
-                    rm::O1DnModel model;
-                    convert(msg, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "ERROR: Could not receive initial o1dn model!" << std::endl;
-                }
+              rmcl_msgs::msg::O1DnInfo msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->info_topic.name, 3s))
+              {
+                rm::O1DnModel model;
+                convert(msg, model);
+                sensor->model = model;
+                model_loaded = true;
+              } else {
+                std::cout << "ERROR: Could not receive initial o1dn model!" << std::endl;
+              }
             }
+          }
 
         } else if(sensor_type == "ondn") {
-            if(sensor->info_topic.msg == "rmcl_msgs/msg/OnDnInfo")
+          if(sensor->info_topic.msg == "rmcl_msgs/msg/OnDnInfo")
+          {
+            if(initSharedNode())
             {
-                rmcl_msgs::msg::OnDnInfo msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->info_topic.name, 3s))
-                {
-                    rm::OnDnModel model;
-                    convert(msg, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "ERROR: Could not receive initial ondn model!" << std::endl;
-                }
+              rmcl_msgs::msg::OnDnInfo msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->info_topic.name, 3s))
+              {
+                  rm::OnDnModel model;
+                  convert(msg, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "ERROR: Could not receive initial ondn model!" << std::endl;
+              }
             }
+          }
         }
 
     } else { /// DATA
@@ -647,79 +665,91 @@ bool MICP::loadSensor(
 
         if(sensor_type == "spherical")
         {
-            if(!model_loaded && sensor->data_topic.msg == "sensor_msgs/msg/LaserScan")
+          if(!model_loaded && sensor->data_topic.msg == "sensor_msgs/msg/LaserScan")
+          {
+            if(initSharedNode())
             {
-                sensor_msgs::msg::LaserScan msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
-                {
-                    rm::SphericalModel model;
-                    convert(msg, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "error: get sensor_msgs/msg/LaserScan to init model" << std::endl;
-                }
+              sensor_msgs::msg::LaserScan msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->data_topic.name, 3s))
+              {
+                  rm::SphericalModel model;
+                  convert(msg, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "error: get sensor_msgs/msg/LaserScan to init model" << std::endl;
+              }
             }
-            
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/ScanStamped")
+          }
+          
+          if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/ScanStamped")
+          {
+            if(initSharedNode())
             {
-                rmcl_msgs::msg::ScanStamped msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
-                {
-                    rm::SphericalModel model;
-                    convert(msg.scan.info, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "error: get rmcl_msgs/msg/ScanStamped to init model" << std::endl;
-                }
+              rmcl_msgs::msg::ScanStamped msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->data_topic.name, 3s))
+              {
+                  rm::SphericalModel model;
+                  convert(msg.scan.info, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "error: get rmcl_msgs/msg/ScanStamped to init model" << std::endl;
+              }
             }
+          }
         } else if(sensor_type == "pinhole") {
 
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/DepthStamped")
-            {
-                rmcl_msgs::msg::DepthStamped msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
-                {
-                    rm::PinholeModel model;
-                    convert(msg.depth.info, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
-                }
-            }
+          if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/DepthStamped")
+          {
+              rmcl_msgs::msg::DepthStamped msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->data_topic.name, 3s))
+              {
+                  rm::PinholeModel model;
+                  convert(msg.depth.info, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
+              }
+          }
 
         } else if(sensor_type == "o1dn") {
 
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/O1DnStamped")
+          if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/O1DnStamped")
+          {
+            if(initSharedNode())
             {
-                rmcl_msgs::msg::O1DnStamped msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
-                {
-                    rm::O1DnModel model;
-                    convert(msg.o1dn.info, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
-                }
+              rmcl_msgs::msg::O1DnStamped msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->data_topic.name, 3s))
+              {
+                  rm::O1DnModel model;
+                  convert(msg.o1dn.info, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
+              }
             }
+          }
         } else if(sensor_type == "ondn") {
 
-            if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/OnDnStamped")
+          if(!model_loaded && sensor->data_topic.msg == "rmcl_msgs/msg/OnDnStamped")
+          {
+            if(initSharedNode())
             {
-                rmcl_msgs::msg::OnDnStamped msg;
-                if(rclcpp::wait_for_message(msg, m_nh, sensor->data_topic.name, 3s))
-                {
-                    rm::OnDnModel model;
-                    convert(msg.ondn.info, model);
-                    sensor->model = model;
-                    model_loaded = true;
-                } else {
-                    std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
-                }
+              rmcl_msgs::msg::OnDnStamped msg;
+              if(rclcpp::wait_for_message(msg, m_nh_shared, sensor->data_topic.name, 3s))
+              {
+                  rm::OnDnModel model;
+                  convert(msg.ondn.info, model);
+                  sensor->model = model;
+                  model_loaded = true;
+              } else {
+                  std::cout << "error: get rmcl_msgs/msg/DepthStamped to init model" << std::endl;
+              }
             }
+          }
         }
     }
 
@@ -821,7 +851,17 @@ bool MICP::loadSensor(
     // std::cout << "Searching for '_optical' in " << sensor->data_topic.frame << std::endl;
     
     // connect sensor to ROS
-    sensor->nh = m_nh;
+
+    if(!m_nh_shared)
+    {
+      auto nh_weak = m_nh->weak_from_this();
+      if(!(m_nh_shared = nh_weak.lock()))
+      {
+        return false;
+      }
+    }
+
+    sensor->nh = m_nh_shared;
     sensor->nh_p = m_nh_p;
     sensor->tf_buffer = m_tf_buffer;
 
@@ -856,7 +896,6 @@ bool MICP::loadSensor(
         sensor->corr_ondn_optix = std::make_shared<OnDnCorrectorOptix>(m_map_optix);
     }
     #endif // RMCL_OPTIX
-
     
     sensor->fetchTF();
     sensor->updateCorrectors();
@@ -1433,23 +1472,23 @@ bool MICP::checkTF(bool prints)
 
         while(rclcpp::ok() && num_tries > 0 && !odom_to_base_available )
         {
-            try {
-                auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, tf2::TimePointZero);
-                odom_to_base_available = true;
-            } catch (tf2::TransformException &ex) {
-                odom_to_base_available = false;
-            }
+          try {
+            auto T = m_tf_buffer->lookupTransform(m_odom_frame, m_base_frame, tf2::TimePointZero);
+            odom_to_base_available = true;
+          } catch (tf2::TransformException &ex) {
+            odom_to_base_available = false;
+          }
 
-            r.sleep();
-            executor.spin_once();
-            num_tries--;
+          r.sleep();
+          executor.spin_once();
+          num_tries--;
         }
 
         if(odom_to_base_available)
         {
-            std::cout << "  - base -> odom:\t" << TC_GREEN << "yes" << TC_END << std::endl;
+          std::cout << "  - base -> odom:\t" << TC_GREEN << "yes" << TC_END << std::endl;
         } else {
-            std::cout << "  - base -> odom:\t" << TC_RED << "no" << TC_END << std::endl;
+          std::cout << "  - base -> odom:\t" << TC_RED << "no" << TC_END << std::endl;
         }
     } else {
         std::cout << "- odom:\t\t\tdisabled" << std::endl; 
@@ -1478,74 +1517,89 @@ void MICP::checkTopic(
 
     using ChronoDuration = std::chrono::duration<int64_t, std::milli>;
 
+
+    if(!m_nh_shared)
+    {
+      auto nh_weak = m_nh->weak_from_this();
+      if(!(m_nh_shared = nh_weak.lock()))
+      {
+        std::cout << "Waiting for node to become alive" << std::endl;
+        return;
+      }
+    }
+
+
     if(info.msg == "sensor_msgs/msg/PointCloud2")
     {
-        sensor_msgs::msg::PointCloud2 msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      sensor_msgs::msg::PointCloud2 msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "sensor_msgs/msg/PointCloud") {
-        sensor_msgs::msg::PointCloud msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      sensor_msgs::msg::PointCloud msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "sensor_msgs/msg/LaserScan") {
-        sensor_msgs::msg::LaserScan msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      sensor_msgs::msg::LaserScan msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "sensor_msgs/msg/Image") {
-        sensor_msgs::msg::Image msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      sensor_msgs::msg::Image msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "sensor_msgs/msg/CameraInfo") {
-        sensor_msgs::msg::CameraInfo msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      sensor_msgs::msg::CameraInfo msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "rmcl_msgs/msg/ScanStamped") {
-        rmcl_msgs::msg::ScanStamped msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      rmcl_msgs::msg::ScanStamped msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "rmcl_msgs/msg/DepthStamped") {
-        rmcl_msgs::msg::DepthStamped msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      rmcl_msgs::msg::DepthStamped msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "rmcl_msgs/msg/O1DnStamped") {
-        rmcl_msgs::msg::O1DnStamped msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      rmcl_msgs::msg::O1DnStamped msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else if(info.msg == "rmcl_msgs/msg/OnDnStamped") {
-        rmcl_msgs::msg::OnDnStamped msg;
-        if(rclcpp::wait_for_message(msg, m_nh, info.name, timeout.to_chrono<ChronoDuration>()))
-        {
-            info.data = true;
-            info.frame = msg.header.frame_id;
-        }
+      rmcl_msgs::msg::OnDnStamped msg;
+      if(rclcpp::wait_for_message(msg, m_nh_shared, info.name, timeout.to_chrono<ChronoDuration>()))
+      {
+          info.data = true;
+          info.frame = msg.header.frame_id;
+      }
     } else {
-        // unknown type
-        return;
+      // unknown type
+      return;
     }
+
+
+    
 }
 
 

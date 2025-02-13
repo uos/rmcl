@@ -163,6 +163,25 @@ inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
     return ret;
 }
 
+inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
+  rclcpp::Node* node,
+  std::string prefix)
+{
+  ParamTree<rclcpp::Parameter>::SharedPtr ret;
+
+  std::map<std::string, rclcpp::Parameter> param_map;
+  if(node->get_parameters(prefix, param_map))
+  {
+      ret = std::make_shared<ParamTree<rclcpp::Parameter> >();
+      for(auto elem : param_map)
+      {
+          ret->insert(elem.first, elem.second);
+      }
+  }
+  ret->name = prefix;
+  return ret;
+}
+
 } // namespace rmcl
 
 #endif // RMCL_UTIL_ROS_HELPER_H

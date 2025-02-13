@@ -38,7 +38,7 @@ class ScanMapSegmentationEmbreeNode
 public:
   explicit ScanMapSegmentationEmbreeNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
   :rclcpp::Node(
-    "sphere_map_segmentation_embree_node",
+    "scan_map_segmentation_embree_node",
     rclcpp::NodeOptions(options)
       .allow_undeclared_parameters(true)
       .automatically_declare_parameters_from_overrides(true)
@@ -93,7 +93,7 @@ public:
       "scan", 10, 
       [=](const rmcl_msgs::msg::O1DnStamped::ConstSharedPtr& msg) -> void
       { 
-        scanCB(msg); 
+        scanCB(msg);
       });
 
     pub_outlier_scan_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
