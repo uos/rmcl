@@ -20,6 +20,16 @@
 #include <tf2_ros/transform_broadcaster.h>
 
 #include <rmcl_ros/nodes/micp_localization.hpp>
+#include <rmcl_ros/correction/MICPSensorSphericalEmbree.hpp>
+
+// #include <exception>
+
+#include <rmcl_ros/correction/DataLoader.hpp>
+#include <rmcl_ros/correction/data_loader/Topic.hpp>
+
+
+// #include <rmcl_ros/correction/RCCEmbree.hpp>
+
 
 namespace rm = rmagine;
 
@@ -46,8 +56,9 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     throw std::runtime_error("User must provide ~map_file");
   }
 
-  // loading general micp config
+  std::cout << "MAP FILE: " << map_filename_ << std::endl;
 
+  // loading general micp config
 
   // loading sensors from parameter tree
   std::map<std::string, rclcpp::Parameter> sensors_param;
@@ -67,6 +78,9 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
       {
         std::cout << "Loaded:  " << sensor->name << std::endl;
         sensors_[sensor->name] = sensor;
+
+        
+
       } else {
         std::string sensor_name = elem.second->name;
         std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;
@@ -80,9 +94,9 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
 }
 
-MICPRangeSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
+MICPSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
 {
-  MICPRangeSensorPtr none;
+  MICPSensorPtr sensor;
 
   // std::string param_path = make_sub_parameter(nh_sensor, "~bla");
   // std::cout << param_path << std::endl;
@@ -94,27 +108,68 @@ MICPRangeSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
   // std::cout << sensor_param_tree->name << std::endl;
 
   sensor_param_tree->print();
-
-  // determine type
   
+  if(!sensor_param_tree->exists("type"))
+  {
+    // ERROR!
+    throw std::runtime_error("PARAM ERROR");
+  }
+  
+  // fetch parameters that decide which implementation is loaded
+  const std::string sensor_type = sensor_param_tree->at("type")->data->as_string();
+  std::cout << "- Type: " << sensor_type << std::endl;
+  const std::string model_source = sensor_param_tree->at("model_source")->data->as_string();  
+  std::cout << "- Model Source: " << model_source << std::endl;
+  const std::string data_source = sensor_param_tree->at("data_source")->data->as_string();
+  std::cout << "- Data Source: " << data_source << std::endl;
 
+  const std::string corr_backend = sensor_param_tree->at("correspondences")->at("backend")->data->as_string();
+  std::cout << "- Correspondence Backend: " << corr_backend << std::endl;
 
-  return none;
+  // model loader: if none , model is in data
+  if(corr_backend == "embree" && sensor_type == "spherical")
+  {
+    sensor = std::make_shared<MICPSensorSphericalEmbree>();
+  }
+
+  if(data_source == "topic")
+  {
+    const std::string topic_name = sensor_param_tree->at("topic")->at("name")->data->as_string();
+    const std::string topic_type = sensor_param_tree->at("topic")->at("type")->data->as_string();
+
+    if(topic_type == "rmcl_msgs/msg/O1DnStamped")
+    {
+      auto bla = std::make_shared<dataloader::TopicSourceO1Dn>(nh_sensor, topic_name);
+
+      // std::string map_filename = rmcl::get_parameter(nh_sensor, "/map_file", "");
+
+      // std::cout << "TRY TO INJECT MAP IN TESTS!" << std::endl;
+
+      // std::cout << map_filename << std::endl;
+
+      // rm::EmbreeMapPtr map = rm::import_embree_map(map_filename);
+
+      sensor->data_loader = bla;
+    } else {
+      // ERROR
+      throw std::runtime_error("Topic type invalid or not implemented");
+    }
+  }
+
+  return sensor;
 }
 
-MICPRangeSensorPtr MICPLocalizationNode::loadSensor(
+MICPSensorPtr MICPLocalizationNode::loadSensor(
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_params)
 {
-  MICPRangeSensorPtr none;
-
   std::string sensor_name = sensor_params->name;
 
   std::cout << "Loading '" << sensor_name << "'" << std::endl;
 
   rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
-  MICPRangeSensorPtr sensor = make_sensor(nh_sensor);
+  MICPSensorPtr sensor = make_sensor(nh_sensor);
 
-  return none;
+  return sensor;
 }
 
 } // namespace rmcl

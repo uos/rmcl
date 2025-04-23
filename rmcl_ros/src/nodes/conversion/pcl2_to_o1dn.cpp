@@ -187,6 +187,8 @@ private:
       }
     }
 
+    scan.header.stamp = pcl->header.stamp;
+
     return true;
   }
 

@@ -87,92 +87,92 @@ template<typename ParamT>
 class ParamTree : public std::unordered_map<std::string, std::shared_ptr<ParamTree<ParamT> > >
 {
 private:
-    using Base = std::unordered_map<std::string, std::shared_ptr<ParamTree<ParamT> > >;
-    using ThisType = ParamTree<ParamT>;
+  using Base = std::unordered_map<std::string, std::shared_ptr<ParamTree<ParamT> > >;
+  using ThisType = ParamTree<ParamT>;
 public:
-    using SharedPtr = std::shared_ptr<ParamTree<ParamT> >;
+  using SharedPtr = std::shared_ptr<ParamTree<ParamT> >;
 
-    std::shared_ptr<ParamT> data;
-    std::string name; // uid
+  std::shared_ptr<ParamT> data;
+  std::string name; // uid
 
-    inline void insert(ParamTree<ParamT>::SharedPtr subtree)
+  inline void insert(ParamTree<ParamT>::SharedPtr subtree)
+  {
+    if(Base::find(subtree->name) != Base::end())
     {
-        if(Base::find(subtree->name) != Base::end())
-        {
-            // exists, need to merge
-            for(auto elem : *subtree)
-            {
-                Base::at(subtree->name)->insert(elem.second);
-            }
-        } else {
-            Base::insert(std::make_pair(subtree->name, subtree));
-        }
+      // exists, need to merge
+      for(auto elem : *subtree)
+      {
+        Base::at(subtree->name)->insert(elem.second);
+      }
+    } else {
+      Base::insert(std::make_pair(subtree->name, subtree));
     }
+  }
 
-    inline void insert(std::string param_name, ParamT param)
+  inline void insert(std::string param_name, ParamT param)
+  {
+    size_t pos = param_name.find(".");
+    if(pos != std::string::npos)
     {
-        size_t pos = param_name.find(".");
-        if(pos != std::string::npos)
-        {
-            std::string first_name = param_name.substr(0, pos);
-            std::string last_name = param_name.substr(pos + 1);
+      std::string first_name = param_name.substr(0, pos);
+      std::string last_name = param_name.substr(pos + 1);
 
-            ParamTree<ParamT>::SharedPtr child = std::make_shared<ParamTree>();
-            child->name = first_name;
-            child->insert(last_name, param); // recursion
-            this->insert(child);
-        } else {
-            // leaf
-            ParamTree<ParamT>::SharedPtr child = std::make_shared<ParamTree>();
-            child->name = param_name;
-            child->data = std::make_shared<ParamT>(param);
-            this->insert(child);
-        }
+      ParamTree<ParamT>::SharedPtr child = std::make_shared<ParamTree>();
+      child->name = first_name;
+      child->insert(last_name, param); // recursion
+      this->insert(child);
+    } else {
+      // leaf
+      ParamTree<ParamT>::SharedPtr child = std::make_shared<ParamTree>();
+      child->name = param_name;
+      child->data = std::make_shared<ParamT>(param);
+      this->insert(child);
     }
+  }
 
-    inline void print(int indent = 0)
+  inline void print(size_t indent = 0)
+  {
+    for(size_t i=0; i<indent; i++) 
     {
-        for(size_t i=0; i<indent; i++) 
-        {
-            std::cout << "  ";
-        }
-        std::cout << name << std::endl;
-        
-        for(auto elem : *this)
-        {
-            elem.second->print(indent + 1);
-        }
+      std::cout << "  ";
     }
+    std::cout << name << std::endl;
+    
+    for(auto elem : *this)
+    {
+      elem.second->print(indent + 1);
+    }
+  }
 
-    inline bool exists(std::string key) const{
-        return Base::find(key) != Base::end();
-    }
+  inline bool exists(std::string key) const{
+    return Base::find(key) != Base::end();
+  }
 };
 
 inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
     rclcpp::Node* node,
     std::string prefix)
 {
-    ParamTree<rclcpp::Parameter>::SharedPtr ret;
+  ParamTree<rclcpp::Parameter>::SharedPtr ret;
 
-    const std::string prefix_path = make_sub_parameter(node, prefix);
-    const std::map<std::string, rclcpp::Parameter> param_map 
-        = get_parameters(node, prefix_path);
+  const std::string prefix_path = make_sub_parameter(node, prefix);
+  const std::map<std::string, rclcpp::Parameter> param_map 
+      = get_parameters(node, prefix_path);
 
-    ret = std::make_shared<ParamTree<rclcpp::Parameter> >();
-    for(auto elem : param_map)
-    {
-        ret->insert(elem.first, elem.second);
-    }
-    ret->name = prefix_path;
-    return ret;
+  ret = std::make_shared<ParamTree<rclcpp::Parameter> >();
+  for(auto elem : param_map)
+  {
+    ret->insert(elem.first, elem.second);
+  }
+  ret->name = prefix_path;
+  return ret;
 }
 
 inline ParamTree<rclcpp::Parameter>::SharedPtr get_parameter_tree(
     rclcpp::Node::SharedPtr node,
     std::string prefix)
 {
-    return get_parameter_tree(node.get(), prefix);
+  return get_parameter_tree(node.get(), prefix);
 }
 
 } // namespace rmcl
