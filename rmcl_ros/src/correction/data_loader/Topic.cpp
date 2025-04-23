@@ -151,7 +151,7 @@ void TopicSourceO1Dn::fetchTF()
   std::cout << "Time Errors:" << std::endl;
   std::cout << "- Tbo - data header: " << (Tbo_stamp - stamp_).seconds() * 1000.0 << "ms" << std::endl; 
 
-  params_.max_dist = 100.0;
+  params_.max_dist = 0.5;
 }
 
 void TopicSourceO1Dn::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
