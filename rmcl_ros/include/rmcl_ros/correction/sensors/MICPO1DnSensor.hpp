@@ -39,25 +39,18 @@ class MICPO1DnSensor
 : public MICPSensor_<rmagine::RAM>
 {
 public:
+
+using Base = MICPSensor_<rmagine::RAM>;
+
   MICPO1DnSensor(
     rclcpp::Node::SharedPtr nh,
     std::string topic_name);
     
   void poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
-  
-  /**
-   * Fetch TF chain. except for odom->map (this is estimated or has to be provided from extern)
-   */
-  void fetchTF();
 
   void topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
 
   void setMap(rmagine::EmbreeMapPtr map);
-
-  std::string map_frame = "map";
-  std::string odom_frame = "odom";
-  std::string base_frame = "base_footprint";
-  std::string sensor_frame = "velodyne";
 
   size_t n_outer_ = 2;
   size_t n_inner_ = 10;
@@ -67,33 +60,16 @@ protected:
 
   void unpackMessage(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
 
-  // transform chain from sensor -> base -> odom -> map
-  // keep this up to date
-  rmagine::Transform Tsb;
-  rclcpp::Time Tsb_stamp;
-  rmagine::Transform Tbo;
-  rclcpp::Time Tbo_stamp;
-  rmagine::Transform Tom;
-  rclcpp::Time Tom_stamp;
-
 private:
-  rclcpp::Node::SharedPtr nh_;
 
   rmagine::EmbreeMapPtr map_;
   rmagine::O1DnModel sensor_model_;
-
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   message_filters::Subscriber<rmcl_msgs::msg::O1DnStamped> data_sub_;
 
   std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> > tf_filter_;
 
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
-
-  std::shared_ptr<Correspondences_<rmagine::RAM> > correspondences_;
-
 };
 
 } // namespace rmcl

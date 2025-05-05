@@ -10,6 +10,10 @@
 #include <unordered_map>
 #include <string>
 
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+
+#include <rmagine/map/EmbreeMap.hpp>
+
 
 namespace rmcl
 {
@@ -27,6 +31,9 @@ public:
       ParamTree<rclcpp::Parameter>::SharedPtr sensor_params);
 
 private:
+  void poseCB(
+    const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
+
   std::string map_frame_;
   std::string base_frame_;
   std::string odom_frame_;
@@ -34,6 +41,11 @@ private:
 
   std::string map_filename_;
   std::unordered_map<std::string, MICPSensorPtr> sensors_;
+
+  rmagine::EmbreeMapPtr map_embree_;
+
+  // pose wc stamped subscriber (eg, RViz)
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
 };
 
 

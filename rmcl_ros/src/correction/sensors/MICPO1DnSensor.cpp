@@ -22,25 +22,8 @@ namespace rmcl
 MICPO1DnSensor::MICPO1DnSensor(
   rclcpp::Node::SharedPtr nh, 
   std::string topic_name)
-:nh_(nh)
+:MICPSensor_<rmagine::RAM>(nh)
 {
-  // das kannst du doch keinem zeigen
-  tf_buffer_ =
-    std::make_shared<tf2_ros::Buffer>(nh_->get_clock());
-
-  // Create the timer interface before call to waitForTransform,
-  // to avoid a tf2_ros::CreateTimerInterfaceException exception
-  auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
-    nh_->get_node_base_interface(),
-    nh_->get_node_timers_interface());
-  tf_buffer_->setCreateTimerInterface(timer_interface);
-  
-  tf_listener_ =
-    std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
-  tf_broadcaster_ =
-    std::make_shared<tf2_ros::TransformBroadcaster>(*nh_);
-
   std::cout << "Load data from topic '" << topic_name << "'" << std::endl;
 
   std::chrono::duration<int> buffer_timeout(1);
@@ -56,19 +39,19 @@ MICPO1DnSensor::MICPO1DnSensor(
   std::cout << "Waiting for message..." << std::endl;
   
   // TODO: move this outside the sensor. Otherwise we'd load multiple embree maps
-  std::string map_filename = nh_->get_parameter("map_file").as_string();
+  // std::string map_filename = nh_->get_parameter("map_file").as_string();
 
-  std::cout << map_filename << std::endl;
+  // std::cout << map_filename << std::endl;
 
-  map_ = rm::import_embree_map(map_filename);
+  // map_ = rm::import_embree_map(map_filename);
 
-  correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_);
+  // correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_);
 
   Tom.setIdentity();
 
-  pose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    "/initialpose", 10, std::bind(&MICPO1DnSensor::poseCB, this, std::placeholders::_1));
+  params_.max_dist = 0.5;
 
+  correspondences_.reset();
 }
 
 void MICPO1DnSensor::setMap(rm::EmbreeMapPtr map)
@@ -79,7 +62,6 @@ void MICPO1DnSensor::setMap(rm::EmbreeMapPtr map)
   {
     rcc_embree->setMap(map);
   }
-
 }
 
 void MICPO1DnSensor::poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
@@ -92,41 +74,6 @@ void MICPO1DnSensor::poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped:
   Tom = Tbm_est * ~Tbo; // o -> b -> m
 }
 
-void MICPO1DnSensor::fetchTF()
-{
-  // figure out current transform chain.
-
-  try {
-    geometry_msgs::msg::TransformStamped T_sensor_base;
-    T_sensor_base = tf_buffer_->lookupTransform(base_frame, sensor_frame, stamp_);
-    Tsb_stamp = T_sensor_base.header.stamp;
-    convert(T_sensor_base.transform, Tsb);
-  } catch (tf2::TransformException &ex) {
-    RCLCPP_WARN(nh_->get_logger(), "%s", ex.what());
-    RCLCPP_WARN_STREAM(nh_->get_logger(), "Source (Sensor): " << sensor_frame << ", Target (Base): " << base_frame);
-    return;
-  }
-
-  try {
-    geometry_msgs::msg::TransformStamped T_base_odom;
-    T_base_odom = tf_buffer_->lookupTransform(odom_frame, base_frame, stamp_);
-    Tbo_stamp = T_base_odom.header.stamp;
-    convert(T_base_odom.transform, Tbo);
-
-  } catch (tf2::TransformException& ex) {
-    // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
-    RCLCPP_WARN(nh_->get_logger(), "%s", ex.what());
-    RCLCPP_WARN_STREAM(nh_->get_logger(), "Source (Base): " << base_frame << ", Target (Odom): " << odom_frame);
-    return;
-  }
-
-  std::cout << "TRANSFORM CHAIN COMPLETE!" << std::endl;
-
-  std::cout << "Time Errors:" << std::endl;
-  std::cout << "- Tbo - data header: " << (Tbo_stamp - stamp_).seconds() * 1000.0 << "ms" << std::endl; 
-
-  params_.max_dist = 0.5;
-}
 
 void MICPO1DnSensor::unpackMessage(
   const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
@@ -175,16 +122,16 @@ void MICPO1DnSensor::unpackMessage(
     }
   }
   // double el = sw();
+  dataset_stamp_ = msg->header.stamp;
 }
 
-void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPO1DnSensor::topicCB(
+  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 {
-
-  
   rm::StopWatch sw;
   double el;
 
-  stamp_ = msg->header.stamp;
+  dataset_stamp_ = msg->header.stamp;
 
   sensor_frame = msg->header.frame_id;
 
@@ -192,26 +139,23 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
   fetchTF();
   correspondences_->setTsb(Tsb);
 
-  std::cout << "Got scan!!!" << std::endl;
-
   // copy to internal representation
 
   // fill sensor_model_ and initialize copy data to dataset
   sw();
   unpackMessage(msg);
-  el = sw();
-  std::cout << "Unpack Message: " << el * 1000.0 << " ms" << std::endl;
-
   if(auto rcc = std::dynamic_pointer_cast<RCCEmbreeO1Dn>(correspondences_))
   {
     // RCC required sensor model
-    std::cout << "SET MODEL!L!!" << std::endl;
     rcc->setModel(sensor_model_);
   }
   
-  std::cout << "Fill data (" << dataset_.points.size() << ") in " << el * 1000.0 << "ms" << std::endl;
-  const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
-
+  el = sw();
+  
+  std::cout << "Unpack Message & fill data (" 
+  << dataset_.points.size() << "): " << el * 1000.0 << "ms" << std::endl;
+  
+  
   { // print conversion & sync delay
     rclcpp::Time msg_time = msg->header.stamp;
     rclcpp::Duration conversion_time = nh_->get_clock()->now() - msg_time;
@@ -219,21 +163,28 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
   }
 
   // correction!
+  if(!correspondences_)
+  {
+    std::cout << "Correspondences not set!" << std::endl;
+  }
+
+  
+  const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
 
   // read Tom -> first Tbm estimation
   rm::Transform Tbm_est = Tom * Tbo;
-
+  
   // outer loop, find correspondences
   for(size_t i = 0; i<n_outer_; i++)
   {
     // per sensor
-
+    
+    
     // find model correspondences
     correspondences_->find(Tbm_est);
     const rm::PointCloudView_<rm::RAM> cloud_model = correspondences_->get();
 
     // inner loop, minimize
-    // rm::Transform Tdelta_b = rm::Transform::Identity();
 
     // this is what we want to optimize: 
     // find a transformation from a new base frame to the old base frame that optimizes the alignment
@@ -255,14 +206,12 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 
       const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params_);
       
-      // delta transform of inner loop
-      const rm::Transform T_sinner_snew = rm::umeyama_transform(stats_s);
-      
-      T_snew_sold = T_snew_sold * T_sinner_snew;
-      
-      // recover actual bnew to bold (go a path through Fig. 1)
-      // from bnew to to snew to sold to bold -> bnew to bold
-      T_bnew_bold = Tsb * T_snew_sold * ~Tsb;
+      // transform CrossStatistics of every sensor to base frame
+      const rm::CrossStatistics stats_b = Tsb * stats_s;
+
+      const rm::Transform T_binner_bnew = rm::umeyama_transform(stats_b);
+
+      T_bnew_bold = T_bnew_bold * T_binner_bnew;
     }
 
     // update estimate
@@ -271,7 +220,7 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 
   // write Tom
   Tom = Tbm_est * ~Tbo; // recover Tom: o -> b -> m
-  Tom_stamp = stamp_;
+  Tom_stamp = dataset_stamp_;
 
   { // broadcast transform
     geometry_msgs::msg::TransformStamped T_odom_map;

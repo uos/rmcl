@@ -61,7 +61,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 
   std::cout << "MAP FILE: " << map_filename_ << std::endl;
 
-
+  map_embree_ = rm::import_embree_map(map_filename_);
 
 
   // loading general micp config
@@ -96,22 +96,50 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   }
 
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
+
+  pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+    "/initialpose", 10, std::bind(&MICPLocalizationNode::poseCB, this, std::placeholders::_1));
+
+  std::cout << "Waiting for pose..." << std::endl;
 }
 
-MICPSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
+void MICPLocalizationNode::poseCB(
+  const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+{
+  // rm::Transform
+  std::cout << "Initial pose guess received." << std::endl;
+  // TODO: transform pose
+  rm::Transform Tbm_est;
+  convert(msg->pose.pose, Tbm_est);
+  // Tom = Tbm_est * ~Tbo; // o -> b -> m
+
+  // update sensors
+
+  for(auto elem : sensors_)
+  {
+    elem.second->setTbm(Tbm_est);
+  }
+
+}
+
+MICPSensorPtr MICPLocalizationNode::loadSensor(
+  ParamTree<rclcpp::Parameter>::SharedPtr sensor_params)
 {
   MICPSensorPtr sensor;
 
-  // std::string param_path = make_sub_parameter(nh_sensor, "~bla");
-  // std::cout << param_path << std::endl;
+  std::string sensor_name = sensor_params->name;
 
+  std::cout << "Loading '" << sensor_name << "'" << std::endl;
+
+  rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
+  
+  
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
     = get_parameter_tree(nh_sensor, "~");
-
+  
   std::cout << "Param tree:" << std::endl;
-  // std::cout << sensor_param_tree->name << std::endl;
-
   sensor_param_tree->print();
+
   
   if(!sensor_param_tree->exists("type"))
   {
@@ -130,11 +158,7 @@ MICPSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
   const std::string corr_backend = sensor_param_tree->at("correspondences")->at("backend")->data->as_string();
   std::cout << "- Correspondence Backend: " << corr_backend << std::endl;
 
-  // model loader: if none , model is in data
-  if(corr_backend == "embree" && sensor_type == "spherical")
-  {
-    // sensor = std::make_shared<MICPO1DnSensor>(nh_sensor, topic_name);
-  }
+
 
   if(data_source == "topic")
   {
@@ -144,32 +168,15 @@ MICPSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
     if(topic_type == "rmcl_msgs/msg/O1DnStamped")
     {
       sensor = std::make_shared<MICPO1DnSensor>(nh_sensor, topic_name);
-      // auto bla = std::make_shared<MICPO1DnSensor>(nh_sensor, topic_name);
-
-      // std::string map_filename = rmcl::get_parameter(nh_sensor, "/map_file", "");
-      // std::cout << "TRY TO INJECT MAP IN TESTS!" << std::endl;
-      // std::cout << map_filename << std::endl;
-      // rm::EmbreeMapPtr map = rm::import_embree_map(map_filename);
-
-      // sensor->data_loader = bla;
-    } else {
-      // ERROR
-      throw std::runtime_error("Topic type invalid or not implemented");
+      
+      if(corr_backend == "embree")
+      {
+        sensor->correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
+      }
     }
+
   }
 
-  return sensor;
-}
-
-MICPSensorPtr MICPLocalizationNode::loadSensor(
-  ParamTree<rclcpp::Parameter>::SharedPtr sensor_params)
-{
-  std::string sensor_name = sensor_params->name;
-
-  std::cout << "Loading '" << sensor_name << "'" << std::endl;
-
-  rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
-  MICPSensorPtr sensor = make_sensor(nh_sensor);
 
   return sensor;
 }

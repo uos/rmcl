@@ -1,8 +1,12 @@
 #ifndef RMCL_CORRECTION_CORRESPONDENCES_HPP
 #define RMCL_CORRECTION_CORRESPONDENCES_HPP
 
+#include <rmagine/math/types.h>
 #include <rmagine/types/PointCloud.hpp>
 #include <rmagine/types/Bundle.hpp>
+#include <rmagine/types/Memory.hpp>
+#include <rmagine/simulation/SimulationResults.hpp>
+
 
 namespace rmcl
 {

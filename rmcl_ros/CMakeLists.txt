@@ -123,11 +123,12 @@ add_library(micp_localization SHARED
     src/nodes/micp_localization.cpp
     # MICP
     # src/correction/MICP.cpp
-    src/correction/MICPRangeSensor.cpp
-    src/correction/MICPSensorSphericalEmbree.cpp
+    src/correction/MICPSensor.cpp
+    # src/correction/MICPRangeSensor.cpp
+    # src/correction/MICPSensorSphericalEmbree.cpp
     src/correction/sensors/MICPO1DnSensor.cpp
     src/correction/correspondences/RCCEmbree.cpp
-    src/correction/data_loader/Topic.cpp
+    # src/correction/data_loader/Topic.cpp
 )
 
 target_include_directories(micp_localization
