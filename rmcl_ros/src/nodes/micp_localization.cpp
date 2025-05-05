@@ -79,13 +79,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
         std::cout << "Loaded:  " << sensor->name << std::endl;
         sensors_[sensor->name] = sensor;
 
-        // a1          a2
-        // b1    b2    b3    b4
-
-        // a1       a2
-        // b1    b2    b3    b4
-        // m1    m2    m3    m4
-
       } else {
         std::string sensor_name = elem.second->name;
         std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;

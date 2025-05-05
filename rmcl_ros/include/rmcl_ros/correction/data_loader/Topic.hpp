@@ -27,8 +27,48 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
 
+
 namespace rmcl
 {
+
+
+class RegistrationMinimizer
+{
+public:
+  virtual rmagine::Transform minimize(
+    const rmagine::Transform Tinit, 
+    const rmagine::PointCloudView_<rmagine::RAM> dataset,
+    const rmagine::PointCloudView_<rmagine::RAM> model) = 0;
+};
+
+
+class UmeyamaMinimizer
+: public RegistrationMinimizer
+{
+public:
+
+  UmeyamaMinimizer(rmagine::UmeyamaReductionConstraints params)
+  :RegistrationMinimizer()
+  ,params_(params)
+  {
+    // construct
+  }
+
+  virtual rmagine::Transform minimize(
+    const rmagine::Transform Tpre, 
+    const rmagine::PointCloudView_<rmagine::RAM> dataset,
+    const rmagine::PointCloudView_<rmagine::RAM> model) override
+  {
+    namespace rm = rmagine;
+    const rm::CrossStatistics stats = rm::statistics_p2l(Tpre, dataset, model, params_);
+    const rm::Transform Tpre_next = rm::umeyama_transform(stats);
+    const rm::Transform Tpre_opti = Tpre * Tpre_next;
+    return Tpre_opti;
+  }
+
+protected:
+  rmagine::UmeyamaReductionConstraints params_;
+};
 
 namespace dataloader
 {
@@ -52,7 +92,9 @@ public:
 
   void setMap(rmagine::EmbreeMapPtr map);
 
-  void findCorrespondences(const rmagine::Transform Tbm_est);
+  rmagine::PointCloudView_<rmagine::RAM> findCorrespondences(const rmagine::Transform Tbm_est);
+
+  
 
   // transform chain from sensor -> base -> odom -> map
   // keep this up to date
