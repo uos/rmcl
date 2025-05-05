@@ -79,7 +79,12 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
         std::cout << "Loaded:  " << sensor->name << std::endl;
         sensors_[sensor->name] = sensor;
 
-        
+        // a1          a2
+        // b1    b2    b3    b4
+
+        // a1       a2
+        // b1    b2    b3    b4
+        // m1    m2    m3    m4
 
       } else {
         std::string sensor_name = elem.second->name;
@@ -142,11 +147,8 @@ MICPSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
       auto bla = std::make_shared<dataloader::TopicSourceO1Dn>(nh_sensor, topic_name);
 
       // std::string map_filename = rmcl::get_parameter(nh_sensor, "/map_file", "");
-
       // std::cout << "TRY TO INJECT MAP IN TESTS!" << std::endl;
-
       // std::cout << map_filename << std::endl;
-
       // rm::EmbreeMapPtr map = rm::import_embree_map(map_filename);
 
       sensor->data_loader = bla;

@@ -52,7 +52,7 @@ public:
 
   void setMap(rmagine::EmbreeMapPtr map);
 
-  void findCorrespondences();
+  void findCorrespondences(const rmagine::Transform Tbm_est);
 
   // transform chain from sensor -> base -> odom -> map
   // keep this up to date
@@ -72,12 +72,8 @@ public:
   size_t n_inner_ = 10;
   rmagine::UmeyamaReductionConstraints params_;
 
-
 private:
-
-
   rclcpp::Node::SharedPtr nh_;
-  // rclcpp::Subscription<rmcl_msgs::msg::O1DnStamped>::SharedPtr data_sub_;
 
   rmagine::O1DnModel sensor_model_;
   rmagine::O1DnSimulatorEmbreePtr sim_;

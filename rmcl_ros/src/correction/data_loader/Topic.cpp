@@ -223,122 +223,42 @@ void TopicSourceO1Dn::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
     }
   }
   double el = sw();
-
-  std::cout << "Fill data (" << n_new_measurements << ") in " << el * 1000.0 << "ms" << std::endl;
-
-
-  { // debug
-    size_t n_valid_ranges = 0;
-    for(size_t i=0; i<dataset_.mask.size(); i++)
-    {
-      if(dataset_.mask[i])
-      {
-        n_valid_ranges++;
-      }
-    }
-    std::cout << "Valid Ranges: " << n_valid_ranges << std::endl;
-  }
-
-  // next: find correspondences
-
-  for(size_t i = 0; i<n_outer_; i++)
-  {
-    findCorrespondences();
-  }
-}
-
-// template<typename DataT>
-// void printStats(rm::CrossStatistics_<DataT> stats)
-// {
-//     std::cout << "CrossStatistics: " << std::endl;
-//     std::cout << "- dataset mean: " << stats.dataset_mean << std::endl;
-//     std::cout << "- model mean: " << stats.model_mean << std::endl;
-//     std::cout << "- cov: " << stats.covariance << std::endl;
-//     std::cout << "- n meas: " << stats.n_meas << std::endl; 
-// }
-
-void TopicSourceO1Dn::findCorrespondences()
-{
-  rm::StopWatch sw;
-  // Part 2: find correspondences with a reference model
   
-  sim_->setTsb(Tsb);
-
+  std::cout << "Fill data (" << n_new_measurements << ") in " << el * 1000.0 << "ms" << std::endl;
+  const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
+  
+  // read Tom -> first Tbm estimation
   rm::Transform Tbm_est = Tom * Tbo;
 
-  // rm::Transform Tbm_opti = Tbm_est;
-  
-  std::cout << "Simulate " << sensor_model_.getWidth() << " x " << sensor_model_.getHeight() << " rays" << std::endl;
-  std::cout << "- allowed range: " << sensor_model_.range.min << ", " << sensor_model_.range.max << std::endl;
-
-  sw();
-  sim_->simulate(Tbm_est, simulation_buffers_);
-  double el = sw();
-  
-  std::cout << "- RCCs: " << el*1000.0 << " ms" << std::endl;
-  
-  { // debug: count valid simulations
-    size_t n_valid_sims = 0;
-    for(size_t i=0; i<simulation_buffers_.hits.size(); i++)
-    {
-      if(simulation_buffers_.hits[i])
-      {
-        n_valid_sims++;
-      }
-    }
-    std::cout << "Valid Sims: " << n_valid_sims << std::endl;
-  }
-
-  sw();
-  // fill model cloud with results  
-  rm::PointCloudView_<rm::RAM> cloud_model = {
-    .points = simulation_buffers_.points,
-    .mask = simulation_buffers_.hits,
-    .normals = simulation_buffers_.normals
-  };
-  rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
-  el = sw();
-
-  std::cout << "- Prepare inner loop: " << el*1000.0 << " ms" << std::endl;
-
-  rm::Transform Tpre = rm::Transform::Identity();
-
-  sw();
-  for(size_t j=0; j<n_inner_; j++)
+  // outer loop, find correspondences
+  for(size_t i = 0; i<n_outer_; i++)
   {
-    const rm::CrossStatistics stats = rm::statistics_p2l(Tpre, cloud_dataset, cloud_model, params_);
-    if(j == 0)
+    // find model correspondences
+    findCorrespondences(Tbm_est);
+    const rm::PointCloudView_<rm::RAM> cloud_model = {
+      .points = simulation_buffers_.points,
+      .mask = simulation_buffers_.hits,
+      .normals = simulation_buffers_.normals
+    };
+    
+    // inner loop, minimize
+    rm::Transform Tdelta = rm::Transform::Identity();
+    for(size_t j=0; j<n_inner_; j++)
     {
-      std::cout << "Stats:" << std::endl;
-      std::cout << stats.n_meas << std::endl;
+      // Solve, Umeyama
+      const rm::CrossStatistics stats = rm::statistics_p2l(Tdelta, cloud_dataset, cloud_model, params_);
+      const rm::Transform Tpre_next = rm::umeyama_transform(stats);
+      Tdelta = Tdelta * Tpre_next;
     }
-    rm::Transform Tpre_next = rm::umeyama_transform(stats);
-    Tpre = Tpre * Tpre_next;
-
-    // std::cout << stats.n_meas << std::endl;
+    
+    // correct pose
+    Tbm_est = Tbm_est * Tdelta;
   }
-  el = sw();
-
-  std::cout << "- Inner Loop: " << el*1000.0 << " ms" << std::endl;
-
-
-  rm::Transform Tbm_opti = Tbm_est * Tpre;
-  
-  std::cout << "Opti:" << std::endl;
-  std::cout << "- pre: " << Tpre << std::endl;
-  std::cout << "- before: " << Tbm_est << std::endl;
-  std::cout << "- after: " << Tbm_opti << std::endl;
-  
-  // correct Tom
-  Tom = Tbm_opti * ~Tbo; // o -> b -> m
+ 
+  // write Tom
+  Tom = Tbm_est * ~Tbo; // recover Tom: o -> b -> m
   Tom_stamp = stamp_;
-
-  // broadcast tf
-
-  // std::cout << Tbm_opti << std::endl;
-
-  // std::cout << Tom << std::endl;
-
+  
   { // broadcast transform
     geometry_msgs::msg::TransformStamped T_odom_map;
     T_odom_map.header.stamp = Tom_stamp;
@@ -350,6 +270,11 @@ void TopicSourceO1Dn::findCorrespondences()
 
 }
 
+void TopicSourceO1Dn::findCorrespondences(const rm::Transform Tbm_est)
+{
+  sim_->setTsb(Tsb);
+  sim_->simulate(Tbm_est, simulation_buffers_);
+}
 
 } // namespace dataloader
 
