@@ -58,6 +58,9 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 
   std::cout << "MAP FILE: " << map_filename_ << std::endl;
 
+
+
+
   // loading general micp config
 
   // loading sensors from parameter tree

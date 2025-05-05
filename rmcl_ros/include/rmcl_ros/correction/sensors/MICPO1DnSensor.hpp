@@ -1,8 +1,8 @@
-#ifndef RMCL_ROS_CORRECTION_DATA_LOADER_TOPIC_HPP
-#define RMCL_ROS_CORRECTION_DATA_LOADER_TOPIC_HPP
+#ifndef RMCL_MICPO1DN_SENSOR_HPP
+#define RMCL_MICPO1DN_SENSOR_HPP
 
 #include <rclcpp/rclcpp.hpp>
-#include <rmcl_ros/correction/DataLoader.hpp>
+#include <rmcl_ros/correction/MICPSensor.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -31,16 +31,11 @@
 namespace rmcl
 {
 
-
-
-namespace dataloader
-{
-
-class TopicSourceO1Dn
-: public DataLoader_<rmagine::RAM>
+class MICPO1DnSensor
+: public MICPSensor_<rmagine::RAM>
 {
 public:
-  TopicSourceO1Dn(
+  MICPO1DnSensor(
     rclcpp::Node::SharedPtr nh,
     std::string topic_name);
     
@@ -58,7 +53,6 @@ public:
   rmagine::PointCloudView_<rmagine::RAM> findCorrespondences(const rmagine::Transform Tbm_est);
 
   
-
   // transform chain from sensor -> base -> odom -> map
   // keep this up to date
   rmagine::Transform Tsb;
@@ -102,8 +96,6 @@ private:
 
 };
 
-} // namespace dataloader
-
 } // namespace rmcl
 
-#endif // RMCL_ROS_CORRECTION_DATA_LOADER_TOPIC_HPP
+#endif // RMCL_MICPO1DN_SENSOR_HPP

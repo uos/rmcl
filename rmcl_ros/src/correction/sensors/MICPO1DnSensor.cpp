@@ -1,5 +1,5 @@
-#include <rmcl_ros/correction/DataLoader.hpp>
-#include <rmcl_ros/correction/data_loader/Topic.hpp>
+#include <rmcl_ros/correction/MICPSensor.hpp>
+#include <rmcl_ros/correction/sensors/MICPO1DnSensor.hpp>
 
 #include <rmcl_ros/util/conversions.h>
 
@@ -14,37 +14,12 @@
 
 
 
-/**
- * 
- * Push before go home:
- * 
- this class was implemented first and its purpose is to just load the lidar data from a specific source (Topics, PLY files, Bag Files).
- However, I was not sure how to do that right, since I have multiple sensors and I am not sure what to trigger in which order.
-
-So I switched to first use this class to do everything. It worked for the "tray" map. After this, I want to move things to other classes 
-and reenable the dynamic parameters of ROS 2.
-
-So at first, one must change parameters in this code:
-- params_.max_dist (max dist), this is a hard distancte. dynamic thresholding is not ported yet
-- n_outer: this is new. the number of outer iterations, aka searching correspondences
-- n_inner: this is new. the number of inner iterations, aka optimization steps with fixed correspondences
-(total number of itations = n_outer * n_inner)
-
-For GPU: ray casting is cheaper, so its is better to increase the outer iterations and lower the inner iterations
- * 
- * 
- */
-
-
 namespace rm = rmagine;
 
 namespace rmcl
 {
 
-namespace dataloader
-{
-
-TopicSourceO1Dn::TopicSourceO1Dn(
+MICPO1DnSensor::MICPO1DnSensor(
   rclcpp::Node::SharedPtr nh, 
   std::string topic_name)
 :nh_(nh)
@@ -76,7 +51,7 @@ TopicSourceO1Dn::TopicSourceO1Dn(
   
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  tf_filter_->registerCallback(&TopicSourceO1Dn::topicCB, this);
+  tf_filter_->registerCallback(&MICPO1DnSensor::topicCB, this);
 
   std::cout << "Waiting for message..." << std::endl;
   
@@ -91,15 +66,15 @@ TopicSourceO1Dn::TopicSourceO1Dn(
   Tom.setIdentity();
 
   pose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    "/initialpose", 10, std::bind(&TopicSourceO1Dn::poseCB, this, std::placeholders::_1));
+    "/initialpose", 10, std::bind(&MICPO1DnSensor::poseCB, this, std::placeholders::_1));
 }
 
-void TopicSourceO1Dn::setMap(rm::EmbreeMapPtr map)
+void MICPO1DnSensor::setMap(rm::EmbreeMapPtr map)
 {
   sim_->setMap(map);
 }
 
-void TopicSourceO1Dn::poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+void MICPO1DnSensor::poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
   // rm::Transform
   std::cout << "Initial pose guess recieved." << std::endl;
@@ -109,7 +84,7 @@ void TopicSourceO1Dn::poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped
   Tom = Tbm_est * ~Tbo; // o -> b -> m
 }
 
-void TopicSourceO1Dn::fetchTF()
+void MICPO1DnSensor::fetchTF()
 {
   // figure out current transform chain.
 
@@ -145,7 +120,7 @@ void TopicSourceO1Dn::fetchTF()
   params_.max_dist = 0.5;
 }
 
-void TopicSourceO1Dn::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 {
   stamp_ = msg->header.stamp;
 
@@ -289,7 +264,7 @@ void TopicSourceO1Dn::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
   
 }
 
-rm::PointCloudView_<rm::RAM> TopicSourceO1Dn::findCorrespondences(const rm::Transform Tbm_est)
+rm::PointCloudView_<rm::RAM> MICPO1DnSensor::findCorrespondences(const rm::Transform Tbm_est)
 {
   sim_->simulate(Tbm_est, simulation_buffers_);
 
@@ -301,7 +276,5 @@ rm::PointCloudView_<rm::RAM> TopicSourceO1Dn::findCorrespondences(const rm::Tran
 
   return cloud_model;
 }
-
-} // namespace dataloader
 
 } // namespace rmcl

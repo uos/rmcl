@@ -5,6 +5,7 @@
 #include <string>
 
 #include <rmagine/math/types/CrossStatistics.hpp>
+#include <rmagine/types/Memory.hpp>
 
 #include <rmcl_ros/correction/DataLoader.hpp>
 
@@ -19,11 +20,13 @@ namespace rmcl
  * Rename this into "Pipleline?"
  * 
  */
-class MICPSensor
+
+template<typename MemT>
+class MICPSensor_
 {
 public:
-  MICPSensor() {}
-  virtual ~MICPSensor() {}
+  MICPSensor_() {}
+  virtual ~MICPSensor_() {}
 
   // name of the sensor
   std::string name;
@@ -31,21 +34,16 @@ public:
   // Pipeline: load data -> search for correspondences -> update statistics
   // (later from base, for each sensor: merge statistics and compute pose corrections)
 
+  std::shared_ptr<DataLoader> data_loader; // TODO: remove this
 
 
-
-  // set a data source here. from topic file or similar. Put your own implementation here
-  std::shared_ptr<DataLoader> data_loader;
-
-  // model filled during correspondence search
-  // std::shared_ptr<CorrespondenceFinder> model_corr;
-
-  // reductor is a thing that reduces partial correspondences to an intermediate result per sensor
-  // the results inside a reductor can be later merged in base frame
-  // std::shared_ptr<Reductor> reductor;
-
-
+protected:
+  // Data loader fills this (mutex?)
+  rmagine::PointCloud_<MemT> dataset_;
+  rclcpp::Time stamp_;
 };
+
+using MICPSensor = MICPSensor_<rmagine::RAM>;
 
 using MICPSensorPtr = std::shared_ptr<MICPSensor>;
 
