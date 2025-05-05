@@ -60,18 +60,26 @@ MICPO1DnSensor::MICPO1DnSensor(
 
   std::cout << map_filename << std::endl;
 
-  rm::EmbreeMapPtr map = rm::import_embree_map(map_filename);
-  sim_ = std::make_shared<rm::O1DnSimulatorEmbree>(map);
+  map_ = rm::import_embree_map(map_filename);
+
+  correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_);
 
   Tom.setIdentity();
 
   pose_sub_ = nh_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "/initialpose", 10, std::bind(&MICPO1DnSensor::poseCB, this, std::placeholders::_1));
+
 }
 
 void MICPO1DnSensor::setMap(rm::EmbreeMapPtr map)
 {
-  sim_->setMap(map);
+  map_ = map;
+
+  if(auto rcc_embree = std::dynamic_pointer_cast<RCCEmbreeO1Dn>(correspondences_))
+  {
+    rcc_embree->setMap(map);
+  }
+
 }
 
 void MICPO1DnSensor::poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
@@ -120,33 +128,13 @@ void MICPO1DnSensor::fetchTF()
   params_.max_dist = 0.5;
 }
 
-void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPO1DnSensor::unpackMessage(
+  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 {
-  stamp_ = msg->header.stamp;
-
-  sensor_frame = msg->header.frame_id;
-
-  // Part 1: transfrom sensor and filter input data
-
-  fetchTF();
-  sim_->setTsb(Tsb);
-
-  rm::StopWatch sw;
-
-  std::cout << "Got scan!!!" << std::endl;
-
-  rclcpp::Time msg_time = msg->header.stamp;
-  rclcpp::Duration conversion_time = nh_->get_clock()->now() - msg_time;
-
-  std::cout << "Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
-
-  // copy to internal representation
-
   /////
   // sensor model
   std::cout << "INFO: " << msg->o1dn.info.range_min << ", " << msg->o1dn.info.range_max << std::endl;
   rmcl::convert(msg->o1dn.info, sensor_model_);
-  sim_->setModel(sensor_model_);
   
   ////
   // data: TODOs: 
@@ -164,13 +152,9 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
     {
       dataset_.mask[i] = 1;
     }
-
-    rm::resize_memory_bundle<rm::RAM>(simulation_buffers_, sensor_model_.getHeight(), sensor_model_.getWidth(), 1);
   }
 
-  // do we have to set everything to zero?
-
-  sw();
+  // sw();
   // fill data
   for(unsigned int vid = 0; vid < sensor_model_.getHeight(); vid++)
   {
@@ -190,16 +174,51 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
       }
     }
   }
-  double el = sw();
+  // double el = sw();
+}
+
+void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+{
+
   
-  std::cout << "Fill data (" << n_new_measurements << ") in " << el * 1000.0 << "ms" << std::endl;
+  rm::StopWatch sw;
+  double el;
+
+  stamp_ = msg->header.stamp;
+
+  sensor_frame = msg->header.frame_id;
+
+  // Part 1: transfrom sensor and filter input data
+  fetchTF();
+  correspondences_->setTsb(Tsb);
+
+  std::cout << "Got scan!!!" << std::endl;
+
+  // copy to internal representation
+
+  // fill sensor_model_ and initialize copy data to dataset
+  sw();
+  unpackMessage(msg);
+  el = sw();
+  std::cout << "Unpack Message: " << el * 1000.0 << " ms" << std::endl;
+
+  if(auto rcc = std::dynamic_pointer_cast<RCCEmbreeO1Dn>(correspondences_))
+  {
+    // RCC required sensor model
+    std::cout << "SET MODEL!L!!" << std::endl;
+    rcc->setModel(sensor_model_);
+  }
+  
+  std::cout << "Fill data (" << dataset_.points.size() << ") in " << el * 1000.0 << "ms" << std::endl;
   const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
 
-
+  { // print conversion & sync delay
+    rclcpp::Time msg_time = msg->header.stamp;
+    rclcpp::Duration conversion_time = nh_->get_clock()->now() - msg_time;
+    std::cout << "Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
+  }
 
   // correction!
-
-  
 
   // read Tom -> first Tbm estimation
   rm::Transform Tbm_est = Tom * Tbo;
@@ -210,7 +229,8 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
     // per sensor
 
     // find model correspondences
-    const rm::PointCloudView_<rm::RAM> cloud_model = findCorrespondences(Tbm_est);
+    correspondences_->find(Tbm_est);
+    const rm::PointCloudView_<rm::RAM> cloud_model = correspondences_->get();
 
     // inner loop, minimize
     // rm::Transform Tdelta_b = rm::Transform::Identity();
@@ -262,19 +282,6 @@ void MICPO1DnSensor::topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
     tf_broadcaster_->sendTransform(T_odom_map);
   }
   
-}
-
-rm::PointCloudView_<rm::RAM> MICPO1DnSensor::findCorrespondences(const rm::Transform Tbm_est)
-{
-  sim_->simulate(Tbm_est, simulation_buffers_);
-
-  const rm::PointCloudView_<rm::RAM> cloud_model = {
-    .points = simulation_buffers_.points,
-    .mask = simulation_buffers_.hits,
-    .normals = simulation_buffers_.normals
-  };
-
-  return cloud_model;
 }
 
 } // namespace rmcl

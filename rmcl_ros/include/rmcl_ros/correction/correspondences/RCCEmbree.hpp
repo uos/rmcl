@@ -10,36 +10,25 @@
 #include <rmagine/simulation/O1DnSimulatorEmbree.hpp>
 #include <rmagine/simulation/OnDnSimulatorEmbree.hpp>
 
-#include <rmcl_ros/correction/CorrespondenceFinder.hpp>
+#include <rmcl_ros/correction/Correspondences.hpp>
 
 namespace rmcl
 {
 
-
-class RCCEmbreeSpherical
-: public CorrespondenceFinder_<rmagine::RAM>
-, public rmagine::SphereSimulatorEmbree
-{
-public:
-  RCCEmbreeSpherical(rmagine::EmbreeMapPtr map)
-  : CorrespondenceFinder_<rmagine::RAM>()
-  , rmagine::SphereSimulatorEmbree(map)
-  {
-    
-  }
-};
-
 class RCCEmbreeO1Dn
-: public CorrespondenceFinder_<rmagine::RAM>
+: public Correspondences_<rmagine::RAM>
 , public rmagine::O1DnSimulatorEmbree
 {
 public:
-  RCCEmbreeO1Dn(rmagine::EmbreeMapPtr map)
-  : CorrespondenceFinder_<rmagine::RAM>()
-  , rmagine::O1DnSimulatorEmbree(map)
-  {
-    
-  }
+
+  RCCEmbreeO1Dn(
+    rmagine::EmbreeMapPtr map);
+
+  virtual void setTsb(const rmagine::Transform& Tsb) override;
+
+  virtual void find(const rmagine::Transform& Tbm_est);
+
+  virtual rmagine::PointCloudView_<rmagine::RAM> get();
 };
 
 } // namespace rmcl

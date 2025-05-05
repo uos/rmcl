@@ -26,6 +26,10 @@
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
+// Correspondences
+#include <rmcl_ros/correction/Correspondences.hpp>
+#include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
+
 
 
 namespace rmcl
@@ -50,18 +54,6 @@ public:
 
   void setMap(rmagine::EmbreeMapPtr map);
 
-  rmagine::PointCloudView_<rmagine::RAM> findCorrespondences(const rmagine::Transform Tbm_est);
-
-  
-  // transform chain from sensor -> base -> odom -> map
-  // keep this up to date
-  rmagine::Transform Tsb;
-  rclcpp::Time Tsb_stamp;
-  rmagine::Transform Tbo;
-  rclcpp::Time Tbo_stamp;
-  rmagine::Transform Tom;
-  rclcpp::Time Tom_stamp;
-
   std::string map_frame = "map";
   std::string odom_frame = "odom";
   std::string base_frame = "base_footprint";
@@ -71,11 +63,24 @@ public:
   size_t n_inner_ = 10;
   rmagine::UmeyamaReductionConstraints params_;
 
+protected:
+
+  void unpackMessage(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
+
+  // transform chain from sensor -> base -> odom -> map
+  // keep this up to date
+  rmagine::Transform Tsb;
+  rclcpp::Time Tsb_stamp;
+  rmagine::Transform Tbo;
+  rclcpp::Time Tbo_stamp;
+  rmagine::Transform Tom;
+  rclcpp::Time Tom_stamp;
+
 private:
   rclcpp::Node::SharedPtr nh_;
 
+  rmagine::EmbreeMapPtr map_;
   rmagine::O1DnModel sensor_model_;
-  rmagine::O1DnSimulatorEmbreePtr sim_;
 
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -85,14 +90,9 @@ private:
 
   std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> > tf_filter_;
 
-  // simulation buffer
-  rmagine::Bundle<
-    rmagine::Points<rmagine::RAM>, 
-    rmagine::Normals<rmagine::RAM>,
-    rmagine::Hits<rmagine::RAM>
-  > simulation_buffers_;
-
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
+
+  std::shared_ptr<Correspondences_<rmagine::RAM> > correspondences_;
 
 };
 

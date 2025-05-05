@@ -125,6 +125,8 @@ add_library(micp_localization SHARED
     # src/correction/MICP.cpp
     src/correction/MICPRangeSensor.cpp
     src/correction/MICPSensorSphericalEmbree.cpp
+    src/correction/sensors/MICPO1DnSensor.cpp
+    src/correction/correspondences/RCCEmbree.cpp
     src/correction/data_loader/Topic.cpp
 )
 
@@ -166,7 +168,7 @@ ament_target_dependencies(micp_localization
     visualization_msgs
 )
 
-rclcpp_components_register_node(micp_localization 
+rclcpp_components_register_node(micp_localization
     PLUGIN "rmcl::MICPLocalizationNode" 
     EXECUTABLE micp_localization_node)
 

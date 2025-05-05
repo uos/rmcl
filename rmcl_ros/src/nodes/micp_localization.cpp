@@ -20,7 +20,10 @@
 #include <tf2_ros/transform_broadcaster.h>
 
 #include <rmcl_ros/nodes/micp_localization.hpp>
-#include <rmcl_ros/correction/MICPSensorSphericalEmbree.hpp>
+// #include <rmcl_ros/correction/MICPSensorSphericalEmbree.hpp>
+
+#include <rmcl_ros/correction/sensors/MICPO1DnSensor.hpp>
+
 
 // #include <exception>
 
@@ -130,7 +133,7 @@ MICPSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
   // model loader: if none , model is in data
   if(corr_backend == "embree" && sensor_type == "spherical")
   {
-    sensor = std::make_shared<MICPSensorSphericalEmbree>();
+    // sensor = std::make_shared<MICPO1DnSensor>(nh_sensor, topic_name);
   }
 
   if(data_source == "topic")
@@ -140,14 +143,15 @@ MICPSensorPtr make_sensor(rclcpp::Node::SharedPtr nh_sensor)
 
     if(topic_type == "rmcl_msgs/msg/O1DnStamped")
     {
-      auto bla = std::make_shared<dataloader::TopicSourceO1Dn>(nh_sensor, topic_name);
+      sensor = std::make_shared<MICPO1DnSensor>(nh_sensor, topic_name);
+      // auto bla = std::make_shared<MICPO1DnSensor>(nh_sensor, topic_name);
 
       // std::string map_filename = rmcl::get_parameter(nh_sensor, "/map_file", "");
       // std::cout << "TRY TO INJECT MAP IN TESTS!" << std::endl;
       // std::cout << map_filename << std::endl;
       // rm::EmbreeMapPtr map = rm::import_embree_map(map_filename);
 
-      sensor->data_loader = bla;
+      // sensor->data_loader = bla;
     } else {
       // ERROR
       throw std::runtime_error("Topic type invalid or not implemented");
