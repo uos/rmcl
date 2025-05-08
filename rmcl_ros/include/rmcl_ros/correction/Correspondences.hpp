@@ -36,9 +36,9 @@ public:
 protected:
 
   rmagine::Bundle<
-    rmagine::Points<rmagine::RAM>,  // model points
-    rmagine::Normals<rmagine::RAM>, // model normals
-    rmagine::Hits<rmagine::RAM>     // correspondence mask
+    rmagine::Points<MemT>,  // model points
+    rmagine::Normals<MemT>, // model normals
+    rmagine::Hits<MemT>     // correspondence mask
     > model_buffers_;
 
   rmagine::Transform Tsb_;

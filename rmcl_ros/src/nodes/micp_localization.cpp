@@ -45,7 +45,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     .allow_undeclared_parameters(true)
     .automatically_declare_parameters_from_overrides(true))
 {
-  
+  Tom = rmagine::Transform::Identity();
   
   std::cout << "MICPLocalizationNode" << std::endl;
 
@@ -111,7 +111,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     }
   } else {
     RCLCPP_ERROR(get_logger(), "ERROR: NO SENSORS SPECIFIED!");
-    throw std::runtime_error("UERROR: NO SENSORS SPECIFIED!");
+    throw std::runtime_error("ERROR: NO SENSORS SPECIFIED!");
   }
 
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
@@ -142,6 +142,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   });
   // correction_thread_.detach();
 
+  // last_correction_stamp = this->now();
 }
 
 
@@ -270,47 +271,95 @@ void MICPLocalizationNode::sensorDataReceived(
 void MICPLocalizationNode::correctionLoop()
 {
 
-  
-
   while(rclcpp::ok() && !stop_correction_thread_)
   {
     std::cout << "Correct!" << std::endl;
 
     // size_t outer_iters = 10; // outer iters are always done!
+
     
-    
-    size_t opti_iters = 2;
+    // rm::Transform Tbo;
+    // rclcpp::Time Tbo_stamp;
+
+    // try {
+    //   geometry_msgs::msg::TransformStamped T_base_odom;
+    //   T_base_odom = tf_buffer_->lookupTransform(odom_frame_, base_frame_, this->now());
+    //   Tbo_stamp = T_base_odom.header.stamp;
+    //   convert(T_base_odom.transform, Tbo);
+
+    // } catch (tf2::TransformException& ex) {
+    //   // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
+    //   RCLCPP_WARN(this->get_logger(), "%s", ex.what());
+    //   RCLCPP_WARN_STREAM(this->get_logger(), "Source (Base): " << base_frame_ << ", Target (Odom): " << odom_frame_);
+    //   return;
+    // }
+
+    size_t opti_iters = 10;
 
     std::cout << "Find Correspondences!" << std::endl;
       
     // TODO: what if we have different computing units?
     // RTX have a smaller bottleneck vs Embree
-    // for(auto sensor_elem : sensors_)
-    // {
-    //   sensor_elem.second->findCorrespondences(Tom);
-    // }
+    for(auto sensor_elem : sensors_)
+    {
+      sensor_elem.second->setTom(Tom);
+      sensor_elem.second->findCorrespondences();
+    }
 
     // rm::Transform T_bnew_bold = rm::Transform::Identity();
 
     // TODO:
-    // rm::Transform Tdelta_b = rm::Transform::Identity();
-    // for(size_t i=0; i<opti_iters; i++)
-    // {
-    //   rm::CrossStatistics Cmerged_b;
-    //   Cmerged_b.n_meas = 0;
+    // rm::Transform T_bnew_bold = rm::Transform::Identity();
+    for(size_t i=0; i<opti_iters; i++)
+    {
+      rm::CrossStatistics Cmerged_o;
+      Cmerged_o.n_meas = 0;
 
-    //   for(auto sensor_elem : sensors_)
-    //   {
-    //     rm::CrossStatistics Cs_b = sensor_elem.second->computeCrossStatistics(Tdelta_b);
-    //     Cmerged_b += Cs_b; // optimal merge
-    //   }
+      // latest odom
+      rm::Transform Tbo_latest;
+      rclcpp::Time Tbo_stamp_latest;
 
-    //   sensor_elem.second->findCorrespondences(Tom);
-    // }
+      for(auto sensor_elem : sensors_)
+      {
+        const auto sensor = sensor_elem.second;
 
+        const rm::CrossStatistics Cs_b 
+          = sensor->computeCrossStatistics(rm::Transform::Identity());
+        
+        const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;        
+        Cmerged_o += Cs_o; // optimal merge in odom frame
+        // TODO: weighted merge
+      }
 
+      // transform Cmerged_o
 
-    std::this_thread::sleep_for(50ms);
+      // Cmerged_o -> T_onew_oold
+      const rm::Transform T_onew_oold = rm::umeyama_transform(Cmerged_o);
+
+      // we want T_onew_map, we have Tom which is T_oold_map
+      const rm::Transform T_onew_map = Tom * T_onew_oold;
+      Tom = T_onew_map; // store Tom
+      
+      for(auto sensor_elem : sensors_)
+      {
+        sensor_elem.second->setTom(Tom);
+      }
+    }
+
+    std::cout << "Corrected transform: " << Tom << std::endl;
+
+    // const rm::Transform Tbm_est = Tom * Tbo * T_bnew_bold;
+
+    { // broadcast transform
+      geometry_msgs::msg::TransformStamped T_odom_map;
+      T_odom_map.header.stamp = this->get_clock()->now();
+      T_odom_map.header.frame_id = map_frame_;
+      T_odom_map.child_frame_id = odom_frame_;
+      convert(Tom, T_odom_map.transform);
+      tf_broadcaster_->sendTransform(T_odom_map);
+    }
+
+    std::this_thread::sleep_for(1ms);
   }
 }
 

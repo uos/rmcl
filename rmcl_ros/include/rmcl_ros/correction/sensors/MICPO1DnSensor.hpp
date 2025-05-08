@@ -50,9 +50,9 @@ using Base = MICPSensor_<rmagine::RAM>;
 
   void setMap(rmagine::EmbreeMapPtr map);
 
-  size_t n_outer_ = 2;
+
   size_t n_inner_ = 10;
-  rmagine::UmeyamaReductionConstraints params_;
+  size_t n_outer_ = 2;
 
 protected:
 

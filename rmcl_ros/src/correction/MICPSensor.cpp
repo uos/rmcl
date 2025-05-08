@@ -46,6 +46,11 @@ void MICPSensorBase::setTbm(const rm::Transform& Tbm)
   Tom = Tbm * ~Tbo; // odom -> base -> map == odom -> map
 }
 
+void MICPSensorBase::setTom(const rm::Transform& Tom)
+{
+  this->Tom = Tom;
+}
+
 void MICPSensorBase::fetchTF()
 {
   // figure out current transform chain.

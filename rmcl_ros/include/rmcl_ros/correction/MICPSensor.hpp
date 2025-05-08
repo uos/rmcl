@@ -14,6 +14,7 @@
 
 #include <rmagine/math/types/CrossStatistics.hpp>
 #include <rmagine/types/Memory.hpp>
+#include <rmagine/math/statistics.h>
 
 #include <rmcl_ros/correction/Correspondences.hpp>
 
@@ -41,14 +42,18 @@ public:
   // (later from base, for each sensor: merge statistics and compute pose corrections)
 
   void setTbm(const rmagine::Transform& Tbm);
+  void setTom(const rmagine::Transform& Tom);
 
   /**
    * Fetch TF chain. except for odom->map (this is estimated or has to be provided from extern)
    */
   void fetchTF();
 
+  virtual void findCorrespondences() = 0;
 
-  virtual void findCorrespondences(const rmagine::Transform& Tom) = 0;
+  virtual rmagine::CrossStatistics computeCrossStatistics(
+    const rmagine::Transform& Tpre
+  ) const = 0;
 
   // name of the sensor
   std::string name;
@@ -60,15 +65,18 @@ public:
   rclcpp::Time Tsb_stamp;
   rmagine::Transform Tbo;
   rclcpp::Time Tbo_stamp;
-  rmagine::Transform Tom;
+
+  rmagine::Transform Tom; // this is set from externally
   rclcpp::Time Tom_stamp;
 
-  
   std::string map_frame = "map";
   std::string odom_frame = "odom";
   std::string base_frame = "base_footprint";
   std::string sensor_frame = "velodyne";
-
+  
+  rmagine::UmeyamaReductionConstraints params_;
+  
+  
   rclcpp::Time dataset_stamp_;
 
   // ROS
@@ -93,10 +101,41 @@ public:
 
   }
 
-  virtual void findCorrespondences(const rmagine::Transform& Tom_est) 
+  virtual void findCorrespondences() 
   {
-    const rmagine::Transform Tbm_est = Tom_est * Tbo;
-    correspondences_->find(Tbm_est);
+    const rmagine::Transform Tbm = Tom * Tbo;
+    correspondences_->find(Tbm);
+  }
+
+  virtual rmagine::CrossStatistics computeCrossStatistics(
+    const rmagine::Transform& T_bnew_bold // Tpre_b
+  ) const
+  { 
+    // this is what we want to optimize: 
+    // find a transformation from a new base frame to the old base frame that optimizes the alignment
+    
+    // bnew --- T_bnew_bold --> bold    : base frame (shared frame of all robot sensors)
+    //  ^                        ^
+    //  |                        |
+    // Tsb                      Tsb
+    //  |                        |
+    // snew --- T_snew_sold --> sold    : sensor frames
+    // 
+    // Fig 1: How to transform delta transforms
+
+    namespace rm = rmagine;
+
+    // reduce correspondences_ to C
+    const rm::Transform T_snew_sold = ~Tsb * T_bnew_bold * Tsb;
+
+    const rm::PointCloudView_<MemT> cloud_dataset = rm::watch(dataset_);
+    const rm::PointCloudView_<MemT> cloud_model = correspondences_->get();
+    const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params_);
+      
+    // transform CrossStatistics of every sensor to base frame
+    const rm::CrossStatistics stats_b = Tsb * stats_s;
+
+    return stats_b;
   }
 
   std::shared_ptr<Correspondences_<MemT> > correspondences_;

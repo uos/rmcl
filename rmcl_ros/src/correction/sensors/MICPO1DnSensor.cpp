@@ -142,7 +142,7 @@ void MICPO1DnSensor::topicCB(
     std::cout << "Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
   }
 
-  // return; // everything from here has to be move to an upper level
+  return; // everything from here has to be move to an upper level
 
 
 
