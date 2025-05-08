@@ -142,6 +142,10 @@ void MICPO1DnSensor::topicCB(
     std::cout << "Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
   }
 
+  // return; // everything from here has to be move to an upper level
+
+
+
   // correction!
   if(!correspondences_)
   {
@@ -151,7 +155,10 @@ void MICPO1DnSensor::topicCB(
   // ready to correct
   // on_data_received(this);
   
+
   const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
+
+
 
   // read Tom -> first Tbm estimation
   rm::Transform Tbm_est = Tom * Tbo;

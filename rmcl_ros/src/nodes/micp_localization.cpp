@@ -276,17 +276,38 @@ void MICPLocalizationNode::correctionLoop()
   {
     std::cout << "Correct!" << std::endl;
 
-    size_t outer_iters = 10;
-    size_t inner_iters = 2;
+    // size_t outer_iters = 10; // outer iters are always done!
+    
+    
+    size_t opti_iters = 2;
 
-    for(size_t i=0; i<outer_iters; i++)
-    {
-      std::cout << "Find Correspondences!" << std::endl;
-      for(auto sensor_elem : sensors_)
-      {
-        
-      }
-    }    
+    std::cout << "Find Correspondences!" << std::endl;
+      
+    // TODO: what if we have different computing units?
+    // RTX have a smaller bottleneck vs Embree
+    // for(auto sensor_elem : sensors_)
+    // {
+    //   sensor_elem.second->findCorrespondences(Tom);
+    // }
+
+    // rm::Transform T_bnew_bold = rm::Transform::Identity();
+
+    // TODO:
+    // rm::Transform Tdelta_b = rm::Transform::Identity();
+    // for(size_t i=0; i<opti_iters; i++)
+    // {
+    //   rm::CrossStatistics Cmerged_b;
+    //   Cmerged_b.n_meas = 0;
+
+    //   for(auto sensor_elem : sensors_)
+    //   {
+    //     rm::CrossStatistics Cs_b = sensor_elem.second->computeCrossStatistics(Tdelta_b);
+    //     Cmerged_b += Cs_b; // optimal merge
+    //   }
+
+    //   sensor_elem.second->findCorrespondences(Tom);
+    // }
+
 
 
     std::this_thread::sleep_for(50ms);
