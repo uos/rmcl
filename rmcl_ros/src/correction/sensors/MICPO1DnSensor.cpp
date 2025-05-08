@@ -37,15 +37,6 @@ MICPO1DnSensor::MICPO1DnSensor(
   tf_filter_->registerCallback(&MICPO1DnSensor::topicCB, this);
 
   std::cout << "Waiting for message..." << std::endl;
-  
-  // TODO: move this outside the sensor. Otherwise we'd load multiple embree maps
-  // std::string map_filename = nh_->get_parameter("map_file").as_string();
-
-  // std::cout << map_filename << std::endl;
-
-  // map_ = rm::import_embree_map(map_filename);
-
-  // correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_);
 
   Tom.setIdentity();
 
@@ -63,17 +54,6 @@ void MICPO1DnSensor::setMap(rm::EmbreeMapPtr map)
     rcc_embree->setMap(map);
   }
 }
-
-void MICPO1DnSensor::poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
-{
-  // rm::Transform
-  std::cout << "Initial pose guess recieved." << std::endl;
-  // TODO: transform pose
-  rm::Transform Tbm_est;
-  convert(msg->pose.pose, Tbm_est);
-  Tom = Tbm_est * ~Tbo; // o -> b -> m
-}
-
 
 void MICPO1DnSensor::unpackMessage(
   const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
@@ -168,6 +148,8 @@ void MICPO1DnSensor::topicCB(
     std::cout << "Correspondences not set!" << std::endl;
   }
 
+  // ready to correct
+  // on_data_received(this);
   
   const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
 

@@ -4,7 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/exceptions.h>
 #include <tf2_ros/transform_listener.h>
-#include "tf2_ros/transform_broadcaster.h"
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/message_filter.h>
 #include <tf2_ros/create_timer_ros.h>
@@ -47,6 +47,9 @@ public:
    */
   void fetchTF();
 
+
+  virtual void findCorrespondences(const rmagine::Transform& Tom) = 0;
+
   // name of the sensor
   std::string name;
 
@@ -74,6 +77,9 @@ public:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+
+  // This is called as soon as data was received and pre-processed
+  std::function<void(MICPSensorBase*)> on_data_received;
 };
 
 template<typename MemT>
@@ -85,6 +91,12 @@ public:
   :MICPSensorBase(nh)
   {
 
+  }
+
+  virtual void findCorrespondences(const rmagine::Transform& Tom_est) 
+  {
+    const rmagine::Transform Tbm_est = Tom_est * Tbo;
+    correspondences_->find(Tbm_est);
   }
 
   std::shared_ptr<Correspondences_<MemT> > correspondences_;

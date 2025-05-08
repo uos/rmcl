@@ -30,6 +30,10 @@ MICPSensorBase::MICPSensorBase(
     std::make_shared<tf2_ros::TransformBroadcaster>(*nh_);
 
   std::cout << "TF Initialized!" << std::endl;
+
+  on_data_received = [](MICPSensorBase*){
+    // default: dont use
+  };
 }
 
 MICPSensorBase::~MICPSensorBase()

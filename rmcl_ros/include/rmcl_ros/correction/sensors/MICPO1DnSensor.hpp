@@ -45,8 +45,6 @@ using Base = MICPSensor_<rmagine::RAM>;
   MICPO1DnSensor(
     rclcpp::Node::SharedPtr nh,
     std::string topic_name);
-    
-  void poseCB(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
 
   void topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
 
@@ -68,8 +66,6 @@ private:
   message_filters::Subscriber<rmcl_msgs::msg::O1DnStamped> data_sub_;
 
   std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> > tf_filter_;
-
-  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
 };
 
 } // namespace rmcl
