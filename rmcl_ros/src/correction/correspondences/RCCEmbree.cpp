@@ -14,7 +14,7 @@ RCCEmbreeO1Dn::RCCEmbreeO1Dn(
 
 void RCCEmbreeO1Dn::setTsb(const rm::Transform& Tsb)
 {
-  Correspondences_<rm::RAM>::setTsb(Tsb);
+  CorrespondencesCPU::setTsb(Tsb);
   rm::O1DnSimulatorEmbree::setTsb(Tsb);
 }
 
@@ -30,34 +30,6 @@ void RCCEmbreeO1Dn::find(const rm::Transform& Tbm_est)
   simulate(Tbm_est, model_buffers_);
 }
 
-rm::PointCloudView_<rm::RAM> RCCEmbreeO1Dn::get()
-{
-  const rm::PointCloudView_<rm::RAM> cloud_model = {
-    .points  = model_buffers_.points,
-    .mask    = model_buffers_.hits,
-    .normals = model_buffers_.normals
-  };
 
-  return cloud_model;
-}
-
-
-rmagine::CrossStatistics RCCEmbreeO1Dn::computeCrossStatistics(
-  const rmagine::Transform& T_snew_sold) const
-{
-  // TODO: move this outside
-  // params.max_dist = 1.0;
-
-  rmagine::CrossStatistics ret;
-  const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset);
-  const rm::PointCloudView_<rm::RAM> cloud_model = {
-    .points  = model_buffers_.points,
-    .mask    = model_buffers_.hits,
-    .normals = model_buffers_.normals
-  };
-
-  const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params);
-  return ret;
-}
 
 } // namespace rmcl

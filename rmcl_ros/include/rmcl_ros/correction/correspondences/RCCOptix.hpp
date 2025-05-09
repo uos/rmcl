@@ -28,7 +28,8 @@ public:
 
   virtual void find(const rmagine::Transform& Tbm_est);
 
-  virtual rmagine::PointCloudView_<rmagine::VRAM_CUDA> get();
+  rmagine::CrossStatistics computeCrossStatistics(
+    const rmagine::Transform& T_snew_sold) const;
 };
 
 } // namespace rmcl

@@ -91,6 +91,9 @@ add_library(rmcl_ros SHARED
     src/util/conversions.cpp
     src/util/scan_operations.cpp
     src/util/ros_helper.cpp
+    # micp localization
+    src/correction/MICPSensor.cpp
+    src/correction/correspondences/CorrespondencesCPU.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
@@ -117,8 +120,9 @@ install(TARGETS rmcl_ros
 
 if(RMCL_EMBREE)
     add_library(rmcl_ros_embree SHARED
-        src/correction/correspondences/RCCEmbree.cpp
         src/correction/sensors/MICPO1DnSensor.cpp
+        src/correction/correspondences/RCCEmbree.cpp
+        src/correction/correspondences/CPCEmbree.cpp
     )
     target_include_directories(rmcl_ros_embree PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -126,6 +130,7 @@ if(RMCL_EMBREE)
     target_link_libraries(rmcl_ros_embree
         rmcl_ros
         rmcl-embree
+        OpenMP::OpenMP_CXX
     )
 
     ament_target_dependencies(rmcl_ros_embree
@@ -141,6 +146,32 @@ if(RMCL_EMBREE)
         RUNTIME DESTINATION bin
     )
 endif(RMCL_EMBREE)
+
+if(RMCL_CUDA)
+    add_library(rmcl_ros_cuda SHARED
+        src/correction/correspondences/CorrespondencesCUDA.cpp
+    )
+    target_include_directories(rmcl_ros_cuda PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>")
+    target_link_libraries(rmcl_ros_cuda
+        rmcl_ros
+        rmcl-cuda
+    )
+
+    ament_target_dependencies(rmcl_ros_cuda
+        rclcpp
+        sensor_msgs
+        rmcl_msgs
+        geometry_msgs
+    )
+
+    install(TARGETS rmcl_ros_cuda
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
     add_library(rmcl_ros_optix SHARED
@@ -178,7 +209,7 @@ add_library(micp_localization SHARED
     src/nodes/micp_localization.cpp
     # MICP
     # src/correction/MICP.cpp
-    src/correction/MICPSensor.cpp
+    
     # src/correction/MICPRangeSensor.cpp
     # src/correction/MICPSensorSphericalEmbree.cpp
     # src/correction/data_loader/Topic.cpp
@@ -202,13 +233,13 @@ endif(RMCL_EMBREE)
     
 if(RMCL_CUDA)
     target_link_libraries(micp_localization
-        rmcl-cuda
+        rmcl_ros_cuda
     )
 endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
     target_link_libraries(micp_localization
-        rmcl-optix
+        rmcl_ros_optix
     )
 endif(RMCL_OPTIX)
 

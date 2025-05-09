@@ -25,13 +25,11 @@
 #include <rmcl_ros/correction/sensors/MICPO1DnSensor.hpp>
 
 
-// #include <exception>
-
-#include <rmcl_ros/correction/DataLoader.hpp>
-#include <rmcl_ros/correction/data_loader/Topic.hpp>
 
 
-// #include <rmcl_ros/correction/RCCEmbree.hpp>
+#include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
+#include <rmcl_ros/correction/correspondences/CPCEmbree.hpp>
+
 
 using namespace std::chrono_literals;
 
@@ -252,8 +250,12 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
       
       if(corr_backend == "embree")
       {
-        sensor->correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
-        sensor->correspondences_->params.max_dist = 1.0;
+        auto rcc_embree = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
+        rcc_embree->params.max_dist = 1.0;
+        auto cpc_embree = std::make_shared<CPCEmbree>(map_embree_);
+        cpc_embree->params.max_dist = 1.0;
+
+        sensor->correspondences_ = rcc_embree;
         sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       }
     }

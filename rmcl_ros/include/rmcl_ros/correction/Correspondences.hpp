@@ -36,11 +36,6 @@ public:
     const rmagine::Transform& Tbm_est
   ) = 0;
 
-  /**
-   * Get model buffers as rmagine pointcloud
-   */
-  virtual rmagine::PointCloudView_<MemT> get() = 0;
-
   bool outdated = true;
 
   virtual rmagine::CrossStatistics computeCrossStatistics( 
