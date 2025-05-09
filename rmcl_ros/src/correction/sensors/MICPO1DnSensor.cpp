@@ -189,32 +189,48 @@ void MICPO1DnSensor::topicCB(
     // 
     // Fig 1: How to transform delta transforms
 
-    rm::Transform T_bnew_bold = rm::Transform::Identity();
+    // THIS IS WORKING VERY GOOD:
+    // rm::Transform T_bnew_bold = rm::Transform::Identity();
+    // for(size_t j=0; j<n_inner_; j++)
+    // {
+    //   const rm::CrossStatistics C_b = computeCrossStatistics(T_bnew_bold);
+    //   const rm::Transform T_binner_bnew = rm::umeyama_transform(C_b);
+    //   T_bnew_bold = T_bnew_bold * T_binner_bnew;
+    // }
+    // // update estimate
+    // Tbm_est = Tbm_est * T_bnew_bold;
+    // setTom(Tbm_est * ~Tbo);
+
+
+    // because we later want to fuse in odom frame, this is a test for a single sensor:
+    rm::Transform T_onew_oold = rm::Transform::Identity();
     for(size_t j=0; j<n_inner_; j++)
     {
+      // back to base
+      const rm::Transform T_bnew_bold = ~Tbo * T_onew_oold * Tbo;
       const rm::CrossStatistics C_b = computeCrossStatistics(T_bnew_bold);
+      // back to odom (where we can fuse other measurements)
+      const rm::CrossStatistics C_o = Tbo * C_b;
       
-      const rm::Transform T_binner_bnew = rm::umeyama_transform(C_b);
+      // do this for all sensors, then:
+      rm::CrossStatistics C_merged = rm::CrossStatistics::Identity();
+      C_merged += C_o;
 
-      T_bnew_bold = T_bnew_bold * T_binner_bnew;
+      const rm::Transform T_oinner_onew = rm::umeyama_transform(C_merged);
+      T_onew_oold = T_onew_oold * T_oinner_onew;
+
+
     }
+    setTom(Tom * T_onew_oold);
 
-    // update estimate
-    Tbm_est = Tbm_est * T_bnew_bold;
-
-    // write Tom
-    // Tom = Tbm_est * ~Tbo;
-
-    setTom(Tbm_est * ~Tbo);
-
-    { // broadcast transform
-      geometry_msgs::msg::TransformStamped T_odom_map;
-      T_odom_map.header.stamp = dataset_stamp_;
-      T_odom_map.header.frame_id = map_frame;
-      T_odom_map.child_frame_id = odom_frame;
-      convert(Tom, T_odom_map.transform);
-      tf_broadcaster_->sendTransform(T_odom_map);
-    }
+    // { // broadcast transform
+    //   geometry_msgs::msg::TransformStamped T_odom_map;
+    //   T_odom_map.header.stamp = dataset_stamp_;
+    //   T_odom_map.header.frame_id = map_frame;
+    //   T_odom_map.child_frame_id = odom_frame;
+    //   convert(Tom, T_odom_map.transform);
+    //   tf_broadcaster_->sendTransform(T_odom_map);
+    // }
   }
 
   // write Tom
@@ -222,14 +238,14 @@ void MICPO1DnSensor::topicCB(
   Tom_stamp = dataset_stamp_;
   
 
-  // { // broadcast transform
-  //   geometry_msgs::msg::TransformStamped T_odom_map;
-  //   T_odom_map.header.stamp = Tom_stamp;
-  //   T_odom_map.header.frame_id = map_frame;
-  //   T_odom_map.child_frame_id = odom_frame;
-  //   convert(Tom, T_odom_map.transform);
-  //   tf_broadcaster_->sendTransform(T_odom_map);
-  // }
+  { // broadcast transform
+    geometry_msgs::msg::TransformStamped T_odom_map;
+    T_odom_map.header.stamp = Tom_stamp;
+    T_odom_map.header.frame_id = map_frame;
+    T_odom_map.child_frame_id = odom_frame;
+    convert(Tom, T_odom_map.transform);
+    tf_broadcaster_->sendTransform(T_odom_map);
+  }
   
 }
 
