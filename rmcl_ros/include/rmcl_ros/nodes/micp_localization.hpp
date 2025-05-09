@@ -69,10 +69,10 @@ private:
 
   rmagine::EmbreeMapPtr map_embree_;
 
+  // rmagine::OptixMapPtr map_optix_;
+
   // pose wc stamped subscriber (eg, RViz)
   // rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
-
-  
   // rclcpp::TimerBase::SharedPtr correction_timer_;
 
   std::thread correction_thread_;
@@ -90,6 +90,9 @@ private:
 
   
   size_t correction_counter = 0;
+
+  size_t optimization_iterations_ = 10;
+
   // double max_tf_rate = 10.0;
   // rclcpp::Time last_correction_stamp; // last correction time
 

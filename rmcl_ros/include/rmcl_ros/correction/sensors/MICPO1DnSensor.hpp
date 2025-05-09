@@ -84,7 +84,7 @@ private:
   std::thread correction_thread_;
   bool stop_correction_thread_ = false;
 
-  std::mutex data_correction_mutex_;
+  
 
 
   // same behavior as for the thread

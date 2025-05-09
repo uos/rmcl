@@ -137,9 +137,9 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   // correction_timer_ =  this->create_wall_timer(
   //   500ms, std::bind(&MICPLocalizationNode::correction_callback, this));
   stop_correction_thread_ = false;
-  // correction_thread_ = std::thread([&](){
-  //   correctionLoop();
-  // });
+  correction_thread_ = std::thread([&](){
+    correctionLoop();
+  });
   // correction_thread_.detach();
 
   // last_correction_stamp = this->now();
@@ -266,8 +266,9 @@ void MICPLocalizationNode::sensorDataReceived(
   std::cout << sensor->name << " received data!" << std::endl;
   data_stamp_latest_ = sensor->dataset_stamp_;
 
-  correct();
-  broadcastTransform();
+  // this works good
+  // correct();
+  // broadcastTransform();
 }
 
 void MICPLocalizationNode::correct()
@@ -281,6 +282,14 @@ void MICPLocalizationNode::correct()
 
 void MICPLocalizationNode::correctOnce()
 {
+  #pragma omp parallel for
+  for(auto sensor_elem : sensors_)
+  {
+    // dont change the state of this sensor
+    sensor_elem.second->mutex().lock();
+  }
+
+  #pragma omp parallel for
   for(auto sensor_elem : sensors_)
   {
     // only set current transform from odom to map
@@ -289,19 +298,15 @@ void MICPLocalizationNode::correctOnce()
     sensor_elem.second->findCorrespondences();
   }
 
-  // rm::Transform T_bnew_bold = rm::Transform::Identity();
-
-  // TODO:
   rm::Transform T_onew_oold = rm::Transform::Identity();
 
-  size_t opti_iters = 10;
   bool early_stop = false;
-
-  for(size_t i=0; i<opti_iters; i++)
+  for(size_t i=0; i<optimization_iterations_; i++)
   {
     // std::cout << "Correct! " << correction_counter << ", " << i << std::endl;
     rm::CrossStatistics Cmerged_o = rm::CrossStatistics::Identity();
 
+    #pragma omp parallel for
     for(auto sensor_elem : sensors_)
     {
       const auto sensor = sensor_elem.second;
@@ -310,7 +315,7 @@ void MICPLocalizationNode::correctOnce()
       {
         std::cout << "Coresspondences outdated!" << std::endl;
         early_stop = true;
-        continue;
+        break;
       }
       
       // transform delta from odom frame to base frame, at time of respective sensor
@@ -320,7 +325,16 @@ void MICPLocalizationNode::correctOnce()
         = sensor->computeCrossStatistics(T_bnew_bold);
       
       const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
-      Cmerged_o += Cs_o; // optimal merge in odom frame
+
+      #pragma omp critical
+      {
+        Cmerged_o += Cs_o; // optimal merge in odom frame
+      }
+    }
+
+    if(early_stop)
+    {
+      break;
     }
 
     // Cmerged_o -> T_onew_oold
@@ -337,14 +351,11 @@ void MICPLocalizationNode::correctOnce()
   const rm::Transform T_onew_map = Tom * T_onew_oold;
   Tom = T_onew_map; // store Tom
 
-  // { // broadcast transform
-  //   geometry_msgs::msg::TransformStamped T_odom_map;
-  //   T_odom_map.header.stamp = data_stamp_latest_;
-  //   T_odom_map.header.frame_id = map_frame_;
-  //   T_odom_map.child_frame_id = odom_frame_;
-  //   convert(Tom, T_odom_map.transform);
-  //   tf_broadcaster_->sendTransform(T_odom_map);
-  // }
+  #pragma omp parallel for
+  for(auto sensor_elem : sensors_)
+  {
+    sensor_elem.second->mutex().unlock();
+  }
 }
 
 void MICPLocalizationNode::broadcastTransform()
@@ -362,107 +373,13 @@ void MICPLocalizationNode::correctionLoop()
 
   while(rclcpp::ok() && !stop_correction_thread_)
   {
+    // RCLCPP_INFO_STREAM(this->get_logger(), "Latest data received vs now: " << data_stamp_latest_.seconds() << " vs " << this->get_clock()->now().seconds());
     
-    // latest data
-    // rm::Transform data_latest;
-    // rclcpp::Time data_stamp_latest(0,0);
-
-    // // std::cout << "Find Correspondences!" << std::endl;
-      
-
-    // for(auto sensor_elem : sensors_)
-    // {
-    //   const auto sensor = sensor_elem.second;
-    //   if(sensor->dataset_stamp_ > data_stamp_latest)
-    //   {
-    //     data_stamp_latest = sensor->dataset_stamp_;
-    //   }
-    // }
-
-    RCLCPP_INFO_STREAM(this->get_logger(), "Latest data received vs now: " << data_stamp_latest_.seconds() << " vs " << this->get_clock()->now().seconds());
-    // std::cout << "Latest data received vs now: " << data_stamp_latest << " vs " << this->get_clock()->now() << std::endl;
-
     // TODO: what if we have different computing units?
     // RTX have a smaller bottleneck vs Embree
     // We could do this in parallel
-
-
     correctOnce();
     broadcastTransform();
-
-    // for(auto sensor_elem : sensors_)
-    // {
-    //   // only set current transform from odom to map
-    //   // Tbo and Tsb are fetched synchron to the arriving sensor data
-    //   sensor_elem.second->setTom(Tom);
-    //   sensor_elem.second->findCorrespondences();
-    // }
-
-    // // rm::Transform T_bnew_bold = rm::Transform::Identity();
-
-    // // TODO:
-    // rm::Transform T_onew_oold = rm::Transform::Identity();
-
-
-    // size_t opti_iters = 10;
-    // bool early_stop = false;
-
-    // for(size_t i=0; i<opti_iters && !early_stop; i++)
-    // {
-    //   std::cout << "Correct! " << correction_counter << ", " << i << std::endl;
-
-    //   rm::CrossStatistics Cmerged_o;
-    //   Cmerged_o.n_meas = 0;
-
-      
-
-    //   for(auto sensor_elem : sensors_)
-    //   {
-    //     const auto sensor = sensor_elem.second;
-
-    //     if(sensor->correspondences_->outdated)
-    //     {
-    //       early_stop = true;
-    //       continue;
-    //     }
-        
-    //     // transform delta from odom frame to base frame, at time of respective sensor
-    //     const rm::Transform T_bnew_bold = ~sensor->Tbo * T_onew_oold * sensor->Tbo;
-
-    //     const rm::CrossStatistics Cs_b 
-    //       = sensor->computeCrossStatistics(T_bnew_bold);
-        
-    //     const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
-    //     Cmerged_o += Cs_o; // optimal merge in odom frame
-    //   }
-
-    //   // Cmerged_o -> T_onew_oold
-    //   const rm::Transform T_onew_oold_inner = rm::umeyama_transform(Cmerged_o);
-
-    //   // update T_onew_oold: 
-    //   // transform from new odom frame to old odom frame
-    //   // this is only virtual (a trick). we dont't want to change the odom frame in the end (instead the odom to map transform)
-    //   T_onew_oold = T_onew_oold * T_onew_oold_inner;
-    // }
-
-    // correction_counter++;
-    // // we want T_onew_map, we have Tom which is T_oold_map
-    // const rm::Transform T_onew_map = Tom * T_onew_oold;
-    // Tom = T_onew_map; // store Tom
-
-    
-    // { // broadcast transform
-    //   geometry_msgs::msg::TransformStamped T_odom_map;
-    //   T_odom_map.header.stamp = data_stamp_latest_;
-    //   T_odom_map.header.frame_id = map_frame_;
-    //   T_odom_map.child_frame_id = odom_frame_;
-    //   convert(Tom, T_odom_map.transform);
-    //   tf_broadcaster_->sendTransform(T_odom_map);
-    // }
-  
-
-
-    std::this_thread::sleep_for(10ms);
   }
   
 }

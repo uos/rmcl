@@ -11,6 +11,8 @@
 
 #include <memory>
 #include <string>
+#include <thread>
+#include <mutex>
 
 #include <rmagine/math/types/CrossStatistics.hpp>
 #include <rmagine/types/Memory.hpp>
@@ -49,6 +51,11 @@ public:
    */
   void fetchTF();
 
+  inline std::mutex& mutex()
+  {
+    return data_correction_mutex_;
+  }
+
   virtual void findCorrespondences() = 0;
 
   virtual rmagine::CrossStatistics computeCrossStatistics(
@@ -80,6 +87,7 @@ public:
   
   
   rclcpp::Time dataset_stamp_;
+  std::mutex data_correction_mutex_;
 
   // ROS
   rclcpp::Node::SharedPtr nh_;
