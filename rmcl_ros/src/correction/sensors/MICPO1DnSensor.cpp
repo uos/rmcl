@@ -6,13 +6,14 @@
 #include <rmagine/util/StopWatch.hpp>
 
 #include <memory>
+#include <chrono>
 
 #include <rmagine/math/statistics.h>
 #include <rmagine/math/linalg.h>
 
 #include <rmagine/util/prints.h>
 
-
+using namespace std::chrono_literals;
 
 namespace rm = rmagine;
 
@@ -40,9 +41,16 @@ MICPO1DnSensor::MICPO1DnSensor(
 
   Tom.setIdentity();
 
-  params_.max_dist = 0.5;
+  params_.max_dist = 1.0;
 
   correspondences_.reset();
+
+
+  // correction_thread_ = std::thread([&](){
+  //   correctionLoop();
+  // });
+
+
 }
 
 void MICPO1DnSensor::setMap(rm::EmbreeMapPtr map)
@@ -108,6 +116,9 @@ void MICPO1DnSensor::unpackMessage(
 void MICPO1DnSensor::topicCB(
   const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 {
+  // std::lock_guard<std::mutex> guard(data_correction_mutex_);
+  data_correction_mutex_.lock();
+
   rm::StopWatch sw;
   double el;
 
@@ -133,7 +144,7 @@ void MICPO1DnSensor::topicCB(
   el = sw();
   
   std::cout << "Unpack Message & fill data (" 
-  << dataset_.points.size() << "): " << el * 1000.0 << "ms" << std::endl;
+    << dataset_.points.size() << "): " << el * 1000.0 << "ms" << std::endl;
   
   
   { // print conversion & sync delay
@@ -144,109 +155,167 @@ void MICPO1DnSensor::topicCB(
 
   correspondences_->outdated = true;
 
+  first_message_received = true;
+
+  data_correction_mutex_.unlock();
+
+
   on_data_received(this);
 
   // return; // everything from here has to be move to an upper level
 
+  // correct();
+  // broadcastTransform();
+}
 
+void MICPO1DnSensor::correctOnce()
+{
+  std::lock_guard<std::mutex> guard(data_correction_mutex_);
 
-  // correction!
+  if(!first_message_received)
+  {
+    std::cout << "Waiting for first message to arrive..." << std::endl;
+    return;
+  }
+  
   if(!correspondences_)
   {
     std::cout << "Correspondences not set!" << std::endl;
+    return;
   }
 
-  // ready to correct
-  // on_data_received(this);
-  
+  // per sensor
+    
+  // find model correspondences
 
+  std::cout << "find corr" << std::endl;
+  findCorrespondences();
   const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
+  const rm::PointCloudView_<rm::RAM> cloud_model = correspondences_->get();
 
+  // inner loop, minimize
+
+  // this is what we want to optimize: 
+  // find a transformation from a new base frame to the old base frame that optimizes the alignment
   
-  // read Tom -> first Tbm estimation
-  rm::Transform Tbm_est = Tom * Tbo;
-  
+  // bnew --- T_bnew_bold --> bold    : base frame (shared frame of all robot sensors)
+  //  ^                        ^
+  //  |                        |
+  // Tsb                      Tsb
+  //  |                        |
+  // snew --- T_snew_sold --> sold    : sensor frames
+  // 
+  // Fig 1: How to transform delta transforms
+
+  // THIS IS WORKING VERY GOOD:
+  // rm::Transform T_bnew_bold = rm::Transform::Identity();
+  // for(size_t j=0; j<n_inner_; j++)
+  // {
+  //   const rm::CrossStatistics C_b = computeCrossStatistics(T_bnew_bold);
+  //   const rm::Transform T_binner_bnew = rm::umeyama_transform(C_b);
+  //   T_bnew_bold = T_bnew_bold * T_binner_bnew;
+  // }
+  // // update estimate
+  // Tbm_est = Tbm_est * T_bnew_bold;
+  // setTom(Tbm_est * ~Tbo);
+
+  // Problem: dataset can change, when new data arrives. I dont want to provide two datasets
+  const rmagine::Transform Tbo = this->Tbo;
+
+  // because we later want to fuse in odom frame, this is a test for a single sensor:
+  rm::Transform T_onew_oold = rm::Transform::Identity();
+  for(size_t j=0; j<n_inner_; j++)
+  {
+    if(correspondences_->outdated)
+    {
+      std::cout << "WARNING CORRESPONDENCES OUTDATED!" << std::endl;
+      break;
+    }
+    // back to base
+    const rm::Transform T_bnew_bold = ~Tbo * T_onew_oold * Tbo;
+    const rm::CrossStatistics C_b = computeCrossStatistics(T_bnew_bold);
+    // back to odom (where we can fuse other measurements)
+    const rm::CrossStatistics C_o = Tbo * C_b;
+    
+    // do this for all sensors, then:
+    rm::CrossStatistics C_merged = rm::CrossStatistics::Identity();
+    C_merged += C_o;
+
+    const rm::Transform T_oinner_onew = rm::umeyama_transform(C_merged);
+    T_onew_oold = T_onew_oold * T_oinner_onew;
+  }
+  setTom(Tom * T_onew_oold);
+
+  // { // broadcast transform
+  //   geometry_msgs::msg::TransformStamped T_odom_map;
+  //   // T_odom_map.header.stamp = dataset_stamp_;
+  //   T_odom_map.header.stamp = nh_->now();
+  //   T_odom_map.header.frame_id = map_frame;
+  //   T_odom_map.child_frame_id = odom_frame;
+  //   convert(Tom, T_odom_map.transform);
+  //   tf_broadcaster_->sendTransform(T_odom_map);
+  // }
+}
+
+void MICPO1DnSensor::correct()
+{
+  if(!first_message_received)
+  {
+    std::cout << "Waiting for first message to arrive..." << std::endl;
+    return;
+  }
+  // just do this for the whole period of time
+
   // outer loop, find correspondences
   for(size_t i = 0; i<n_outer_; i++)
   {
-    // per sensor
-    
-    // find model correspondences
-    findCorrespondences();
-    const rm::PointCloudView_<rm::RAM> cloud_model = correspondences_->get();
-
-    // inner loop, minimize
-
-    // this is what we want to optimize: 
-    // find a transformation from a new base frame to the old base frame that optimizes the alignment
-    
-    // bnew --- T_bnew_bold --> bold    : base frame (shared frame of all robot sensors)
-    //  ^                        ^
-    //  |                        |
-    // Tsb                      Tsb
-    //  |                        |
-    // snew --- T_snew_sold --> sold    : sensor frames
-    // 
-    // Fig 1: How to transform delta transforms
-
-    // THIS IS WORKING VERY GOOD:
-    // rm::Transform T_bnew_bold = rm::Transform::Identity();
-    // for(size_t j=0; j<n_inner_; j++)
-    // {
-    //   const rm::CrossStatistics C_b = computeCrossStatistics(T_bnew_bold);
-    //   const rm::Transform T_binner_bnew = rm::umeyama_transform(C_b);
-    //   T_bnew_bold = T_bnew_bold * T_binner_bnew;
-    // }
-    // // update estimate
-    // Tbm_est = Tbm_est * T_bnew_bold;
-    // setTom(Tbm_est * ~Tbo);
-
-
-    // because we later want to fuse in odom frame, this is a test for a single sensor:
-    rm::Transform T_onew_oold = rm::Transform::Identity();
-    for(size_t j=0; j<n_inner_; j++)
-    {
-      // back to base
-      const rm::Transform T_bnew_bold = ~Tbo * T_onew_oold * Tbo;
-      const rm::CrossStatistics C_b = computeCrossStatistics(T_bnew_bold);
-      // back to odom (where we can fuse other measurements)
-      const rm::CrossStatistics C_o = Tbo * C_b;
-      
-      // do this for all sensors, then:
-      rm::CrossStatistics C_merged = rm::CrossStatistics::Identity();
-      C_merged += C_o;
-
-      const rm::Transform T_oinner_onew = rm::umeyama_transform(C_merged);
-      T_onew_oold = T_onew_oold * T_oinner_onew;
-
-
-    }
-    setTom(Tom * T_onew_oold);
-
-    // { // broadcast transform
-    //   geometry_msgs::msg::TransformStamped T_odom_map;
-    //   T_odom_map.header.stamp = dataset_stamp_;
-    //   T_odom_map.header.frame_id = map_frame;
-    //   T_odom_map.child_frame_id = odom_frame;
-    //   convert(Tom, T_odom_map.transform);
-    //   tf_broadcaster_->sendTransform(T_odom_map);
-    // }
+    correctOnce();
   }
 
   // write Tom
   // Tom = Tbm_est * ~Tbo; // recover Tom: o -> b -> m
   Tom_stamp = dataset_stamp_;
-  
+}
 
-  { // broadcast transform
-    geometry_msgs::msg::TransformStamped T_odom_map;
-    T_odom_map.header.stamp = Tom_stamp;
-    T_odom_map.header.frame_id = map_frame;
-    T_odom_map.child_frame_id = odom_frame;
-    convert(Tom, T_odom_map.transform);
-    tf_broadcaster_->sendTransform(T_odom_map);
+void MICPO1DnSensor::correctionLoop()
+{
+  while(!first_message_received)
+  {
+    std::cout << "Waiting for first message to arrive..." << std::endl;
+    std::this_thread::sleep_for(10ms);
   }
-  
+
+  while(rclcpp::ok() && !stop_correction_thread_)
+  {
+    std::cout << "correctOnce" << std::endl;
+    // for(size_t i = 0; i<n_outer_; i++)
+    // {
+    correctOnce();
+    // }
+    Tom_stamp = dataset_stamp_;
+    broadcastTransform();
+  }
+
+  // while(rclcpp::ok() && !stop_correction_thread_)
+  // {
+  //   broadcastTransform();
+  //   std::this_thread::sleep_for(100ms);
+  // }
+}
+
+void MICPO1DnSensor::broadcastTransform()
+{
+  geometry_msgs::msg::TransformStamped T_odom_map;
+
+  const rclcpp::Time time_now = nh_->now();
+  std::cout << "broadcast transform odom -> map: " << time_now.seconds() << std::endl;
+
+  // T_odom_map.header.stamp = Tom_stamp;
+  T_odom_map.header.stamp = time_now;
+  T_odom_map.header.frame_id = map_frame;
+  T_odom_map.child_frame_id = odom_frame;
+  convert(Tom, T_odom_map.transform);
+  tf_broadcaster_->sendTransform(T_odom_map);
 }
 
 } // namespace rmcl

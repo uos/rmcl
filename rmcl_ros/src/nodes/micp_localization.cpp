@@ -137,15 +137,13 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   // correction_timer_ =  this->create_wall_timer(
   //   500ms, std::bind(&MICPLocalizationNode::correction_callback, this));
   stop_correction_thread_ = false;
-  correction_thread_ = std::thread([&](){
-    correctionLoop();
-  });
+  // correction_thread_ = std::thread([&](){
+  //   correctionLoop();
+  // });
   // correction_thread_.detach();
 
   // last_correction_stamp = this->now();
 }
-
-
 
 void MICPLocalizationNode::poseCB(
   const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
@@ -203,7 +201,7 @@ void MICPLocalizationNode::poseCB(
   // update sensors
   for(auto elem : sensors_)
   {
-    elem.second->setTbm(Tom * Tbm); // Tbm = Tom * Tbo
+    elem.second->setTom(Tom); // Tbm = Tom * Tbo
   }
 }
 
@@ -266,9 +264,97 @@ void MICPLocalizationNode::sensorDataReceived(
   const MICPSensorBase* sensor)
 {
   std::cout << sensor->name << " received data!" << std::endl;
-
   data_stamp_latest_ = sensor->dataset_stamp_;
-  
+
+  correct();
+  broadcastTransform();
+}
+
+void MICPLocalizationNode::correct()
+{
+  size_t outer_iter = 3;
+  for(size_t i=0; i<outer_iter; i++)
+  {
+    correctOnce();
+  }
+}
+
+void MICPLocalizationNode::correctOnce()
+{
+  for(auto sensor_elem : sensors_)
+  {
+    // only set current transform from odom to map
+    // Tbo and Tsb are fetched synchron to the arriving sensor data
+    sensor_elem.second->setTom(Tom);
+    sensor_elem.second->findCorrespondences();
+  }
+
+  // rm::Transform T_bnew_bold = rm::Transform::Identity();
+
+  // TODO:
+  rm::Transform T_onew_oold = rm::Transform::Identity();
+
+  size_t opti_iters = 10;
+  bool early_stop = false;
+
+  for(size_t i=0; i<opti_iters; i++)
+  {
+    // std::cout << "Correct! " << correction_counter << ", " << i << std::endl;
+    rm::CrossStatistics Cmerged_o = rm::CrossStatistics::Identity();
+
+    for(auto sensor_elem : sensors_)
+    {
+      const auto sensor = sensor_elem.second;
+
+      if(sensor->correspondences_->outdated)
+      {
+        std::cout << "Coresspondences outdated!" << std::endl;
+        early_stop = true;
+        continue;
+      }
+      
+      // transform delta from odom frame to base frame, at time of respective sensor
+      const rm::Transform T_bnew_bold = ~sensor->Tbo * T_onew_oold * sensor->Tbo;
+
+      const rm::CrossStatistics Cs_b 
+        = sensor->computeCrossStatistics(T_bnew_bold);
+      
+      const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
+      Cmerged_o += Cs_o; // optimal merge in odom frame
+    }
+
+    // Cmerged_o -> T_onew_oold
+    const rm::Transform T_onew_oold_inner = rm::umeyama_transform(Cmerged_o);
+
+    // update T_onew_oold: 
+    // transform from new odom frame to old odom frame
+    // this is only virtual (a trick). we dont't want to change the odom frame in the end (instead the odom to map transform)
+    T_onew_oold = T_onew_oold * T_onew_oold_inner;
+  }
+
+  correction_counter++;
+  // we want T_onew_map, we have Tom which is T_oold_map
+  const rm::Transform T_onew_map = Tom * T_onew_oold;
+  Tom = T_onew_map; // store Tom
+
+  // { // broadcast transform
+  //   geometry_msgs::msg::TransformStamped T_odom_map;
+  //   T_odom_map.header.stamp = data_stamp_latest_;
+  //   T_odom_map.header.frame_id = map_frame_;
+  //   T_odom_map.child_frame_id = odom_frame_;
+  //   convert(Tom, T_odom_map.transform);
+  //   tf_broadcaster_->sendTransform(T_odom_map);
+  // }
+}
+
+void MICPLocalizationNode::broadcastTransform()
+{
+  geometry_msgs::msg::TransformStamped T_odom_map;
+  T_odom_map.header.stamp = data_stamp_latest_;
+  T_odom_map.header.frame_id = map_frame_;
+  T_odom_map.child_frame_id = odom_frame_;
+  convert(Tom, T_odom_map.transform);
+  tf_broadcaster_->sendTransform(T_odom_map);
 }
 
 void MICPLocalizationNode::correctionLoop()
@@ -300,6 +386,9 @@ void MICPLocalizationNode::correctionLoop()
     // RTX have a smaller bottleneck vs Embree
     // We could do this in parallel
 
+
+    correctOnce();
+    broadcastTransform();
 
     // for(auto sensor_elem : sensors_)
     // {

@@ -44,9 +44,6 @@ protected:
     > model_buffers_;
 
   rmagine::Transform Tsb_;
-
-  
-
 };
 
 } // namespace rmcl

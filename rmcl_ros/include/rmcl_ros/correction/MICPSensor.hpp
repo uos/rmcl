@@ -41,7 +41,7 @@ public:
   // Pipeline: load data -> search for correspondences -> update statistics
   // (later from base, for each sensor: merge statistics and compute pose corrections)
 
-  void setTbm(const rmagine::Transform& Tbm);
+  // void setTbm(const rmagine::Transform& Tbm);
   void setTom(const rmagine::Transform& Tom);
 
   /**
@@ -73,6 +73,8 @@ public:
   std::string odom_frame = "odom";
   std::string base_frame = "base_footprint";
   std::string sensor_frame = "velodyne";
+
+  bool first_message_received = false;
   
   rmagine::UmeyamaReductionConstraints params_;
   

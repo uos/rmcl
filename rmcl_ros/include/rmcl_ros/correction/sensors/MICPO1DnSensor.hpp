@@ -31,6 +31,10 @@
 #include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
 
 
+#include <mutex>
+#include <thread>
+
+
 
 namespace rmcl
 {
@@ -50,10 +54,19 @@ using Base = MICPSensor_<rmagine::RAM>;
 
   void setMap(rmagine::EmbreeMapPtr map);
 
+  
+  void correctOnce();
+
+  void correct();
+
+  void correctionLoop();
+
+  void broadcastTransform();
 
   size_t n_inner_ = 10;
   size_t n_outer_ = 2;
 
+  
 protected:
 
   void unpackMessage(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
@@ -66,6 +79,17 @@ private:
   message_filters::Subscriber<rmcl_msgs::msg::O1DnStamped> data_sub_;
 
   std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> > tf_filter_;
+
+  // TODO: move this to upper level
+  std::thread correction_thread_;
+  bool stop_correction_thread_ = false;
+
+  std::mutex data_correction_mutex_;
+
+
+  // same behavior as for the thread
+  // rclcpp::TimerBase::SharedPtr correction_timer_;
+
 };
 
 } // namespace rmcl

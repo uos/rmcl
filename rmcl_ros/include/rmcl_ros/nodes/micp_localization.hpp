@@ -51,7 +51,13 @@ private:
 
   void sensorDataReceived(const MICPSensorBase* sensor);
 
+  void correct();
+
+  void correctOnce();
+
   void correctionLoop();
+
+  void broadcastTransform();
 
   std::string map_frame_;
   std::string base_frame_;

@@ -41,13 +41,14 @@ MICPSensorBase::~MICPSensorBase()
   
 }
 
-void MICPSensorBase::setTbm(const rm::Transform& Tbm)
-{
-  Tom = Tbm * ~Tbo; // odom -> base -> map == odom -> map
-}
+// void MICPSensorBase::setTbm(const rm::Transform& Tbm)
+// {
+//   Tom = Tbm * ~Tbo; // odom -> base -> map == odom -> map
+// }
 
 void MICPSensorBase::setTom(const rm::Transform& Tom_in)
 {
+  // when Tom changes, we have to find correspondences again
   Tom = Tom_in;
 }
 
