@@ -1,5 +1,5 @@
-#ifndef RMCL_MICPO1DN_SENSOR_HPP
-#define RMCL_MICPO1DN_SENSOR_HPP
+#ifndef RMCL_MICPO1DN_SENSOR_GPU_HPP
+#define RMCL_MICPO1DN_SENSOR_GPU_HPP
 
 #include <rclcpp/rclcpp.hpp>
 #include <rmcl_ros/correction/MICPSensor.hpp>
@@ -22,7 +22,10 @@
 
 
 #include <rmagine/math/statistics.h>
-#include <rmagine/math/linalg.h>
+#include <rmagine/math/linalg.cuh>
+#include <rmagine/types/MemoryCuda.hpp>
+#include <rmagine/
+
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
@@ -35,29 +38,21 @@
 #include <thread>
 
 
-
 namespace rmcl
 {
 
-
-
 class MICPO1DnSensor
-: public MICPSensor_<rmagine::RAM>
+: public MICPSensor_<rmagine::VRAM_CUDA>
 {
 public:
 
-using Base = MICPSensor_<rmagine::RAM>;
+  using Base = MICPSensor_<rmagine::VRAM_CUDA>;
 
   MICPO1DnSensor(
     rclcpp::Node::SharedPtr nh,
     std::string topic_name);
 
   void topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
-
-  void setMap(rmagine::EmbreeMapPtr map);
-
-  size_t n_inner_ = 10;
-  size_t n_outer_ = 2;
   
 protected:
 
@@ -65,15 +60,12 @@ protected:
 
 private:
 
-  rmagine::EmbreeMapPtr map_;
   rmagine::O1DnModel sensor_model_;
 
   message_filters::Subscriber<rmcl_msgs::msg::O1DnStamped> data_sub_;
   std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> > tf_filter_;
 };
 
-
-
 } // namespace rmcl
 
-#endif // RMCL_MICPO1DN_SENSOR_HPP
+#endif // RMCL_MICPO1DN_SENSOR_GPU_HPP

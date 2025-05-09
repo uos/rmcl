@@ -103,6 +103,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
       {
         std::cout << "Loaded:  " << sensor->name << std::endl;
         sensors_[sensor->name] = sensor;
+        sensors_vec_.push_back(sensor);
 
       } else {
         std::string sensor_name = elem.second->name;
@@ -282,40 +283,40 @@ void MICPLocalizationNode::correct()
 
 void MICPLocalizationNode::correctOnce()
 {
-  #pragma omp parallel for
-  for(auto sensor_elem : sensors_)
+  // #pragma omp parallel for
+  for(auto sensor : sensors_vec_)
   {
     // dont change the state of this sensor
-    sensor_elem.second->mutex().lock();
+    sensor->mutex().lock();
   }
 
-  #pragma omp parallel for
-  for(auto sensor_elem : sensors_)
+  // #pragma omp parallel for
+  for(auto sensor : sensors_vec_)
   {
     // only set current transform from odom to map
     // Tbo and Tsb are fetched synchron to the arriving sensor data
-    sensor_elem.second->setTom(Tom);
-    sensor_elem.second->findCorrespondences();
+    sensor->setTom(Tom);
+    sensor->findCorrespondences();
   }
 
   rm::Transform T_onew_oold = rm::Transform::Identity();
 
-  bool early_stop = false;
+  
   for(size_t i=0; i<optimization_iterations_; i++)
   {
     // std::cout << "Correct! " << correction_counter << ", " << i << std::endl;
     rm::CrossStatistics Cmerged_o = rm::CrossStatistics::Identity();
 
-    #pragma omp parallel for
-    for(auto sensor_elem : sensors_)
-    {
-      const auto sensor = sensor_elem.second;
+    bool outdated = false;
 
+    // #pragma omp parallel for
+    for(const auto sensor : sensors_vec_)
+    {
       if(sensor->correspondences_->outdated)
       {
         std::cout << "Coresspondences outdated!" << std::endl;
-        early_stop = true;
-        break;
+        outdated = true;
+        continue;
       }
       
       // transform delta from odom frame to base frame, at time of respective sensor
@@ -332,7 +333,7 @@ void MICPLocalizationNode::correctOnce()
       }
     }
 
-    if(early_stop)
+    if(outdated)
     {
       break;
     }
@@ -351,17 +352,20 @@ void MICPLocalizationNode::correctOnce()
   const rm::Transform T_onew_map = Tom * T_onew_oold;
   Tom = T_onew_map; // store Tom
 
-  #pragma omp parallel for
-  for(auto sensor_elem : sensors_)
+  // #pragma omp parallel for
+  for(auto sensor : sensors_vec_)
   {
-    sensor_elem.second->mutex().unlock();
+    sensor->mutex().unlock();
   }
 }
 
 void MICPLocalizationNode::broadcastTransform()
 {
   geometry_msgs::msg::TransformStamped T_odom_map;
-  T_odom_map.header.stamp = data_stamp_latest_;
+  
+  // T_odom_map.header.stamp = data_stamp_latest_; // correct time. lags behind
+  T_odom_map.header.stamp = this->now(); // better viz. includes the odom errors for a short period of time
+
   T_odom_map.header.frame_id = map_frame_;
   T_odom_map.child_frame_id = odom_frame_;
   convert(Tom, T_odom_map.transform);

@@ -12,19 +12,9 @@ RCCEmbreeO1Dn::RCCEmbreeO1Dn(
   
 }
 
-// void RCCEmbreeO1Dn::setModel(
-//   const rm::O1DnModel& sensor_model)
-// {
-  
-
-//   // base class
-//   rm::O1DnSimulatorEmbree::setModel(sensor_model);   
-// }
-
 void RCCEmbreeO1Dn::setTsb(const rm::Transform& Tsb)
 {
-  std::cout << "OVERRIDE!!!!" << std::endl;
-  Correspondences_<rmagine::RAM>::setTsb(Tsb);
+  Correspondences_<rm::RAM>::setTsb(Tsb);
   rm::O1DnSimulatorEmbree::setTsb(Tsb);
 }
 

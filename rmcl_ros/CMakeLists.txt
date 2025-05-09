@@ -114,6 +114,58 @@ install(TARGETS rmcl_ros
     RUNTIME DESTINATION bin
 )
 
+if(RMCL_EMBREE)
+    add_library(rmcl_ros_embree SHARED
+        src/correction/correspondences/RCCEmbree.cpp
+    )
+    target_include_directories(rmcl_ros_embree PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>")
+    target_link_libraries(rmcl_ros_embree
+        rmcl_ros
+        rmcl-embree
+    )
+
+    ament_target_dependencies(rmcl_ros_embree
+        rclcpp
+        sensor_msgs
+        rmcl_msgs
+        geometry_msgs
+    )
+
+    install(TARGETS rmcl_ros_embree
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+endif(RMCL_EMBREE)
+
+if(RMCL_OPTIX)
+    add_library(rmcl_ros_optix SHARED
+        src/correction/correspondences/RCCOptix.cpp
+    )
+    target_include_directories(rmcl_ros_optix PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>")
+    target_link_libraries(rmcl_ros_optix
+        rmcl_ros
+        rmcl-optix
+    )
+
+    ament_target_dependencies(rmcl_ros_optix
+        rclcpp
+        sensor_msgs
+        rmcl_msgs
+        geometry_msgs
+    )
+
+    install(TARGETS rmcl_ros_optix
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+endif(RMCL_OPTIX)
+
 ## Nodes
 
 #####################
@@ -127,9 +179,9 @@ add_library(micp_localization SHARED
     # src/correction/MICPRangeSensor.cpp
     # src/correction/MICPSensorSphericalEmbree.cpp
     src/correction/sensors/MICPO1DnSensor.cpp
-    src/correction/correspondences/RCCEmbree.cpp
     # src/correction/data_loader/Topic.cpp
 )
+
 
 target_include_directories(micp_localization
   PRIVATE
@@ -138,11 +190,12 @@ target_include_directories(micp_localization
 
 target_link_libraries(micp_localization
     rmcl_ros
+    OpenMP::OpenMP_CXX
 )
 
 if(RMCL_EMBREE)
     target_link_libraries(micp_localization
-        rmcl-embree
+        rmcl_ros_embree
     )
 endif(RMCL_EMBREE)
     

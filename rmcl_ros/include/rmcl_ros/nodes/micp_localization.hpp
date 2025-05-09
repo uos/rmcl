@@ -66,6 +66,7 @@ private:
 
   std::string map_filename_;
   std::unordered_map<std::string, MICPSensorPtr> sensors_;
+  std::vector<MICPSensorPtr> sensors_vec_;
 
   rmagine::EmbreeMapPtr map_embree_;
 
