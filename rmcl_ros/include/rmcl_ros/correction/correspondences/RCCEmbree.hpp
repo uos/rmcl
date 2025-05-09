@@ -13,18 +13,22 @@
 #include <rmcl_ros/correction/Correspondences.hpp>
 #include <rmcl_ros/correction/correspondences/CorrespondencesCPU.hpp>
 
+#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
 
 namespace rmcl
 {
 
 class RCCEmbreeO1Dn
 : public CorrespondencesCPU
-, public rmagine::O1DnSimulatorEmbree
+, public ModelSetter<rmagine::O1DnModel>
+, protected rmagine::O1DnSimulatorEmbree
 {
 public:
 
   RCCEmbreeO1Dn(
     rmagine::EmbreeMapPtr map);
+
+  void setModel(const rmagine::O1DnModel& sensor_model);
 
   virtual void setTsb(const rmagine::Transform& Tsb) override;
 

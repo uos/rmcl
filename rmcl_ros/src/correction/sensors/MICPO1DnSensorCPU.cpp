@@ -1,5 +1,5 @@
 #include <rmcl_ros/correction/MICPSensor.hpp>
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorGPU.hpp>
+#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
 
 #include <rmcl_ros/util/conversions.h>
 
@@ -13,6 +13,9 @@
 
 #include <rmagine/util/prints.h>
 
+#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
+
+
 using namespace std::chrono_literals;
 
 namespace rm = rmagine;
@@ -20,10 +23,10 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-MICPO1DnSensorGPU::MICPO1DnSensorGPU(
+MICPO1DnSensorCPU::MICPO1DnSensorCPU(
   rclcpp::Node::SharedPtr nh, 
   std::string topic_name)
-:Base(nh)
+:MICPSensor_<rmagine::RAM>(nh)
 {
   std::cout << "Load data from topic '" << topic_name << "'" << std::endl;
 
@@ -35,7 +38,7 @@ MICPO1DnSensorGPU::MICPO1DnSensorGPU(
   
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  tf_filter_->registerCallback(&MICPO1DnSensorGPU::topicCB, this);
+  tf_filter_->registerCallback(&MICPO1DnSensorCPU::topicCB, this);
 
   std::cout << "Waiting for message..." << std::endl;
 
@@ -44,7 +47,7 @@ MICPO1DnSensorGPU::MICPO1DnSensorGPU(
   correspondences_.reset();
 }
 
-void MICPO1DnSensorGPU::unpackMessage(
+void MICPO1DnSensorCPU::unpackMessage(
   const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 {
   /////
@@ -64,18 +67,9 @@ void MICPO1DnSensorGPU::unpackMessage(
     std::cout << "Need to resize buffers: " << n_old_measurements << " -> " << n_new_measurements << std::endl;
     correspondences_->dataset.points.resize(n_new_measurements);
     correspondences_->dataset.mask.resize(n_new_measurements);
-    // for(size_t i=n_old_measurements; i<n_new_measurements; i++)
-    // {
-    //   dataset_.mask[i] = 1;
-    // }
-
-    // same for cpu
-    dataset_cpu_.points.resize(n_new_measurements);
-    dataset_cpu_.mask.resize(n_new_measurements);
-
     for(size_t i=n_old_measurements; i<n_new_measurements; i++)
     {
-      dataset_cpu_.mask[i] = 1;
+      correspondences_->dataset.mask[i] = 1;
     }
   }
 
@@ -88,25 +82,22 @@ void MICPO1DnSensorGPU::unpackMessage(
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
       const float real_range = msg->o1dn.data.ranges[loc_id];
       const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
-      dataset_cpu_.points[loc_id] = real_point;
+      correspondences_->dataset.points[loc_id] = real_point;
 
       if(real_range < sensor_model_.range.min || real_range > sensor_model_.range.max)
       {
         // out of range
-        dataset_cpu_.mask[loc_id] = 0;
+        correspondences_->dataset.mask[loc_id] = 0;
       } else {
-        dataset_cpu_.mask[loc_id] = 1;
+        correspondences_->dataset.mask[loc_id] = 1;
       }
     }
   }
-  
-  correspondences_->dataset.points = dataset_cpu_.points;
-  correspondences_->dataset.mask = dataset_cpu_.mask;
-
+  // double el = sw();
   dataset_stamp_ = msg->header.stamp;
 }
 
-void MICPO1DnSensorGPU::topicCB(
+void MICPO1DnSensorCPU::topicCB(
   const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 {
   // std::lock_guard<std::mutex> guard(data_correction_mutex_);
@@ -128,10 +119,15 @@ void MICPO1DnSensorGPU::topicCB(
   // fill sensor_model_ and initialize copy data to dataset
   sw();
   unpackMessage(msg);
-  if(auto rcc = std::dynamic_pointer_cast<RCCOptixO1Dn>(correspondences_))
+
+  std::cout << "Message unpacked" << std::endl;
+
+  // TODO: make some kind of O1DnSetter base class that doesnt depend on Embree
+  if(auto model_setter = std::dynamic_pointer_cast<
+    ModelSetter<rm::O1DnModel> >(correspondences_))
   {
     // RCC required sensor model
-    rcc->setModel(sensor_model_);
+    model_setter->setModel(sensor_model_);
   }
   
   el = sw();
@@ -146,13 +142,10 @@ void MICPO1DnSensorGPU::topicCB(
   }
 
   correspondences_->outdated = true;
-
   first_message_received = true;
 
   data_correction_mutex_.unlock();
-
   on_data_received(this);
 }
-
 
 } // namespace rmcl

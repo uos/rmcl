@@ -113,7 +113,6 @@ public:
   ) const
   { 
 
-
     // this is what we want to optimize: 
     // find a transformation from a new base frame to the old base frame that optimizes the alignment
     
@@ -130,22 +129,9 @@ public:
 
     // reduce correspondences_ to C
     const rm::Transform T_snew_sold = ~Tsb * T_bnew_bold * Tsb;
-
     const rm::CrossStatistics stats_s = correspondences_->computeCrossStatistics(T_snew_sold);
-
-    // const rm::PointCloudView_<MemT> cloud_dataset = rm::watch(dataset_);
-    // const rm::PointCloudView_<MemT> cloud_model = correspondences_->get();
-
-
-
-
-    // const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params_);
-      
-    
-
     // transform CrossStatistics of every sensor to base frame
     const rm::CrossStatistics stats_b = Tsb * stats_s;
-
     return stats_b;
   }
 

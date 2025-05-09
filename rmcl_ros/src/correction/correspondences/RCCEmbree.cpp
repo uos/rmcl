@@ -18,6 +18,11 @@ void RCCEmbreeO1Dn::setTsb(const rm::Transform& Tsb)
   rm::O1DnSimulatorEmbree::setTsb(Tsb);
 }
 
+void RCCEmbreeO1Dn::setModel(const rmagine::O1DnModel& sensor_model)
+{
+  rm::O1DnSimulatorEmbree::setModel(sensor_model);
+}
+
 void RCCEmbreeO1Dn::find(const rm::Transform& Tbm_est)
 {
   size_t n_old_measurements = model_buffers_.points.size();

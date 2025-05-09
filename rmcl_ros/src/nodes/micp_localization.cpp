@@ -22,7 +22,7 @@
 #include <rmcl_ros/nodes/micp_localization.hpp>
 // #include <rmcl_ros/correction/MICPSensorSphericalEmbree.hpp>
 
-#include <rmcl_ros/correction/sensors/MICPO1DnSensor.hpp>
+#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
 
 
 
@@ -245,7 +245,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 
     if(topic_type == "rmcl_msgs/msg/O1DnStamped")
     {
-      sensor = std::make_shared<MICPO1DnSensor>(nh_sensor, topic_name);
+      sensor = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
       sensor->name = sensor_name;
       
       if(corr_backend == "embree")
@@ -258,6 +258,12 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         sensor->correspondences_ = rcc_embree;
         sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       }
+
+      if(corr_backend == "optix")
+      {
+        // auto rcc_optix = std::make_shared<RCCOptixO1Dn>(map_optix_);
+        // rcc_optix->params.max_dist = 1.0;
+      }
     }
   }
 
@@ -269,10 +275,6 @@ void MICPLocalizationNode::sensorDataReceived(
 {
   std::cout << sensor->name << " received data!" << std::endl;
   data_stamp_latest_ = sensor->dataset_stamp_;
-
-  // this works good
-  // correct();
-  // broadcastTransform();
 }
 
 void MICPLocalizationNode::correct()

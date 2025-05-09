@@ -93,6 +93,7 @@ add_library(rmcl_ros SHARED
     src/util/ros_helper.cpp
     # micp localization
     src/correction/MICPSensor.cpp
+    src/correction/sensors/MICPO1DnSensorCPU.cpp
     src/correction/correspondences/CorrespondencesCPU.cpp
 )
 
@@ -120,7 +121,6 @@ install(TARGETS rmcl_ros
 
 if(RMCL_EMBREE)
     add_library(rmcl_ros_embree SHARED
-        src/correction/sensors/MICPO1DnSensor.cpp
         src/correction/correspondences/RCCEmbree.cpp
         src/correction/correspondences/CPCEmbree.cpp
     )
@@ -150,6 +150,7 @@ endif(RMCL_EMBREE)
 if(RMCL_CUDA)
     add_library(rmcl_ros_cuda SHARED
         src/correction/correspondences/CorrespondencesCUDA.cpp
+        src/correction/sensors/MICPO1DnSensorCUDA.cpp
     )
     target_include_directories(rmcl_ros_cuda PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -176,7 +177,6 @@ endif(RMCL_CUDA)
 if(RMCL_OPTIX)
     add_library(rmcl_ros_optix SHARED
         src/correction/correspondences/RCCOptix.cpp
-        src/correction/sensors/MICPO1DnSensorGPU.cpp
     )
     target_include_directories(rmcl_ros_optix PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
