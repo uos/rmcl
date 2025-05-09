@@ -33,6 +33,8 @@ public:
    */
   virtual rmagine::PointCloudView_<MemT> get() = 0;
 
+  bool outdated = true;
+
 protected:
 
   rmagine::Bundle<
@@ -42,6 +44,8 @@ protected:
     > model_buffers_;
 
   rmagine::Transform Tsb_;
+
+  
 
 };
 

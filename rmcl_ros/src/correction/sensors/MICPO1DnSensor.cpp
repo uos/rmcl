@@ -142,7 +142,11 @@ void MICPO1DnSensor::topicCB(
     std::cout << "Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
   }
 
-  return; // everything from here has to be move to an upper level
+  correspondences_->outdated = true;
+
+  on_data_received(this);
+
+  // return; // everything from here has to be move to an upper level
 
 
 
@@ -158,8 +162,7 @@ void MICPO1DnSensor::topicCB(
 
   const rm::PointCloudView_<rm::RAM> cloud_dataset = rm::watch(dataset_);
 
-
-
+  
   // read Tom -> first Tbm estimation
   rm::Transform Tbm_est = Tom * Tbo;
   
@@ -168,9 +171,8 @@ void MICPO1DnSensor::topicCB(
   {
     // per sensor
     
-    
     // find model correspondences
-    correspondences_->find(Tbm_est);
+    findCorrespondences();
     const rm::PointCloudView_<rm::RAM> cloud_model = correspondences_->get();
 
     // inner loop, minimize
@@ -190,35 +192,44 @@ void MICPO1DnSensor::topicCB(
     rm::Transform T_bnew_bold = rm::Transform::Identity();
     for(size_t j=0; j<n_inner_; j++)
     {
-      // from snew to bnew to bold to sold -> snew to sold
-      rm::Transform T_snew_sold = ~Tsb * T_bnew_bold * Tsb;
-
-      const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params_);
+      const rm::CrossStatistics C_b = computeCrossStatistics(T_bnew_bold);
       
-      // transform CrossStatistics of every sensor to base frame
-      const rm::CrossStatistics stats_b = Tsb * stats_s;
-
-      const rm::Transform T_binner_bnew = rm::umeyama_transform(stats_b);
+      const rm::Transform T_binner_bnew = rm::umeyama_transform(C_b);
 
       T_bnew_bold = T_bnew_bold * T_binner_bnew;
     }
 
     // update estimate
     Tbm_est = Tbm_est * T_bnew_bold;
+
+    // write Tom
+    // Tom = Tbm_est * ~Tbo;
+
+    setTom(Tbm_est * ~Tbo);
+
+    { // broadcast transform
+      geometry_msgs::msg::TransformStamped T_odom_map;
+      T_odom_map.header.stamp = dataset_stamp_;
+      T_odom_map.header.frame_id = map_frame;
+      T_odom_map.child_frame_id = odom_frame;
+      convert(Tom, T_odom_map.transform);
+      tf_broadcaster_->sendTransform(T_odom_map);
+    }
   }
 
   // write Tom
-  Tom = Tbm_est * ~Tbo; // recover Tom: o -> b -> m
+  // Tom = Tbm_est * ~Tbo; // recover Tom: o -> b -> m
   Tom_stamp = dataset_stamp_;
+  
 
-  { // broadcast transform
-    geometry_msgs::msg::TransformStamped T_odom_map;
-    T_odom_map.header.stamp = Tom_stamp;
-    T_odom_map.header.frame_id = map_frame;
-    T_odom_map.child_frame_id = odom_frame;
-    convert(Tom, T_odom_map.transform);
-    tf_broadcaster_->sendTransform(T_odom_map);
-  }
+  // { // broadcast transform
+  //   geometry_msgs::msg::TransformStamped T_odom_map;
+  //   T_odom_map.header.stamp = Tom_stamp;
+  //   T_odom_map.header.frame_id = map_frame;
+  //   T_odom_map.child_frame_id = odom_frame;
+  //   convert(Tom, T_odom_map.transform);
+  //   tf_broadcaster_->sendTransform(T_odom_map);
+  // }
   
 }
 

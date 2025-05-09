@@ -83,9 +83,11 @@ private:
   std::unique_ptr<tf2_ros::MessageFilter<geometry_msgs::msg::PoseWithCovarianceStamped> > pose_tf_filter_;
 
   
-
+  size_t correction_counter = 0;
   // double max_tf_rate = 10.0;
   // rclcpp::Time last_correction_stamp; // last correction time
+
+  rclcpp::Time data_stamp_latest_;
 };
 
 

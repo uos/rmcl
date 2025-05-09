@@ -46,9 +46,9 @@ void MICPSensorBase::setTbm(const rm::Transform& Tbm)
   Tom = Tbm * ~Tbo; // odom -> base -> map == odom -> map
 }
 
-void MICPSensorBase::setTom(const rm::Transform& Tom)
+void MICPSensorBase::setTom(const rm::Transform& Tom_in)
 {
-  this->Tom = Tom;
+  Tom = Tom_in;
 }
 
 void MICPSensorBase::fetchTF()

@@ -105,6 +105,7 @@ public:
   {
     const rmagine::Transform Tbm = Tom * Tbo;
     correspondences_->find(Tbm);
+    correspondences_->outdated = false;
   }
 
   virtual rmagine::CrossStatistics computeCrossStatistics(
