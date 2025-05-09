@@ -41,8 +41,6 @@ MICPO1DnSensor::MICPO1DnSensor(
 
   Tom.setIdentity();
 
-  params_.max_dist = 1.0;
-
   correspondences_.reset();
 }
 
@@ -58,17 +56,17 @@ void MICPO1DnSensor::unpackMessage(
   // data: TODOs: 
   // - use input mask values
   // - use input normals
-  size_t n_old_measurements = dataset_.points.size();
+  size_t n_old_measurements = correspondences_->dataset.points.size();
   size_t n_new_measurements = msg->o1dn.data.ranges.size();
   if(n_new_measurements > n_old_measurements)
   {
     // need to resize buffers
     std::cout << "Need to resize buffers: " << n_old_measurements << " -> " << n_new_measurements << std::endl;
-    dataset_.points.resize(n_new_measurements);
-    dataset_.mask.resize(n_new_measurements);
+    correspondences_->dataset.points.resize(n_new_measurements);
+    correspondences_->dataset.mask.resize(n_new_measurements);
     for(size_t i=n_old_measurements; i<n_new_measurements; i++)
     {
-      dataset_.mask[i] = 1;
+      correspondences_->dataset.mask[i] = 1;
     }
   }
 
@@ -81,14 +79,14 @@ void MICPO1DnSensor::unpackMessage(
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
       const float real_range = msg->o1dn.data.ranges[loc_id];
       const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
-      dataset_.points[loc_id] = real_point;
+      correspondences_->dataset.points[loc_id] = real_point;
 
       if(real_range < sensor_model_.range.min || real_range > sensor_model_.range.max)
       {
         // out of range
-        dataset_.mask[loc_id] = 0;
+        correspondences_->dataset.mask[loc_id] = 0;
       } else {
-        dataset_.mask[loc_id] = 1;
+        correspondences_->dataset.mask[loc_id] = 1;
       }
     }
   }
@@ -127,7 +125,7 @@ void MICPO1DnSensor::topicCB(
   el = sw();
   
   std::cout << "Unpack Message & fill data (" 
-    << dataset_.points.size() << "): " << el * 1000.0 << "ms" << std::endl;
+    << correspondences_->dataset.points.size() << "): " << el * 1000.0 << "ms" << std::endl;
   
   
   { // print conversion & sync delay
@@ -141,7 +139,6 @@ void MICPO1DnSensor::topicCB(
   first_message_received = true;
 
   data_correction_mutex_.unlock();
-
 
   on_data_received(this);
 

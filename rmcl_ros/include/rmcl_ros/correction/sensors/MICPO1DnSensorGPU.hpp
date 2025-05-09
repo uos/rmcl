@@ -22,16 +22,15 @@
 
 
 #include <rmagine/math/statistics.h>
-#include <rmagine/math/linalg.cuh>
+#include <rmagine/math/linalg.h>
 #include <rmagine/types/MemoryCuda.hpp>
-#include <rmagine/
 
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
 // Correspondences
 #include <rmcl_ros/correction/Correspondences.hpp>
-#include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
+#include <rmcl_ros/correction/correspondences/RCCOptix.hpp>
 
 
 #include <mutex>
@@ -41,14 +40,14 @@
 namespace rmcl
 {
 
-class MICPO1DnSensor
+class MICPO1DnSensorGPU
 : public MICPSensor_<rmagine::VRAM_CUDA>
 {
 public:
 
   using Base = MICPSensor_<rmagine::VRAM_CUDA>;
 
-  MICPO1DnSensor(
+  MICPO1DnSensorGPU(
     rclcpp::Node::SharedPtr nh,
     std::string topic_name);
 
@@ -59,6 +58,9 @@ protected:
   void unpackMessage(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
 
 private:
+
+    // we need to store this here, temorary
+  rmagine::PointCloud_<rmagine::RAM> dataset_cpu_;
 
   rmagine::O1DnModel sensor_model_;
 

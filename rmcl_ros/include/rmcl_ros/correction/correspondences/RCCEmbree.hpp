@@ -15,6 +15,19 @@
 namespace rmcl
 {
 
+// class CrossStatisticsComputerCPU
+// {
+//   virtual rmagine::CrossStatistics computeCrossStatistics(
+//     const rmagine::Transform& T_bnew_bold // Tpre_b
+//   ) const
+// };
+
+
+
+// class RCCEmbree
+// : public Correspondences_<rmagine::RAM>
+
+
 class RCCEmbreeO1Dn
 : public Correspondences_<rmagine::RAM>
 , public rmagine::O1DnSimulatorEmbree
@@ -29,6 +42,9 @@ public:
   virtual void find(const rmagine::Transform& Tbm_est);
 
   virtual rmagine::PointCloudView_<rmagine::RAM> get();
+
+  rmagine::CrossStatistics computeCrossStatistics(
+    const rmagine::Transform& T_snew_sold) const;
 };
 
 } // namespace rmcl

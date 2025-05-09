@@ -20,19 +20,11 @@
 
 #include <rmcl_ros/correction/Correspondences.hpp>
 
+
+
+
 namespace rmcl
 {
-
-  
-// class MICPSensor
-// {
-// public:
-//   MICPSensor() {}
-//   virtual ~MICPSensor() {}
-
-//   // name of the sensor
-//   std::string name;
-// };
 
 class MICPSensorBase
 {
@@ -83,8 +75,6 @@ public:
 
   bool first_message_received = false;
   
-  rmagine::UmeyamaReductionConstraints params_;
-  
   
   rclcpp::Time dataset_stamp_;
   std::mutex data_correction_mutex_;
@@ -122,6 +112,8 @@ public:
     const rmagine::Transform& T_bnew_bold // Tpre_b
   ) const
   { 
+
+
     // this is what we want to optimize: 
     // find a transformation from a new base frame to the old base frame that optimizes the alignment
     
@@ -139,10 +131,18 @@ public:
     // reduce correspondences_ to C
     const rm::Transform T_snew_sold = ~Tsb * T_bnew_bold * Tsb;
 
-    const rm::PointCloudView_<MemT> cloud_dataset = rm::watch(dataset_);
-    const rm::PointCloudView_<MemT> cloud_model = correspondences_->get();
-    const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params_);
+    const rm::CrossStatistics stats_s = correspondences_->computeCrossStatistics(T_snew_sold);
+
+    // const rm::PointCloudView_<MemT> cloud_dataset = rm::watch(dataset_);
+    // const rm::PointCloudView_<MemT> cloud_model = correspondences_->get();
+
+
+
+
+    // const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params_);
       
+    
+
     // transform CrossStatistics of every sensor to base frame
     const rm::CrossStatistics stats_b = Tsb * stats_s;
 
@@ -151,9 +151,6 @@ public:
 
   std::shared_ptr<Correspondences_<MemT> > correspondences_;
 
-protected:
-  // Data loader fills this (mutex?)
-  rmagine::PointCloud_<MemT> dataset_;
 };
 
 using MICPSensor = MICPSensor_<rmagine::RAM>;

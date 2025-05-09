@@ -7,6 +7,9 @@
 #include <rmagine/types/Memory.hpp>
 #include <rmagine/simulation/SimulationResults.hpp>
 
+#include <rmagine/math/statistics.h>
+
+
 
 namespace rmcl
 {
@@ -15,6 +18,11 @@ template<typename MemT>
 class Correspondences_
 {
 public:
+
+  rmagine::UmeyamaReductionConstraints params;
+
+  // fill this
+  rmagine::PointCloud_<MemT> dataset;
 
   virtual void setTsb(const rmagine::Transform& Tsb)
   {
@@ -34,6 +42,9 @@ public:
   virtual rmagine::PointCloudView_<MemT> get() = 0;
 
   bool outdated = true;
+
+  virtual rmagine::CrossStatistics computeCrossStatistics( 
+    const rmagine::Transform& T_snew_sold) const = 0;
 
 protected:
 

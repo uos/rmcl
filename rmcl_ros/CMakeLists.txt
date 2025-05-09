@@ -94,11 +94,11 @@ add_library(rmcl_ros SHARED
 )
 
 target_include_directories(rmcl_ros PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<INSTALL_INTERFACE:include>")
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(rmcl_ros
-  rmcl
+    rmcl
 )
 
 ament_target_dependencies(rmcl_ros
@@ -106,6 +106,7 @@ ament_target_dependencies(rmcl_ros
     sensor_msgs
     rmcl_msgs
     geometry_msgs
+    tf2_ros
 )
 
 install(TARGETS rmcl_ros
@@ -117,6 +118,7 @@ install(TARGETS rmcl_ros
 if(RMCL_EMBREE)
     add_library(rmcl_ros_embree SHARED
         src/correction/correspondences/RCCEmbree.cpp
+        src/correction/sensors/MICPO1DnSensor.cpp
     )
     target_include_directories(rmcl_ros_embree PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -143,6 +145,7 @@ endif(RMCL_EMBREE)
 if(RMCL_OPTIX)
     add_library(rmcl_ros_optix SHARED
         src/correction/correspondences/RCCOptix.cpp
+        src/correction/sensors/MICPO1DnSensorGPU.cpp
     )
     target_include_directories(rmcl_ros_optix PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -178,10 +181,8 @@ add_library(micp_localization SHARED
     src/correction/MICPSensor.cpp
     # src/correction/MICPRangeSensor.cpp
     # src/correction/MICPSensorSphericalEmbree.cpp
-    src/correction/sensors/MICPO1DnSensor.cpp
     # src/correction/data_loader/Topic.cpp
 )
-
 
 target_include_directories(micp_localization
   PRIVATE

@@ -253,6 +253,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
       if(corr_backend == "embree")
       {
         sensor->correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
+        sensor->correspondences_->params.max_dist = 1.0;
         sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       }
     }
