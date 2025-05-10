@@ -11,25 +11,28 @@
 #include <rmagine/simulation/OnDnSimulatorOptix.hpp>
 
 #include <rmcl_ros/correction/Correspondences.hpp>
+#include <rmcl_ros/correction/correspondences/CorrespondencesCUDA.hpp>
+
+#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
 
 namespace rmcl
 {
 
 class RCCOptixO1Dn
-: public Correspondences_<rmagine::VRAM_CUDA>
-, public rmagine::O1DnSimulatorOptix
+: public CorrespondencesCUDA
+, public ModelSetter<rmagine::O1DnModel>
+, protected rmagine::O1DnSimulatorOptix
 {
 public:
 
   RCCOptixO1Dn(
     rmagine::OptixMapPtr map);
 
+  void setModel(const rmagine::O1DnModel& sensor_model);
+
   virtual void setTsb(const rmagine::Transform& Tsb) override;
 
   virtual void find(const rmagine::Transform& Tbm_est);
-
-  rmagine::CrossStatistics computeCrossStatistics(
-    const rmagine::Transform& T_snew_sold) const;
 };
 
 } // namespace rmcl

@@ -37,7 +37,7 @@ MICPO1DnSensorCUDA::MICPO1DnSensorCUDA(
   
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  tf_filter_->registerCallback(&MICPO1DnSensorGPU::topicCB, this);
+  tf_filter_->registerCallback(&MICPO1DnSensorCUDA::topicCB, this);
 
   std::cout << "Waiting for message..." << std::endl;
 
@@ -66,12 +66,6 @@ void MICPO1DnSensorCUDA::unpackMessage(
     std::cout << "Need to resize buffers: " << n_old_measurements << " -> " << n_new_measurements << std::endl;
     correspondences_->dataset.points.resize(n_new_measurements);
     correspondences_->dataset.mask.resize(n_new_measurements);
-    // for(size_t i=n_old_measurements; i<n_new_measurements; i++)
-    // {
-    //   dataset_.mask[i] = 1;
-    // }
-
-    // same for cpu
     dataset_cpu_.points.resize(n_new_measurements);
     dataset_cpu_.mask.resize(n_new_measurements);
 

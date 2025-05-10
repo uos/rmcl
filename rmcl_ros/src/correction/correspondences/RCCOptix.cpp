@@ -14,8 +14,13 @@ RCCOptixO1Dn::RCCOptixO1Dn(
 
 void RCCOptixO1Dn::setTsb(const rm::Transform& Tsb)
 {
-  Correspondences_<rm::VRAM_CUDA>::setTsb(Tsb);
+  CorrespondencesCUDA::setTsb(Tsb);
   rm::O1DnSimulatorOptix::setTsb(Tsb);
+}
+
+void RCCOptixO1Dn::setModel(const rm::O1DnModel& sensor_model)
+{
+  rm::O1DnSimulatorOptix::setModel(sensor_model);
 }
 
 void RCCOptixO1Dn::find(const rm::Transform& Tbm_est)
@@ -28,35 +33,6 @@ void RCCOptixO1Dn::find(const rm::Transform& Tbm_est)
   }
 
   simulate(Tbm_est, model_buffers_);
-}
-
-rm::PointCloudView_<rm::VRAM_CUDA> RCCOptixO1Dn::get()
-{
-  const rm::PointCloudView_<rm::VRAM_CUDA> cloud_model = {
-    .points  = model_buffers_.points,
-    .mask    = model_buffers_.hits,
-    .normals = model_buffers_.normals
-  };
-
-  return cloud_model;
-}
-
-rmagine::CrossStatistics RCCEmbreeO1Dn::computeCrossStatistics(
-  const rmagine::Transform& T_snew_sold) const
-{
-  std::cout << "computeCrossStatiscsGPU" << std::endl;
-  // TODO: move this outside
-  // params.max_dist = 1.0;
-
-  const rm::PointCloudView_<rm::VRAM_CUDA> cloud_dataset = rm::watch(dataset);
-  const rm::PointCloudView_<rm::VRAM_CUDA> cloud_model = {
-    .points  = model_buffers_.points,
-    .mask    = model_buffers_.hits,
-    .normals = model_buffers_.normals
-  };
-
-  const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params);
-  return stats_s;
 }
 
 } // namespace rmcl

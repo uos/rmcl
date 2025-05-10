@@ -1,5 +1,5 @@
-#ifndef RMCL_CORRECTION_CORRESPONDENCES_CPU_HPP
-#define RMCL_CORRECTION_CORRESPONDENCES_CPU_HPP
+#ifndef RMCL_CORRECTION_CORRESPONDENCES_CUDA_HPP
+#define RMCL_CORRECTION_CORRESPONDENCES_CUDA_HPP
 
 #include <rmagine/types/MemoryCuda.hpp>
 #include <rmcl_ros/correction/Correspondences.hpp>
@@ -7,7 +7,7 @@
 namespace rmcl
 {
 
-class CorrespondencesCPU
+class CorrespondencesCUDA
 : public Correspondences_<rmagine::VRAM_CUDA>
 {
 public:
@@ -17,4 +17,4 @@ public:
 
 } // namespace rmcl
 
-#endif // RMCL_CORRECTION_CORRESPONDENCES_CPU_HPP
+#endif // RMCL_CORRECTION_CORRESPONDENCES_CUDA_HPP
