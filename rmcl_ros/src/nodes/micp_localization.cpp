@@ -254,9 +254,13 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 
   auto corr_params = sensor_param_tree->at("correspondences");
   const std::string corr_backend = corr_params->at("backend")->data->as_string();
+  const std::string corr_type = corr_params->at("type")->data->as_string();
+
 
   rm::UmeyamaReductionConstraints umeyama_params;
   umeyama_params.max_dist = corr_params->at("max_dist")->data->as_double(); // TODO: adaptive
+
+  
 
   std::cout << "- Correspondence Backend: " << corr_backend << std::endl;
 
@@ -274,12 +278,25 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
       {
         auto sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
 
-        auto rcc_embree = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
-        rcc_embree->params.max_dist = 1.0;
-        auto cpc_embree = std::make_shared<CPCEmbree>(map_embree_);
-        cpc_embree->params.max_dist = 1.0;
+        if(corr_type == "RC")
+        {
+          auto rcc_embree = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
+          rcc_embree->params = umeyama_params;
+          sensor_cpu->correspondences_ = rcc_embree;
+        } 
+        else if(corr_type == "CP") 
+        {
+          auto cpc_embree = std::make_shared<CPCEmbree>(map_embree_);
+          cpc_embree->params = umeyama_params;
+          sensor_cpu->correspondences_ = cpc_embree;
+        } 
+        else 
+        {
+          // ERROR
+          std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+          return sensor;
+        }
 
-        sensor_cpu->correspondences_ = rcc_embree;
         sensor_cpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       
         sensor = sensor_cpu;
@@ -290,10 +307,16 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         
         auto sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor, topic_name);
 
-        auto rcc_optix = std::make_shared<RCCOptixO1Dn>(map_optix_);
-        rcc_optix->params.max_dist = 1.0;
-
-        sensor_gpu->correspondences_ = rcc_optix;
+        if(corr_type == "RC")
+        {
+          auto rcc_optix = std::make_shared<RCCOptixO1Dn>(map_optix_);
+          rcc_optix->params = umeyama_params;
+          sensor_gpu->correspondences_ = rcc_optix;
+        } else {
+          std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+          return sensor;
+        }
+        
         sensor_gpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       
         sensor = sensor_gpu;
