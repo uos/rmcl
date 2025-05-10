@@ -51,7 +51,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(OpenMP REQUIRED)
 
 
-find_package(rmagine 2.2.8
+find_package(rmagine 2.2.12
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -207,12 +207,6 @@ endif(RMCL_OPTIX)
 #####################
 add_library(micp_localization SHARED
     src/nodes/micp_localization.cpp
-    # MICP
-    # src/correction/MICP.cpp
-    
-    # src/correction/MICPRangeSensor.cpp
-    # src/correction/MICPSensorSphericalEmbree.cpp
-    # src/correction/data_loader/Topic.cpp
 )
 
 target_include_directories(micp_localization

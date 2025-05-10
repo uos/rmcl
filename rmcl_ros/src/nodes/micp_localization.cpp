@@ -23,11 +23,17 @@
 // #include <rmcl_ros/correction/MICPSensorSphericalEmbree.hpp>
 
 #include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
+
+#ifdef RMCL_EMBREE
 #include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
 #include <rmcl_ros/correction/correspondences/CPCEmbree.hpp>
+#endif // RMCL_EMBREE
 
+#ifdef RMCL_CUDA
 #include <rmcl_ros/correction/sensors/MICPO1DnSensorCUDA.hpp>
 #include <rmcl_ros/correction/correspondences/RCCOptix.hpp>
+
+#endif // RMCL_CUDA
 
 #include <rmcl_msgs/msg/micp_stats.hpp>
 #include <rmcl_msgs/msg/micp_sensor_stats.hpp>
@@ -282,6 +288,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
       
       if(corr_backend == "embree")
       {
+        #ifdef RMCL_EMBREE
         auto sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
 
         if(corr_type == "RC")
@@ -308,11 +315,14 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         sensor_cpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       
         sensor = sensor_cpu;
+        #else
+        throw std::runtime_error("backend 'embree' not compiled / not found");
+        #endif // RMCL_EMBREE
       }
 
       if(corr_backend == "optix")
       {
-        
+        #ifdef RMCL_OPTIX
         auto sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor, topic_name);
 
         if(corr_type == "RC")
@@ -330,6 +340,9 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
       
         sensor = sensor_gpu;
       }
+      #else
+      throw std::runtime_error("backend 'optix' not compiled / not found");
+      #endif // RMCL_OPTIX
     }
   }
 
