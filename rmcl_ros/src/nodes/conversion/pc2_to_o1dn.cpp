@@ -167,17 +167,12 @@ private:
         throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
       }
       
-      if(!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
+      if(std::isfinite(x) && std::isfinite(y) && std::isfinite(z))
       {
-        rm::Vector ps_s = rm::Vector{x, y, z};
+        const rm::Vector ps_s = rm::Vector{x, y, z};
         rm::Vector ps = T * ps_s;
 
-        float range_est = ps.l2norm();
-
-        if(range_est < scan.o1dn.info.range_min || range_est > scan.o1dn.info.range_max)
-        {
-          std::cout << "OUT OF RANGE!" << std::endl;
-        }
+        const float range_est = ps.l2norm();
 
         ps = ps / range_est;
         scan.o1dn.data.ranges[i] = range_est;
@@ -186,8 +181,6 @@ private:
         scan.o1dn.info.dirs[i].z = ps.z;
 
       } else {
-
-        std::cout << "INVALID!" << std::endl;
 
         scan.o1dn.data.ranges[i] = scan.o1dn.info.range_max + 1;
         scan.o1dn.info.dirs[i].x = 0;
