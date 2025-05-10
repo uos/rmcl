@@ -20,6 +20,9 @@ void RCCOptixO1Dn::setTsb(const rm::Transform& Tsb)
 
 void RCCOptixO1Dn::setModel(const rm::O1DnModel& sensor_model)
 {
+  // std::cout << "Set Model!" << std::endl;
+  // std::cout << "- width: " << sensor_model.width << std::endl;
+  // std::cout << "- height: " << sensor_model.height << std::endl;
   rm::O1DnSimulatorOptix::setModel(sensor_model);
 }
 

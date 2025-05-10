@@ -3,6 +3,8 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <rmcl_ros/util/conversions.h>
 
+#include <rmcl_ros/util/ros_helper.h>
+
 
 
 
@@ -30,6 +32,14 @@ MICPSensorBase::MICPSensorBase(
     std::make_shared<tf2_ros::TransformBroadcaster>(*nh_);
 
   std::cout << "TF Initialized!" << std::endl;
+
+  // load name
+  ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
+    = get_parameter_tree(nh, "~");
+
+  // Get name of sensor: 'sensors.velodyne' -> 'velodyne'
+  name = sensor_param_tree->name.substr(
+    sensor_param_tree->name.find_last_of(".") + 1);
 
   on_data_received = [](MICPSensorBase*){
     // default: dont use

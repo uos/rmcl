@@ -50,6 +50,8 @@ public:
 
   virtual void findCorrespondences() = 0;
 
+  virtual bool correspondencesOutdated() const = 0;
+
   virtual rmagine::CrossStatistics computeCrossStatistics(
     const rmagine::Transform& Tpre
   ) const = 0;
@@ -90,6 +92,10 @@ public:
   std::function<void(MICPSensorBase*)> on_data_received;
 };
 
+using MICPSensorPtr = std::shared_ptr<MICPSensorBase>;
+
+
+
 template<typename MemT>
 class MICPSensor_
 : public MICPSensorBase
@@ -106,6 +112,11 @@ public:
     const rmagine::Transform Tbm = Tom * Tbo;
     correspondences_->find(Tbm);
     correspondences_->outdated = false;
+  }
+
+  virtual bool correspondencesOutdated() const 
+  {
+    return correspondences_->outdated;
   }
 
   virtual rmagine::CrossStatistics computeCrossStatistics(
@@ -139,9 +150,10 @@ public:
 
 };
 
-using MICPSensor = MICPSensor_<rmagine::RAM>;
 
-using MICPSensorPtr = std::shared_ptr<MICPSensor>;
+// using MICPSensor = MICPSensor_<rmagine::RAM>;
+
+// using MICPSensorPtr = std::shared_ptr<MICPSensor>;
 
 } // namespace rmcl
 

@@ -23,13 +23,11 @@
 // #include <rmcl_ros/correction/MICPSensorSphericalEmbree.hpp>
 
 #include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
-
-
-
-
 #include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
 #include <rmcl_ros/correction/correspondences/CPCEmbree.hpp>
 
+#include <rmcl_ros/correction/sensors/MICPO1DnSensorCUDA.hpp>
+#include <rmcl_ros/correction/correspondences/RCCOptix.hpp>
 
 using namespace std::chrono_literals;
 
@@ -80,6 +78,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   std::cout << "MAP FILE: " << map_filename_ << std::endl;
 
   map_embree_ = rm::import_embree_map(map_filename_);
+  map_optix_ = rm::import_optix_map(map_filename_);
 
   // loading general micp config
 
@@ -218,8 +217,8 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
     = get_parameter_tree(nh_sensor, "~");
   
-  std::cout << "Param tree:" << std::endl;
-  sensor_param_tree->print();
+  // std::cout << "Param tree:" << std::endl;
+  // sensor_param_tree->print();
   
   if(!sensor_param_tree->exists("type"))
   {
@@ -245,24 +244,33 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 
     if(topic_type == "rmcl_msgs/msg/O1DnStamped")
     {
-      sensor = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
-      sensor->name = sensor_name;
       
       if(corr_backend == "embree")
       {
+        auto sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
+
         auto rcc_embree = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
         rcc_embree->params.max_dist = 1.0;
         auto cpc_embree = std::make_shared<CPCEmbree>(map_embree_);
         cpc_embree->params.max_dist = 1.0;
 
-        sensor->correspondences_ = rcc_embree;
-        sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
+        sensor_cpu->correspondences_ = rcc_embree;
+        sensor_cpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
+      
+        sensor = sensor_cpu;
       }
 
       if(corr_backend == "optix")
       {
-        // auto rcc_optix = std::make_shared<RCCOptixO1Dn>(map_optix_);
-        // rcc_optix->params.max_dist = 1.0;
+        auto sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor, topic_name);
+
+        auto rcc_optix = std::make_shared<RCCOptixO1Dn>(map_optix_);
+        rcc_optix->params.max_dist = 1.0;
+
+        sensor_gpu->correspondences_ = rcc_optix;
+        sensor_gpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
+      
+        sensor = sensor_gpu;
       }
     }
   }
@@ -317,7 +325,7 @@ void MICPLocalizationNode::correctOnce()
     // #pragma omp parallel for
     for(const auto sensor : sensors_vec_)
     {
-      if(sensor->correspondences_->outdated)
+      if(sensor->correspondencesOutdated())
       {
         std::cout << "Coresspondences outdated!" << std::endl;
         outdated = true;
@@ -379,6 +387,17 @@ void MICPLocalizationNode::broadcastTransform()
 
 void MICPLocalizationNode::correctionLoop()
 {
+  bool all_first_message_received = false;
+  while(rclcpp::ok() && !stop_correction_thread_ && !all_first_message_received)
+  {
+    all_first_message_received = true;
+    for(auto sensor : sensors_vec_)
+    {
+      all_first_message_received &= sensor->first_message_received;
+    }
+  }
+
+  std::cout << "Every sensor recevied first message! Starting correction" << std::endl;
 
   while(rclcpp::ok() && !stop_correction_thread_)
   {

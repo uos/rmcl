@@ -21,7 +21,7 @@
 #include <message_filters/subscriber.h>
 
 #include <rmagine/map/EmbreeMap.hpp>
-
+#include <rmagine/map/OptixMap.hpp>
 
 namespace rmcl
 {
@@ -68,6 +68,7 @@ private:
   std::vector<MICPSensorPtr> sensors_vec_;
 
   rmagine::EmbreeMapPtr map_embree_;
+  rmagine::OptixMapPtr  map_optix_;
 
   // rmagine::OptixMapPtr map_optix_;
 
