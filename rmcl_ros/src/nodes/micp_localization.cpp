@@ -90,9 +90,12 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 
   std::cout << "MAP FILE: " << map_filename_ << std::endl;
 
+  #ifdef RMCL_EMBREE
   map_embree_ = rm::import_embree_map(map_filename_);
+  #endif // RMCL_EMBREE
+  #ifdef RMCL_OPTIX
   map_optix_ = rm::import_optix_map(map_filename_);
-
+  #endif // RMCL_OPTIX
   // loading general micp config
 
   // loading sensors from parameter tree
@@ -339,10 +342,11 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         sensor_gpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       
         sensor = sensor_gpu;
+        #else
+        throw std::runtime_error("backend 'optix' not compiled / not found");
+        #endif // RMCL_OPTIX
       }
-      #else
-      throw std::runtime_error("backend 'optix' not compiled / not found");
-      #endif // RMCL_OPTIX
+      
     }
   }
 

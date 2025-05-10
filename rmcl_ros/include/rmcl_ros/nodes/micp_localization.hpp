@@ -20,8 +20,13 @@
 #include <tf2_ros/create_timer_ros.h>
 #include <message_filters/subscriber.h>
 
+#ifdef RMCL_EMBREE
 #include <rmagine/map/EmbreeMap.hpp>
+#endif // RMCL_EMBREE
+
+#ifdef RMCL_OPTIX
 #include <rmagine/map/OptixMap.hpp>
+#endif // RMCL_OPTIX
 
 #include <rmcl_msgs/msg/micp_stats.hpp>
 #include <rmcl_msgs/msg/micp_sensor_stats.hpp>
@@ -69,15 +74,15 @@ private:
   std::unordered_map<std::string, MICPSensorPtr> sensors_;
   std::vector<MICPSensorPtr> sensors_vec_;
 
+  // TODO: can we avoid ifdefs here?
+  #ifdef RMCL_EMBREE
   rmagine::EmbreeMapPtr map_embree_;
+  #endif // RMCL_EMBREE
+  
+  #ifdef RMCL_OPTIX
   rmagine::OptixMapPtr  map_optix_;
-
-  // rmagine::OptixMapPtr map_optix_;
-
-  // pose wc stamped subscriber (eg, RViz)
-  // rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_sub_;
-  // rclcpp::TimerBase::SharedPtr correction_timer_;
-
+  #endif // RMCL_OPTIX
+  
   std::thread correction_thread_;
   bool stop_correction_thread_ = false;
 
@@ -86,29 +91,18 @@ private:
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-
   // pose wc stamped subscriber (eg, RViz)
   message_filters::Subscriber<geometry_msgs::msg::PoseWithCovarianceStamped> pose_sub_;
   std::unique_ptr<tf2_ros::MessageFilter<geometry_msgs::msg::PoseWithCovarianceStamped> > pose_tf_filter_;
-
   
   rclcpp::Publisher<rmcl_msgs::msg::MICPSensorStats>::SharedPtr stats_publisher_;
 
-  size_t optimization_iterations_ = 10;
-
-  // double max_tf_rate = 10.0;
-  // rclcpp::Time last_correction_stamp; // last correction time
-
   rclcpp::Time data_stamp_latest_;
-
-  bool disable_correction_ = false;
-
-  double convergence_progress_ = 0.0;
-
-
-  int tf_time_source_ = 0;
-
   
+  bool disable_correction_ = false;
+  double convergence_progress_ = 0.0;
+  size_t optimization_iterations_ = 10;
+  int tf_time_source_ = 0;
 };
 
 

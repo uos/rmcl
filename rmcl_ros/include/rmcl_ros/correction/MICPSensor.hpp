@@ -81,7 +81,6 @@ public:
   // weight multiplier
   double merge_weight_multiplier = 1.0;
   
-  
   rclcpp::Time dataset_stamp_;
   std::mutex data_correction_mutex_;
 
@@ -89,13 +88,12 @@ public:
   size_t total_dataset_measurements;
   size_t valid_dataset_measurements;
 
-
   // ROS
   rclcpp::Node::SharedPtr nh_;
 
+  // TF
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   // This is called as soon as data was received and pre-processed
   std::function<void(MICPSensorBase*)> on_data_received;

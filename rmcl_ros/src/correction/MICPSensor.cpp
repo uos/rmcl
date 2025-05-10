@@ -28,11 +28,6 @@ MICPSensorBase::MICPSensorBase(
   tf_listener_ =
     std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  tf_broadcaster_ =
-    std::make_shared<tf2_ros::TransformBroadcaster>(*nh_);
-
-  std::cout << "TF Initialized!" << std::endl;
-
   // load name
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
     = get_parameter_tree(nh, "~");
@@ -50,11 +45,6 @@ MICPSensorBase::~MICPSensorBase()
 {
   
 }
-
-// void MICPSensorBase::setTbm(const rm::Transform& Tbm)
-// {
-//   Tom = Tbm * ~Tbo; // odom -> base -> map == odom -> map
-// }
 
 void MICPSensorBase::setTom(const rm::Transform& Tom_in)
 {
