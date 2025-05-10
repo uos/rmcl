@@ -95,14 +95,16 @@ private:
   
   rclcpp::Publisher<rmcl_msgs::msg::MICPSensorStats>::SharedPtr stats_publisher_;
 
-  size_t correction_counter = 0;
-
   size_t optimization_iterations_ = 10;
 
   // double max_tf_rate = 10.0;
   // rclcpp::Time last_correction_stamp; // last correction time
 
   rclcpp::Time data_stamp_latest_;
+
+  bool disable_correction_ = false;
+
+  double convergence_progress_ = 0.0;
 };
 
 

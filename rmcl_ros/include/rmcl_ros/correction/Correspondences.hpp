@@ -20,6 +20,7 @@ class Correspondences_
 public:
 
   rmagine::UmeyamaReductionConstraints params;
+  float adaptive_max_dist_min;
 
   // fill this
   rmagine::PointCloud_<MemT> dataset;
@@ -31,15 +32,28 @@ public:
 
   /**
    * Finds and fill model buffers
+   * 
    */
   virtual void find(
-    const rmagine::Transform& Tbm_est
+    const rmagine::Transform& Tbm_est 
   ) = 0;
 
   bool outdated = true;
 
+  /**
+   * 
+   * Computes cross statistics of correspondences that 
+   * can be used to solve the registration problem 
+   * via Kabsch/Umeyama.
+   * 
+   * @param convergence_progress value (in [0,1]) describes an 
+   * estimate of convergence. (0: not converged at all, 1: fully 
+   * converged). It can be used, eg, to adapt a maximum search 
+   * distance. Otherwise this value can be ignored.
+   */
   virtual rmagine::CrossStatistics computeCrossStatistics( 
-    const rmagine::Transform& T_snew_sold) const = 0;
+    const rmagine::Transform& T_snew_sold,
+    double convergence_progress = 0.0) const = 0;
 
 protected:
 

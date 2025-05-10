@@ -53,7 +53,8 @@ public:
   virtual bool correspondencesOutdated() const = 0;
 
   virtual rmagine::CrossStatistics computeCrossStatistics(
-    const rmagine::Transform& Tpre
+    const rmagine::Transform& Tpre,
+    double convergence_progress = 0.0
   ) const = 0;
 
   // name of the sensor
@@ -128,10 +129,10 @@ public:
   }
 
   virtual rmagine::CrossStatistics computeCrossStatistics(
-    const rmagine::Transform& T_bnew_bold // Tpre_b
+    const rmagine::Transform& T_bnew_bold, // Tpre_b
+    double convergence_progress = 0.0
   ) const
   { 
-
     // this is what we want to optimize: 
     // find a transformation from a new base frame to the old base frame that optimizes the alignment
     
@@ -148,7 +149,8 @@ public:
 
     // reduce correspondences_ to C
     const rm::Transform T_snew_sold = ~Tsb * T_bnew_bold * Tsb;
-    const rm::CrossStatistics stats_s = correspondences_->computeCrossStatistics(T_snew_sold);
+    const rm::CrossStatistics stats_s = correspondences_->computeCrossStatistics(
+      T_snew_sold, convergence_progress);
     // transform CrossStatistics of every sensor to base frame
     const rm::CrossStatistics stats_b = Tsb * stats_s;
     return stats_b;

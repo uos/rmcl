@@ -12,7 +12,8 @@ class CorrespondencesCUDA
 {
 public:
   rmagine::CrossStatistics computeCrossStatistics(
-    const rmagine::Transform& T_snew_sold) const;
+    const rmagine::Transform& T_snew_sold,
+    double convergence_progress = 0.0) const;
 };
 
 } // namespace rmcl

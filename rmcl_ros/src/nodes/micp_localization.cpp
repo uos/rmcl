@@ -69,6 +69,8 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   base_frame_ = rmcl::get_parameter(this, "base_frame", "base_link");
   map_frame_ = rmcl::get_parameter(this, "map_frame", "map");
 
+  disable_correction_ = rmcl::get_parameter(this, "disable_correction", false);
+
   odom_frame_ = rmcl::get_parameter(this, "odom_frame", "");
   use_odom_frame_ = (odom_frame_ != "");
 
@@ -237,17 +239,17 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   // std::cout << "Param tree:" << std::endl;
   // sensor_param_tree->print();
   
-  if(!sensor_param_tree->exists("type"))
-  {
-    // ERROR!
-    throw std::runtime_error("PARAM ERROR");
-  }
+  // if(!sensor_param_tree->exists("type"))
+  // {
+  //   // ERROR!
+  //   throw std::runtime_error("PARAM ERROR");
+  // }
   
   // fetch parameters that decide which implementation is loaded
-  const std::string sensor_type = sensor_param_tree->at("type")->data->as_string();
-  std::cout << "- Type: " << sensor_type << std::endl;
-  const std::string model_source = sensor_param_tree->at("model_source")->data->as_string();  
-  std::cout << "- Model Source: " << model_source << std::endl;
+  // const std::string sensor_type = sensor_param_tree->at("type")->data->as_string();
+  // std::cout << "- Type: " << sensor_type << std::endl;
+  // const std::string model_source = sensor_param_tree->at("model_source")->data->as_string();  
+  // std::cout << "- Model Source: " << model_source << std::endl;
   const std::string data_source = sensor_param_tree->at("data_source")->data->as_string();
   std::cout << "- Data Source: " << data_source << std::endl;
 
@@ -260,7 +262,11 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   rm::UmeyamaReductionConstraints umeyama_params;
   umeyama_params.max_dist = corr_params->at("max_dist")->data->as_double(); // TODO: adaptive
 
-  
+  float adaptive_max_dist_min = umeyama_params.max_dist;
+  if(corr_params->exists("adaptive_max_dist_min"))
+  {
+    adaptive_max_dist_min = corr_params->at("adaptive_max_dist_min")->data->as_double();
+  }
 
   std::cout << "- Correspondence Backend: " << corr_backend << std::endl;
 
@@ -282,12 +288,14 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         {
           auto rcc_embree = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
           rcc_embree->params = umeyama_params;
+          rcc_embree->adaptive_max_dist_min = adaptive_max_dist_min;
           sensor_cpu->correspondences_ = rcc_embree;
         } 
         else if(corr_type == "CP") 
         {
           auto cpc_embree = std::make_shared<CPCEmbree>(map_embree_);
           cpc_embree->params = umeyama_params;
+          cpc_embree->adaptive_max_dist_min = adaptive_max_dist_min;
           sensor_cpu->correspondences_ = cpc_embree;
         } 
         else 
@@ -311,6 +319,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         {
           auto rcc_optix = std::make_shared<RCCOptixO1Dn>(map_optix_);
           rcc_optix->params = umeyama_params;
+          rcc_optix->adaptive_max_dist_min = adaptive_max_dist_min;
           sensor_gpu->correspondences_ = rcc_optix;
         } else {
           std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
@@ -406,9 +415,9 @@ void MICPLocalizationNode::correctOnce()
       const rm::Transform T_bnew_bold = ~sensor->Tbo * T_onew_oold * sensor->Tbo;
 
       const rm::CrossStatistics Cs_b 
-        = sensor->computeCrossStatistics(T_bnew_bold);
+        = sensor->computeCrossStatistics(T_bnew_bold, convergence_progress_);
 
-      const  float Cs_trace = Cs_b.covariance.trace();
+      const float Cs_trace = Cs_b.covariance.trace();
       
       // std::cout << sensor->name << " : " 
       //   << Cs_b.n_meas << " valid matches, " 
@@ -441,17 +450,54 @@ void MICPLocalizationNode::correctOnce()
     T_onew_oold = T_onew_oold * T_onew_oold_inner;
   }
 
-  // we want T_onew_map, we have Tom which is T_oold_map
-  const rm::Transform T_onew_map = Tom * T_onew_oold;
-  Tom = T_onew_map; // store Tom
-
-  
   // #pragma omp parallel for
   for(auto sensor : sensors_vec_)
   {
     sensor->mutex().unlock();
   }
 
+
+  // we want T_onew_map, we have Tom which is T_oold_map
+  const rm::Transform T_onew_map = Tom * T_onew_oold;
+
+  if(!disable_correction_)
+  {
+    // store/update Tom, if allowed
+    Tom = T_onew_map;
+
+    if(Cmerged_o.n_meas == 0)
+    {
+      convergence_progress_ = 0.0;
+    } else {
+      const double max_dist = 2.0;
+
+      // Ratio of Matched Data:
+      // if map is perfect 
+      // - this will be 1.0 if localized correctly
+      // - this will be 0.0 if not localized at all
+      // - this will be 1.0 if localized wrongly, but model is ambiguous (same looking rooms)
+      const double matched_ratio = static_cast<double>(Cmerged_o.n_meas) / static_cast<double>(stats.valid_measurements);
+
+      // Progress from Mean Error
+      // if map is perfect
+      // - this will be 1.0 if localized correctly
+      // - this will be 0.0 if localized poorly
+      // - this will
+      const double mean_error = Cmerged_o.covariance.trace() / static_cast<double>(Cmerged_o.n_meas);
+      const double progress_from_error = 1.0 - (std::clamp(mean_error, 0.0, max_dist) / max_dist);
+
+      const double total_progress = pow(matched_ratio * progress_from_error, 1.0/2.0);
+
+      // Certainty
+      // the certainty about this can be infered by the total number of measurements taken
+      convergence_progress_ = total_progress;
+    }
+
+    std::cout << "Total Progress: " << convergence_progress_ << std::endl;
+
+    
+  }
+  
   { // publish stats
     stats.valid_matches = Cmerged_o.n_meas;
     stats.cov_trace = Cmerged_o.covariance.trace() / static_cast<double>(Cmerged_o.n_meas);
@@ -496,6 +542,7 @@ void MICPLocalizationNode::correctionLoop()
     // We could do this in parallel
     correctOnce();
     broadcastTransform();
+    std::this_thread::sleep_for(100ms);
   }
   
 }

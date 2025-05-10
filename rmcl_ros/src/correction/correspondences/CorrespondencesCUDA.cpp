@@ -6,8 +6,9 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-rmagine::CrossStatistics CorrespondencesCUDA::computeCrossStatistics(
-  const rmagine::Transform& T_snew_sold) const
+rm::CrossStatistics CorrespondencesCUDA::computeCrossStatistics(
+  const rm::Transform& T_snew_sold,
+  double convergence_progress) const
 {
   const rm::PointCloudView_<rm::VRAM_CUDA> cloud_dataset = rm::watch(dataset);
   const rm::PointCloudView_<rm::VRAM_CUDA> cloud_model = {
@@ -16,7 +17,15 @@ rmagine::CrossStatistics CorrespondencesCUDA::computeCrossStatistics(
     .normals = model_buffers_.normals
   };
 
-  const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params);
+  // linearly interpolate between params.max_dist and adaptive_max_dist_min
+  //   convergence_progress == 0.0 -> max_dist = params.max_dist
+  //   convergence_progress == 1.0 -> max_dist = adaptive_max_dist_min
+  rm::UmeyamaReductionConstraints params_local = params;
+  params_local.max_dist = params.max_dist * (1.0 - convergence_progress) 
+                          + adaptive_max_dist_min * convergence_progress;
+
+
+  const rm::CrossStatistics stats_s = rm::statistics_p2l(T_snew_sold, cloud_dataset, cloud_model, params_local);
   return stats_s;
 }
 

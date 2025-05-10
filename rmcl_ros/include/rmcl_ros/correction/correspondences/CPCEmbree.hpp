@@ -19,7 +19,8 @@ class CPCEmbree
 public:
   CPCEmbree(rmagine::EmbreeMapPtr map);
 
-  void find(const rmagine::Transform& Tbm_est);
+  void find(
+    const rmagine::Transform& Tbm_est);
 
 protected:
   rmagine::EmbreeMapPtr map_;
