@@ -76,10 +76,18 @@ public:
   std::string sensor_frame = "velodyne";
 
   bool first_message_received = false;
+
+  // weight multiplier
+  double merge_weight_multiplier = 1.0;
   
   
   rclcpp::Time dataset_stamp_;
   std::mutex data_correction_mutex_;
+
+  // stats
+  size_t total_dataset_measurements;
+  size_t valid_dataset_measurements;
+
 
   // ROS
   rclcpp::Node::SharedPtr nh_;
@@ -147,7 +155,6 @@ public:
   }
 
   std::shared_ptr<Correspondences_<MemT> > correspondences_;
-
 };
 
 

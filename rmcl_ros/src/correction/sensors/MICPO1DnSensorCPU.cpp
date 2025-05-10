@@ -73,6 +73,9 @@ void MICPO1DnSensorCPU::unpackMessage(
     }
   }
 
+  total_dataset_measurements = n_new_measurements;
+  valid_dataset_measurements = 0;
+
   // sw();
   // fill data
   for(unsigned int vid = 0; vid < sensor_model_.getHeight(); vid++)
@@ -89,11 +92,12 @@ void MICPO1DnSensorCPU::unpackMessage(
         // out of range
         correspondences_->dataset.mask[loc_id] = 0;
       } else {
+        valid_dataset_measurements++;
         correspondences_->dataset.mask[loc_id] = 1;
       }
     }
   }
-  // double el = sw();
+  
   dataset_stamp_ = msg->header.stamp;
 }
 

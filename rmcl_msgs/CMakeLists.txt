@@ -35,6 +35,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     "msg/OnDnInfo.msg"
     "msg/OnDn.msg"
     "msg/OnDnStamped.msg"
+    # MICP
+    "msg/MICPSensorStats.msg"
+    "msg/MICPStats.msg"
   DEPENDENCIES
     std_msgs
     geometry_msgs

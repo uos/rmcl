@@ -75,6 +75,9 @@ void MICPO1DnSensorCUDA::unpackMessage(
     }
   }
 
+  total_dataset_measurements = n_new_measurements;
+  valid_dataset_measurements = 0;
+
   // sw();
   // fill data
   for(unsigned int vid = 0; vid < sensor_model_.getHeight(); vid++)
@@ -92,6 +95,7 @@ void MICPO1DnSensorCUDA::unpackMessage(
         dataset_cpu_.mask[loc_id] = 0;
       } else {
         dataset_cpu_.mask[loc_id] = 1;
+        valid_dataset_measurements++;
       }
     }
   }

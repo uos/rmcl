@@ -23,6 +23,9 @@
 #include <rmagine/map/EmbreeMap.hpp>
 #include <rmagine/map/OptixMap.hpp>
 
+#include <rmcl_msgs/msg/micp_stats.hpp>
+#include <rmcl_msgs/msg/micp_sensor_stats.hpp>
+
 namespace rmcl
 {
 
@@ -90,6 +93,8 @@ private:
   std::unique_ptr<tf2_ros::MessageFilter<geometry_msgs::msg::PoseWithCovarianceStamped> > pose_tf_filter_;
 
   
+  rclcpp::Publisher<rmcl_msgs::msg::MICPSensorStats>::SharedPtr stats_publisher_;
+
   size_t correction_counter = 0;
 
   size_t optimization_iterations_ = 10;

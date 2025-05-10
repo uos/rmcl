@@ -271,16 +271,16 @@ install(TARGETS
 # ########################
 if(BUILD_CONV)
 
-    ####### PCL2 to SCAN CONVERTER
-    add_library(conv_pcl2_to_scan SHARED 
-        src/nodes/conversion/pcl2_to_scan.cpp)
+    ####### PC2 to SCAN CONVERTER
+    add_library(conv_pc2_to_scan SHARED 
+        src/nodes/conversion/pc2_to_scan.cpp)
 
     ## Specify libraries to link a library or executable target against
-    target_link_libraries(conv_pcl2_to_scan
+    target_link_libraries(conv_pc2_to_scan
         rmcl_ros
     )
 
-    ament_target_dependencies(conv_pcl2_to_scan
+    ament_target_dependencies(conv_pc2_to_scan
         rclcpp
         rclcpp_components
         geometry_msgs
@@ -292,28 +292,28 @@ if(BUILD_CONV)
         visualization_msgs
     )
 
-    rclcpp_components_register_node(conv_pcl2_to_scan 
-        PLUGIN "rmcl::Pcl2ToScanNode" 
-        EXECUTABLE conv_pcl2_to_scan_node)
+    rclcpp_components_register_node(conv_pc2_to_scan 
+        PLUGIN "rmcl::Pc2ToScanNode" 
+        EXECUTABLE conv_pc2_to_scan_node)
 
     install(TARGETS 
-        conv_pcl2_to_scan
+        conv_pc2_to_scan
       ARCHIVE DESTINATION lib
       LIBRARY DESTINATION lib
       RUNTIME DESTINATION bin
     )
 
 
-    ####### PCL2 to O1DN CONVERTER
-    add_library(conv_pcl2_to_o1dn SHARED 
-        src/nodes/conversion/pcl2_to_o1dn.cpp)
+    ####### PC2 to O1DN CONVERTER
+    add_library(conv_pc2_to_o1dn SHARED 
+        src/nodes/conversion/pc2_to_o1dn.cpp)
 
     ## Specify libraries to link a library or executable target against
-    target_link_libraries(conv_pcl2_to_o1dn
+    target_link_libraries(conv_pc2_to_o1dn
         rmcl_ros
     )
 
-    ament_target_dependencies(conv_pcl2_to_o1dn
+    ament_target_dependencies(conv_pc2_to_o1dn
         rclcpp
         rclcpp_components
         geometry_msgs
@@ -325,27 +325,27 @@ if(BUILD_CONV)
         visualization_msgs
     )
 
-    rclcpp_components_register_node(conv_pcl2_to_o1dn 
-        PLUGIN "rmcl::Pcl2ToO1DnNode" 
-        EXECUTABLE conv_pcl2_to_o1dn_node)
+    rclcpp_components_register_node(conv_pc2_to_o1dn 
+        PLUGIN "rmcl::Pc2ToO1DnNode" 
+        EXECUTABLE conv_pc2_to_o1dn_node)
 
     install(TARGETS 
-        conv_pcl2_to_o1dn
+        conv_pc2_to_o1dn
       ARCHIVE DESTINATION lib
       LIBRARY DESTINATION lib
       RUNTIME DESTINATION bin      
     )
     
-    ####### PCL2 to DEPTH CONVERTER
-    # add_executable(conv_pcl2_to_depth src/nodes/conv/pcl2_to_depth.cpp)
+    ####### PC2 to DEPTH CONVERTER
+    # add_executable(conv_pc2_to_depth src/nodes/conv/pc2_to_depth.cpp)
 
     ## Specify libraries to link a library or executable target against
-    # target_link_libraries(conv_pcl2_to_depth
+    # target_link_libraries(conv_pc2_to_depth
     #     rmagine::core
     #     rmcl_ros
     # )
 
-    # ament_target_dependencies(conv_pcl2_to_depth
+    # ament_target_dependencies(conv_pc2_to_depth
     #     rclcpp
     #     geometry_msgs
     #     sensor_msgs
@@ -356,7 +356,7 @@ if(BUILD_CONV)
     # )
 
     # install(TARGETS 
-    #     conv_pcl2_to_depth
+    #     conv_pc2_to_depth
     #     DESTINATION lib/${PROJECT_NAME})
         
     ####### IMAGE to DEPTH CONVERTER
