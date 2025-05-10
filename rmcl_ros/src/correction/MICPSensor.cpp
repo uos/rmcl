@@ -90,7 +90,7 @@ void MICPSensorBase::fetchTF()
     return;
   }
 
-  std::cout << "TRANSFORM CHAIN COMPLETE!" << std::endl;
+  // std::cout << "TRANSFORM CHAIN COMPLETE!" << std::endl;
 
   std::cout << "Time Errors:" << std::endl;
   std::cout << "- Tbo - data header: " << (Tbo_stamp - dataset_stamp_).seconds() * 1000.0 << "ms" << std::endl;

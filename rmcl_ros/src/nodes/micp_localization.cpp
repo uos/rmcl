@@ -65,11 +65,12 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
       std::make_shared<tf2_ros::TransformBroadcaster>(*this);
   }
 
-
   base_frame_ = rmcl::get_parameter(this, "base_frame", "base_link");
   map_frame_ = rmcl::get_parameter(this, "map_frame", "map");
 
   disable_correction_ = rmcl::get_parameter(this, "disable_correction", false);
+  tf_time_source_ = rmcl::get_parameter(this, "tf_time_source", 0);
+  optimization_iterations_ = rmcl::get_parameter(this, "optimization_iterations", 5);
 
   odom_frame_ = rmcl::get_parameter(this, "odom_frame", "");
   use_odom_frame_ = (odom_frame_ != "");
@@ -131,7 +132,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   pose_sub_.subscribe(this, "/initialpose", qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
   pose_tf_filter_->registerCallback(&MICPLocalizationNode::poseCB, this);
 
-
   stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("micpl_stats", 10);
 
   // pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
@@ -162,7 +162,7 @@ void MICPLocalizationNode::poseCB(
   rm::Transform Tbo;
   rclcpp::Time Tbo_stamp;
 
-  rclcpp::Duration timeout = rclcpp::Duration::from_seconds(5.0);
+  rclcpp::Duration timeout = rclcpp::Duration::from_seconds(1.0);
 
   if(tf_buffer_->canTransform(odom_frame_, base_frame_, msg->header.stamp, timeout))
   {
@@ -347,7 +347,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 void MICPLocalizationNode::sensorDataReceived(
   const MICPSensorBase* sensor)
 {
-  std::cout << sensor->name << " received data!" << std::endl;
+  // std::cout << sensor->name << " received data!" << std::endl;
   data_stamp_latest_ = sensor->dataset_stamp_;
 }
 
@@ -510,9 +510,21 @@ void MICPLocalizationNode::broadcastTransform()
 {
   geometry_msgs::msg::TransformStamped T_odom_map;
   
-  // T_odom_map.header.stamp = data_stamp_latest_; // correct time. lags behind
-  T_odom_map.header.stamp = this->now(); // better viz. includes the odom errors for a short period of time
-
+  if(tf_time_source_ == 0)
+  {
+    T_odom_map.header.stamp = data_stamp_latest_;
+  }
+  else if(tf_time_source_ == 1)
+  {
+    T_odom_map.header.stamp = this->now();
+  }
+  else
+  {
+    // ERROR
+    std::cout << "ERROR UNKNOWN TF TIME SOURCE: " << tf_time_source_ << std::endl;
+    return;
+  }
+  
   T_odom_map.header.frame_id = map_frame_;
   T_odom_map.child_frame_id = odom_frame_;
   convert(Tom, T_odom_map.transform);
@@ -540,9 +552,19 @@ void MICPLocalizationNode::correctionLoop()
     // TODO: what if we have different computing units?
     // RTX have a smaller bottleneck vs Embree
     // We could do this in parallel
+
+    rm::StopWatch sw;
+
+    sw();
     correctOnce();
+    double el = sw();
+
+    std::cout << "FindCorrespondences + " << optimization_iterations_ << "x optimization: " << el * 1000.0 << " ms" << std::endl;
+
     broadcastTransform();
-    std::this_thread::sleep_for(100ms);
+
+    // this is breaking visualization. why?
+    // this->get_clock()->sleep_for(100ms);
   }
   
 }

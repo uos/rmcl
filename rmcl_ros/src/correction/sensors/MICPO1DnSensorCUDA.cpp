@@ -51,7 +51,7 @@ void MICPO1DnSensorCUDA::unpackMessage(
 {
   /////
   // sensor model
-  std::cout << "INFO: " << msg->o1dn.info.range_min << ", " << msg->o1dn.info.range_max << std::endl;
+  // std::cout << "INFO: " << msg->o1dn.info.range_min << ", " << msg->o1dn.info.range_max << std::endl;
   rmcl::convert(msg->o1dn.info, sensor_model_);
   
   ////
@@ -136,13 +136,13 @@ void MICPO1DnSensorCUDA::topicCB(
   
   el = sw();
   
-  std::cout << "Unpack Message & fill data (" 
+  std::cout << "- Unpack Message & fill data (" 
     << correspondences_->dataset.points.size() << "): " << el * 1000.0 << "ms" << std::endl;
   
   { // print conversion & sync delay
     rclcpp::Time msg_time = msg->header.stamp;
     rclcpp::Duration conversion_time = nh_->get_clock()->now() - msg_time;
-    std::cout << "Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
+    std::cout << "- Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
   }
 
   correspondences_->outdated = true;
