@@ -10,6 +10,7 @@
 #include <string>
 #include <thread>
 #include <memory>
+#include <mutex>
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
@@ -68,6 +69,8 @@ private:
 
   void broadcastTransform();
 
+  void publishPose();
+
   std::string map_frame_;
   std::string base_frame_;
   std::string odom_frame_;
@@ -76,7 +79,6 @@ private:
   std::string map_filename_;
   std::unordered_map<std::string, MICPSensorPtr> sensors_;
   std::vector<MICPSensorPtr> sensors_vec_;
-
 
   // TODO: use this to become independent from the implementations 
   // at this place in code
@@ -93,6 +95,7 @@ private:
   
   std::thread correction_thread_;
   bool stop_correction_thread_ = false;
+  double correction_rate_max_ = 100.0;
 
   // tf2
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
@@ -100,17 +103,27 @@ private:
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   // pose wc stamped subscriber (eg, RViz)
-  message_filters::Subscriber<geometry_msgs::msg::PoseWithCovarianceStamped> pose_sub_;
-  std::unique_ptr<tf2_ros::MessageFilter<geometry_msgs::msg::PoseWithCovarianceStamped> > pose_tf_filter_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr 
+    pose_sub_;
   
-  rclcpp::Publisher<rmcl_msgs::msg::MICPSensorStats>::SharedPtr stats_publisher_;
+  rclcpp::Publisher<rmcl_msgs::msg::MICPSensorStats>::SharedPtr 
+    stats_publisher_;
+
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr 
+    Tbm_publisher_;
 
   rclcpp::Time data_stamp_latest_;
+  rmagine::Transform Tbo_latest_;
+
+  rmcl_msgs::msg::MICPSensorStats correction_stats_latest_;
   
   bool disable_correction_ = false;
   double convergence_progress_ = 0.0;
   size_t optimization_iterations_ = 10;
   int tf_time_source_ = 0;
+
+  bool broadcast_tf_ = true;
+  bool publish_pose_ = false;
 };
 
 

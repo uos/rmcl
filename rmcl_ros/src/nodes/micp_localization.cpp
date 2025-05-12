@@ -1,3 +1,5 @@
+#include "rmcl_ros/nodes/micp_localization.hpp"
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <rmagine/util/prints.h>
@@ -19,8 +21,6 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
-#include <rmcl_ros/nodes/micp_localization.hpp>
-// #include <rmcl_ros/correction/MICPSensorSphericalEmbree.hpp>
 
 #include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
 
@@ -73,11 +73,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 
   base_frame_ = rmcl::get_parameter(this, "base_frame", "base_link");
   map_frame_ = rmcl::get_parameter(this, "map_frame", "map");
-
-  disable_correction_ = rmcl::get_parameter(this, "disable_correction", false);
-  tf_time_source_ = rmcl::get_parameter(this, "tf_time_source", 0);
-  optimization_iterations_ = rmcl::get_parameter(this, "optimization_iterations", 5);
-
   odom_frame_ = rmcl::get_parameter(this, "odom_frame", "");
   use_odom_frame_ = (odom_frame_ != "");
 
@@ -89,6 +84,14 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   }
 
   std::cout << "MAP FILE: " << map_filename_ << std::endl;
+
+  disable_correction_ = rmcl::get_parameter(this, "disable_correction", false);
+  tf_time_source_ = rmcl::get_parameter(this, "tf_time_source", 0);
+  optimization_iterations_ = rmcl::get_parameter(this, "optimization_iterations", 5);
+  correction_rate_max_ = rmcl::get_parameter(this, "correction_rate_max", 1000.0);
+
+  broadcast_tf_ = rmcl::get_parameter(this, "broadcast_tf", true);
+  publish_pose_ = rmcl::get_parameter(this, "publish_pose", false);
 
   #ifdef RMCL_EMBREE
   map_embree_ = rm::import_embree_map(map_filename_);
@@ -130,37 +133,25 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
 
-  std::chrono::duration<int> buffer_timeout(1);
-
   // incoming pose this needs to be synced with tf
-  pose_tf_filter_ = std::make_unique<tf2_ros::MessageFilter<geometry_msgs::msg::PoseWithCovarianceStamped> >(
-    pose_sub_, *tf_buffer_, odom_frame_, 10, this->get_node_logging_interface(),
-    this->get_node_clock_interface(), buffer_timeout);
-
-  rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
-  pose_sub_.subscribe(this, "/initialpose", qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  pose_tf_filter_->registerCallback(&MICPLocalizationNode::poseCB, this);
-
   stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("micpl_stats", 10);
 
-  // pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-  //   "/initialpose", 10, std::bind(&MICPLocalizationNode::poseCB, this, std::placeholders::_1));
+  pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+    "/initialpose", 10, std::bind(&MICPLocalizationNode::poseCB, this, std::placeholders::_1));
+
+  if(publish_pose_)
+  {
+    Tbm_publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("micpl_pose", 10);
+  }
 
   std::cout << "Waiting for pose..." << std::endl;
 
-
-  
-
   // timer. get latest tf
-
-  // correction_timer_ =  this->create_wall_timer(
-  //   500ms, std::bind(&MICPLocalizationNode::correction_callback, this));
   stop_correction_thread_ = false;
   correction_thread_ = std::thread([&](){
     correctionLoop();
   });
   // correction_thread_.detach();
-
   // last_correction_stamp = this->now();
 }
 
@@ -168,31 +159,10 @@ void MICPLocalizationNode::poseCB(
   const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
   std::cout << "POSE RECEIVED!" << std::endl;
-  rm::Transform Tbo;
-  rclcpp::Time Tbo_stamp;
 
-  rclcpp::Duration timeout = rclcpp::Duration::from_seconds(1.0);
-
-  if(tf_buffer_->canTransform(odom_frame_, base_frame_, msg->header.stamp, timeout))
-  {
-    try {
-      geometry_msgs::msg::TransformStamped T_base_odom;
-      T_base_odom = tf_buffer_->lookupTransform(odom_frame_, base_frame_, msg->header.stamp);
-      Tbo_stamp = T_base_odom.header.stamp;
-      convert(T_base_odom.transform, Tbo);
-    } catch (tf2::TransformException& ex) {
-      // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
-      RCLCPP_WARN(this->get_logger(), "%s", ex.what());
-      RCLCPP_WARN_STREAM(this->get_logger(), "LookupTransform Failed: Source (Base): " << base_frame_ << ", Target (Odom): " << odom_frame_);
-      return;
-    }
-  } else {
-    RCLCPP_WARN_STREAM(this->get_logger(), "Waiting for Transform Failed: Source (Base): " << base_frame_ << ", Target (Odom): " << odom_frame_);
-    return;
-  }
-
+  // wait for correction loop to finish
+  
   // normally the pose is set in map coords
-  // just 
   rm::Transform T_pc_m = rm::Transform::Identity();
   if(msg->header.frame_id != map_frame_)
   {
@@ -208,7 +178,7 @@ void MICPLocalizationNode::poseCB(
       return;
     }
   }
-
+  
   // transform from actual pose (base) to the pose coordinate system
   rm::Transform T_b_pc;
   convert(msg->pose.pose, T_b_pc);
@@ -216,28 +186,25 @@ void MICPLocalizationNode::poseCB(
 
   // transform b -> m == transform b -> pc -> m
   const rm::Transform Tbm = T_pc_m * T_b_pc;
-  Tom = Tbm * ~Tbo;
   
-  // transform
-
-  // rm::Transform
-  std::cout << "Initial pose guess processed." << std::endl;
-
   // TODO: remove this
   // update sensors
-  for(auto elem : sensors_)
-  {
-    elem.second->setTom(Tom); // Tbm = Tom * Tbo
-  }
+  // for(MICPSensorPtr& sensor : sensors_vec_)
+  // {
+  //   const rm::Transform Tom = Tbm * ~sensor->Tbo;
+  //   sensor->setTom(Tom); // Tbm = Tom * Tbo
+  // }
+  
+  this->Tom = Tbm * ~Tbo_latest_;
+  
+  std::cout << "Initial pose guess processed." << std::endl;
 }
 
 MICPSensorPtr MICPLocalizationNode::loadSensor(
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_params)
 {
   MICPSensorPtr sensor;
-
   std::string sensor_name = sensor_params->name;
-
   std::cout << "Loading '" << sensor_name << "'" << std::endl;
 
   rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
@@ -262,7 +229,6 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   const std::string data_source = sensor_param_tree->at("data_source")->data->as_string();
   std::cout << "- Data Source: " << data_source << std::endl;
 
-
   auto corr_params = sensor_param_tree->at("correspondences");
   const std::string corr_backend = corr_params->at("backend")->data->as_string();
   const std::string corr_type = corr_params->at("type")->data->as_string();
@@ -279,7 +245,6 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 
   std::cout << "- Correspondence Backend: " << corr_backend << std::endl;
 
-  
   if(data_source == "topic")
   {
     const std::string topic_name = sensor_param_tree->at("topic")->at("name")->data->as_string();
@@ -348,14 +313,17 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
       }
       
     }
+  } else {
+    RCLCPP_ERROR_STREAM(get_logger(), "Topic source '" << data_source << "' not implemented.");
+    throw std::runtime_error("Topic source not known");
   }
 
   if(sensor)
   {
     // set frames
     sensor->base_frame = base_frame_;
-    sensor->map_frame = map_frame_;
     sensor->odom_frame = odom_frame_;
+    sensor->map_frame = map_frame_;
   }
 
   return sensor;
@@ -366,6 +334,7 @@ void MICPLocalizationNode::sensorDataReceived(
 {
   // std::cout << sensor->name << " received data!" << std::endl;
   data_stamp_latest_ = sensor->dataset_stamp_;
+  Tbo_latest_ = sensor->Tbo;
 }
 
 void MICPLocalizationNode::correct()
@@ -423,7 +392,7 @@ void MICPLocalizationNode::correctOnce()
     {
       if(sensor->correspondencesOutdated())
       {
-        std::cout << "Coresspondences outdated!" << std::endl;
+        RCLCPP_DEBUG_STREAM(get_logger(), "Correspondences outdated!");
         outdated = true;
         continue;
       }
@@ -435,13 +404,14 @@ void MICPLocalizationNode::correctOnce()
         = sensor->computeCrossStatistics(T_bnew_bold, convergence_progress_);
 
       const float Cs_trace = Cs_b.covariance.trace();
+      // std::cout << "Cs_trace: " << Cs_trace << std::endl;
+      // std::cout << "Cmerged_o trace: " << Cmerged_o << std::endl;
       
       // std::cout << sensor->name << " : " 
       //   << Cs_b.n_meas << " valid matches, " 
       //   << Cs_trace / static_cast<double>(Cs_b.n_meas) << " normed trace." << std::endl;
 
       const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
-
 
       rm::CrossStatistics Cs_weighted_o = Cs_o;
       Cs_weighted_o.n_meas *= sensor->merge_weight_multiplier;
@@ -454,6 +424,11 @@ void MICPLocalizationNode::correctOnce()
     }
 
     if(outdated)
+    {
+      break;
+    }
+
+    if(disable_correction_)
     {
       break;
     }
@@ -473,7 +448,6 @@ void MICPLocalizationNode::correctOnce()
     sensor->mutex().unlock();
   }
 
-
   // we want T_onew_map, we have Tom which is T_oold_map
   const rm::Transform T_onew_map = Tom * T_onew_oold;
 
@@ -481,44 +455,45 @@ void MICPLocalizationNode::correctOnce()
   {
     // store/update Tom, if allowed
     Tom = T_onew_map;
-
-    if(Cmerged_o.n_meas == 0)
-    {
-      convergence_progress_ = 0.0;
-    } else {
-      const double max_dist = 2.0;
-
-      // Ratio of Matched Data:
-      // if map is perfect 
-      // - this will be 1.0 if localized correctly
-      // - this will be 0.0 if not localized at all
-      // - this will be 1.0 if localized wrongly, but model is ambiguous (same looking rooms)
-      const double matched_ratio = static_cast<double>(Cmerged_o.n_meas) / static_cast<double>(stats.valid_measurements);
-
-      // Progress from Mean Error
-      // if map is perfect
-      // - this will be 1.0 if localized correctly
-      // - this will be 0.0 if localized poorly
-      // - this will
-      const double mean_error = Cmerged_o.covariance.trace() / static_cast<double>(Cmerged_o.n_meas);
-      const double progress_from_error = 1.0 - (std::clamp(mean_error, 0.0, max_dist) / max_dist);
-
-      const double total_progress = pow(matched_ratio * progress_from_error, 1.0/2.0);
-
-      // Certainty
-      // the certainty about this can be infered by the total number of measurements taken
-      convergence_progress_ = total_progress;
-    }
-
-    std::cout << "Total Progress: " << convergence_progress_ << std::endl;
-
-    
   }
+
+  //  std::cout << "Cmerged_o trace: " << Cmerged_o.covariance << std::endl;
+
+  if(Cmerged_o.n_meas == 0)
+  {
+    convergence_progress_ = 0.0;
+  } else {
+    const double max_dist = 2.0; // TODO: dynamic?
+
+    // Ratio of Matched Data:
+    // if map is perfect 
+    // - this will be 1.0 if localized correctly
+    // - this will be 0.0 if not localized at all
+    // - this will be 1.0 if localized wrongly, but model is ambiguous (same looking rooms)
+    const double matched_ratio = static_cast<double>(Cmerged_o.n_meas) / static_cast<double>(stats.valid_measurements);
+
+    // Progress from Mean Error
+    // if map is perfect
+    // - this will be 1.0 if localized correctly
+    // - this will be 0.0 if localized poorly
+    // - this will
+    const double mean_error = Cmerged_o.covariance.trace() / static_cast<double>(Cmerged_o.n_meas);
+    const double progress_from_error = 1.0 - (std::clamp(mean_error, 0.0, max_dist) / max_dist);
+
+    const double total_progress = pow(matched_ratio * progress_from_error, 1.0/2.0);
+
+    // Certainty
+    // the certainty about this can be infered by the total number of measurements taken
+    convergence_progress_ = total_progress;
+  }
+
+  // std::cout << "Total Progress: " << convergence_progress_ << std::endl;
   
   { // publish stats
     stats.valid_matches = Cmerged_o.n_meas;
     stats.cov_trace = Cmerged_o.covariance.trace() / static_cast<double>(Cmerged_o.n_meas);
     stats.header.stamp = this->now();
+    correction_stats_latest_ = stats;
     stats_publisher_->publish(stats);
   }
 }
@@ -548,6 +523,32 @@ void MICPLocalizationNode::broadcastTransform()
   tf_broadcaster_->sendTransform(T_odom_map);
 }
 
+void MICPLocalizationNode::publishPose()
+{
+  geometry_msgs::msg::PoseWithCovarianceStamped pose;
+
+  pose.header.stamp = data_stamp_latest_;
+  pose.header.frame_id = map_frame_;
+
+  // just some bad guess of the covariance
+  const double matched_ratio = static_cast<double>(correction_stats_latest_.valid_matches) / static_cast<double>(correction_stats_latest_.valid_measurements);
+  const double mean_error = correction_stats_latest_.cov_trace;
+  const double XX = mean_error / matched_ratio;
+
+  pose.pose.covariance = {
+    XX, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, XX, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, XX, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, XX/4.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, XX/4.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, XX/4.0
+  };
+  
+  rm::Transform Tbm = Tom * Tbo_latest_;
+  rmcl::convert(Tbm, pose.pose.pose);
+  Tbm_publisher_->publish(pose);
+}
+
 void MICPLocalizationNode::correctionLoop()
 {
   bool all_first_message_received = false;
@@ -562,6 +563,14 @@ void MICPLocalizationNode::correctionLoop()
 
   std::cout << "Every sensor recevied first message! Starting correction" << std::endl;
 
+  rm::StopWatch sw;
+  // double el = sw();
+  
+  double runtime_avg = 0.001;
+  double new_factor = 0.1;
+
+  const double desired_correction_time = 1.0 / correction_rate_max_;
+
   while(rclcpp::ok() && !stop_correction_thread_)
   {
     // RCLCPP_INFO_STREAM(this->get_logger(), "Latest data received vs now: " << data_stamp_latest_.seconds() << " vs " << this->get_clock()->now().seconds());
@@ -570,18 +579,28 @@ void MICPLocalizationNode::correctionLoop()
     // RTX have a smaller bottleneck vs Embree
     // We could do this in parallel
 
-    rm::StopWatch sw;
-
     sw();
     correctOnce();
-    double el = sw();
 
-    std::cout << "FindCorrespondences + " << optimization_iterations_ << "x optimization: " << el * 1000.0 << " ms" << std::endl;
+    if(broadcast_tf_)
+    {
+      broadcastTransform();
+    }
 
-    broadcastTransform();
+    if(publish_pose_)
+    {
+      publishPose();
+    }
 
-    // this is breaking visualization. why?
-    // this->get_clock()->sleep_for(100ms);
+    const double el = sw();
+    runtime_avg += (el - runtime_avg) * new_factor;
+    const double wait_delay = desired_correction_time - runtime_avg;
+
+    if(wait_delay > 0.0)
+    {
+      // wait
+      this->get_clock()->sleep_for(std::chrono::duration<double>(wait_delay));
+    }
   }
   
 }
