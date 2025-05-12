@@ -416,7 +416,7 @@ void MICPLocalizationNode::correctOnce()
       rm::CrossStatistics Cs_weighted_o = Cs_o;
       Cs_weighted_o.n_meas *= sensor->merge_weight_multiplier;
 
-      #pragma omp critical
+      // #pragma omp critical
       {
         Cmerged_o += Cs_o; // optimal merge in odom frame
         Cmerged_weighted_o += Cs_weighted_o;
@@ -432,6 +432,12 @@ void MICPLocalizationNode::correctOnce()
     {
       break;
     }
+
+    const auto Cmerged_b = ~Tbo_latest_ * Cmerged_o;
+
+    std::cout << "Merged trace" << std::endl;
+    std::cout << "- base: " << Cmerged_b.covariance.trace() << std::endl;
+    std::cout << "- odom: " << Cmerged_o.covariance.trace() << std::endl;
 
     // Cmerged_o -> T_onew_oold
     const rm::Transform T_onew_oold_inner = rm::umeyama_transform(Cmerged_o);
