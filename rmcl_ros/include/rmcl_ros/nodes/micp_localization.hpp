@@ -20,6 +20,9 @@
 #include <tf2_ros/create_timer_ros.h>
 #include <message_filters/subscriber.h>
 
+
+#include <rmagine/map/MapMap.hpp>
+
 #ifdef RMCL_EMBREE
 #include <rmagine/map/EmbreeMap.hpp>
 #endif // RMCL_EMBREE
@@ -73,6 +76,11 @@ private:
   std::string map_filename_;
   std::unordered_map<std::string, MICPSensorPtr> sensors_;
   std::vector<MICPSensorPtr> sensors_vec_;
+
+
+  // TODO: use this to become independent from the implementations 
+  // at this place in code
+  // rmagine::MapMap map_server_;
 
   // TODO: can we avoid ifdefs here?
   #ifdef RMCL_EMBREE

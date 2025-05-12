@@ -64,27 +64,26 @@ find_package(rmcl 2.1 REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
 # TODO: we can do this better. maybe but definitions to each target?
-if(TARGET rmcl-embree)
+if(TARGET rmagine::embree)
     add_definitions(-DRMCL_EMBREE)
     set(RMCL_EMBREE TRUE)
-endif(TARGET rmcl-embree)
+endif(TARGET rmagine::embree)
 
 if(TARGET rmcl-cuda)
     add_definitions(-DRMCL_CUDA)
     set(RMCL_CUDA True)
 endif(TARGET rmcl-cuda)
 
-if(TARGET rmcl-optix)
+if(TARGET rmagine::optix)
     add_definitions(-DRMCL_OPTIX)
     set(RMCL_OPTIX True)
-endif(TARGET rmcl-optix)
+endif(TARGET rmagine::optix)
 
-find_package(Eigen3 REQUIRED)
+# find_package(Eigen3 REQUIRED)
 
 include_directories(
     include
 )
-
 
 # CORE LIB ROS
 add_library(rmcl_ros SHARED
@@ -129,7 +128,7 @@ if(RMCL_EMBREE)
         "$<INSTALL_INTERFACE:include>")
     target_link_libraries(rmcl_ros_embree
         rmcl_ros
-        rmcl-embree
+        rmagine::embree
         OpenMP::OpenMP_CXX
     )
 
@@ -158,6 +157,7 @@ if(RMCL_CUDA)
     target_link_libraries(rmcl_ros_cuda
         rmcl_ros
         rmcl-cuda
+        rmagine::cuda
     )
 
     ament_target_dependencies(rmcl_ros_cuda
@@ -183,7 +183,7 @@ if(RMCL_OPTIX)
         "$<INSTALL_INTERFACE:include>")
     target_link_libraries(rmcl_ros_optix
         rmcl_ros
-        rmcl-optix
+        rmagine::optix
     )
 
     ament_target_dependencies(rmcl_ros_optix

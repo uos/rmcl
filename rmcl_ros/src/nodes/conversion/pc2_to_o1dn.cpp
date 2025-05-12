@@ -14,7 +14,7 @@ namespace rmcl
 
 Pc2ToO1DnNode::Pc2ToO1DnNode(
   const rclcpp::NodeOptions& options)
-:rclcpp::Node("pcl2_to_o1dn_node", options)
+:rclcpp::Node("pc2_to_o1dn_node", options)
 {
   declareParameters();
   fetchParameters();

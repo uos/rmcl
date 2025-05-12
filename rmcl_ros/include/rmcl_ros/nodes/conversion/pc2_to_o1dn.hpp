@@ -1,5 +1,5 @@
-#ifndef RMCL_PC2_TO_O1DN_HPP
-#define RMCL_PC2_TO_O1DN_HPP
+#ifndef RMCL_CONVERSION_PC2_TO_O1DN_HPP
+#define RMCL_CONVERSION_PC2_TO_O1DN_HPP
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -60,4 +60,4 @@ private:
 
 } // namespace rmcl
 
-#endif // RMCL_PC2_TO_O1DN_HPP
+#endif // RMCL_CONVERSION_PC2_TO_O1DN_HPP
