@@ -248,7 +248,6 @@ bool Pc2ToO1DnNode::convert(
   }
 
   scan.header.stamp = pcd->header.stamp;
-
   return true;
 }
 

@@ -95,7 +95,7 @@ private:
   
   std::thread correction_thread_;
   bool stop_correction_thread_ = false;
-  double correction_rate_max_ = 100.0;
+  
 
   // tf2
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
@@ -114,16 +114,18 @@ private:
 
   rclcpp::Time data_stamp_latest_;
   rmagine::Transform Tbo_latest_;
-
   rmcl_msgs::msg::MICPSensorStats correction_stats_latest_;
-  
-  bool disable_correction_ = false;
   double convergence_progress_ = 0.0;
+  
+
+  bool disable_correction_ = false;
   size_t optimization_iterations_ = 10;
   int tf_time_source_ = 0;
-
+  double pose_noise_ = 0.01;
   bool broadcast_tf_ = true;
   bool publish_pose_ = false;
+  bool adaptive_max_dist_ = true;
+  double correction_rate_max_ = 100.0;
 };
 
 

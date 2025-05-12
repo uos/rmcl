@@ -1,5 +1,6 @@
 #include <rmcl_ros/correction/correspondences/CorrespondencesCPU.hpp>
 #include <rmagine/math/statistics.h>
+#include <rmagine/util/prints.h>
 
 namespace rm = rmagine;
 
@@ -27,6 +28,12 @@ rmagine::CrossStatistics CorrespondencesCPU::computeCrossStatistics(
     cloud_dataset, 
     cloud_model, 
     params_local);
+
+  // std::cout << "CrossStatistics:" << std::endl;
+  // std::cout << stats_s.n_meas << std::endl;
+  // std::cout << stats_s.dataset_mean << " -> " << stats_s.model_mean << std::endl;
+  // std::cout << stats_s.covariance << std::endl;
+  
 
   return stats_s;
 }

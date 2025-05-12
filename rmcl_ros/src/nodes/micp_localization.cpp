@@ -93,6 +93,9 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   broadcast_tf_ = rmcl::get_parameter(this, "broadcast_tf", true);
   publish_pose_ = rmcl::get_parameter(this, "publish_pose", false);
 
+  pose_noise_ = rmcl::get_parameter(this, "pose_noise", 0.01);
+  adaptive_max_dist_ = rmcl::get_parameter(this, "adaptive_max_dist", true);
+
   #ifdef RMCL_EMBREE
   map_embree_ = rm::import_embree_map(map_filename_);
   #endif // RMCL_EMBREE
@@ -435,9 +438,9 @@ void MICPLocalizationNode::correctOnce()
 
     const auto Cmerged_b = ~Tbo_latest_ * Cmerged_o;
 
-    std::cout << "Merged trace" << std::endl;
-    std::cout << "- base: " << Cmerged_b.covariance.trace() << std::endl;
-    std::cout << "- odom: " << Cmerged_o.covariance.trace() << std::endl;
+    // std::cout << "Merged trace" << std::endl;
+    // std::cout << "- base: " << Cmerged_b.covariance.trace() << std::endl;
+    // std::cout << "- odom: " << Cmerged_o.covariance.trace() << std::endl;
 
     // Cmerged_o -> T_onew_oold
     const rm::Transform T_onew_oold_inner = rm::umeyama_transform(Cmerged_o);
@@ -464,40 +467,31 @@ void MICPLocalizationNode::correctOnce()
   }
 
   //  std::cout << "Cmerged_o trace: " << Cmerged_o.covariance << std::endl;
-
-  if(Cmerged_o.n_meas == 0)
+  if(Cmerged_o.n_meas == 0 || !adaptive_max_dist_)
   {
     convergence_progress_ = 0.0;
   } else {
-    const double max_dist = 2.0; // TODO: dynamic?
+    const float trans_force = T_onew_map.t.l2norm();
+    const float trans_progress = 1.0 / exp(10.0 * trans_force);
 
-    // Ratio of Matched Data:
-    // if map is perfect 
-    // - this will be 1.0 if localized correctly
-    // - this will be 0.0 if not localized at all
-    // - this will be 1.0 if localized wrongly, but model is ambiguous (same looking rooms)
-    const double matched_ratio = static_cast<double>(Cmerged_o.n_meas) / static_cast<double>(stats.valid_measurements);
+    rm::Quaternion qunit;
+    qunit.setIdentity();
+    float qscalar = T_onew_map.R.dot(qunit);
+    float rot_progress = qscalar * qscalar;
 
-    // Progress from Mean Error
-    // if map is perfect
-    // - this will be 1.0 if localized correctly
-    // - this will be 0.0 if localized poorly
-    // - this will
-    const double mean_error = Cmerged_o.covariance.trace() / static_cast<double>(Cmerged_o.n_meas);
-    const double progress_from_error = 1.0 - (std::clamp(mean_error, 0.0, max_dist) / max_dist);
-
-    const double total_progress = pow(matched_ratio * progress_from_error, 1.0/2.0);
+    const double match_ratio = static_cast<double>(Cmerged_o.n_meas) / static_cast<double>(stats.valid_measurements);
+    float adaption_rate = trans_progress * rot_progress * match_ratio;
 
     // Certainty
     // the certainty about this can be infered by the total number of measurements taken
-    convergence_progress_ = total_progress;
+    convergence_progress_ = adaption_rate;
   }
 
   // std::cout << "Total Progress: " << convergence_progress_ << std::endl;
   
   { // publish stats
     stats.valid_matches = Cmerged_o.n_meas;
-    stats.cov_trace = Cmerged_o.covariance.trace() / static_cast<double>(Cmerged_o.n_meas);
+    stats.cov_trace = Cmerged_o.covariance.trace();
     stats.header.stamp = this->now();
     correction_stats_latest_ = stats;
     stats_publisher_->publish(stats);
@@ -537,9 +531,11 @@ void MICPLocalizationNode::publishPose()
   pose.header.frame_id = map_frame_;
 
   // just some bad guess of the covariance
-  const double matched_ratio = static_cast<double>(correction_stats_latest_.valid_matches) / static_cast<double>(correction_stats_latest_.valid_measurements);
-  const double mean_error = correction_stats_latest_.cov_trace;
-  const double XX = mean_error / matched_ratio;
+  // const double matched_ratio = static_cast<double>(correction_stats_latest_.valid_matches) / static_cast<double>(correction_stats_latest_.valid_measurements);
+  // const double mean_error = correction_stats_latest_.cov_trace;
+  // const double matched_ratio = 
+
+  const double XX = (1.0 - convergence_progress_) + pose_noise_;
 
   pose.pose.covariance = {
     XX, 0.0, 0.0, 0.0, 0.0, 0.0,
