@@ -16,7 +16,6 @@
 
 #include <rmagine/math/types/CrossStatistics.hpp>
 #include <rmagine/types/Memory.hpp>
-#include <rmagine/math/statistics.h>
 
 #include <rmcl/registration/Correspondences.hpp>
 
@@ -112,8 +111,6 @@ public:
 
 using MICPSensorPtr = std::shared_ptr<MICPSensorBase>;
 
-
-
 template<typename MemT>
 class MICPSensor_
 : public MICPSensorBase
@@ -167,11 +164,6 @@ public:
 
   std::shared_ptr<Correspondences_<MemT> > correspondences_;
 };
-
-
-// using MICPSensor = MICPSensor_<rmagine::RAM>;
-
-// using MICPSensorPtr = std::shared_ptr<MICPSensor>;
 
 } // namespace rmcl
 

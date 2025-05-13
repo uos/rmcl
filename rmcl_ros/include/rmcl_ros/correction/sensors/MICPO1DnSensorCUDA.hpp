@@ -22,7 +22,6 @@
 
 
 #include <rmagine/math/statistics.h>
-#include <rmagine/math/linalg.h>
 #include <rmagine/types/MemoryCuda.hpp>
 
 

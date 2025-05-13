@@ -4,10 +4,9 @@
 
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
-#include <rmagine/math/math.h>
-#ifdef RMCL_CUDA
-#include <rmagine/math/math.cuh>
-#endif // RMCL_CUDA
+
+#include <rmagine/math/linalg.h>
+// #include <rmagine/math/linalg.cuh>
 
 // #include <rmcl_ros/correction/MICP.hpp>
 #include <rmcl_ros/util/conversions.h>
@@ -57,6 +56,30 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   Tom = rmagine::Transform::Identity();
   
   std::cout << "MICPLocalizationNode" << std::endl;
+
+  // rm::Matrix3x3 test;
+  // test = {
+  //   0.0225, 0.0, 0.0,
+  //   0.0, 0.0324, 0.0,
+  //   0.0, 0.0, 0.0
+  // };
+
+  // std::cout << "Call SVD" << std::endl;
+  // rm::Matrix3x3 U, S, V;
+  // rm::svd(test, U, S, V);
+
+  // std::cout << "U" << std::endl;
+  // std::cout << U << std::endl;
+
+
+  // // rm::CrossStatistics stats_test;
+  // // stats_test.covariance = test;
+  // // stats_test.n_meas = 4;
+
+  // // rm::Transform bla = rm::umeyama_transform(stats_test);
+  // // std::cout << "BLA: " << bla << std::endl;
+
+  // throw std::runtime_error("BREAK");
 
   { // set up tf
     tf_buffer_ =
@@ -526,6 +549,8 @@ void MICPLocalizationNode::correctOnce()
     std::cout << "- Tsb: " << sensor->Tsb << std::endl;
   }
 
+  
+
   rm::Transform T_onew_oold = rm::Transform::Identity();
 
   rm::CrossStatistics Cmerged_o;
@@ -563,11 +588,11 @@ void MICPLocalizationNode::correctOnce()
         << Cs_b.n_meas << " valid matches, " 
         << Cs_trace / static_cast<double>(Cs_b.n_meas) << " normed trace." << std::endl;
 
-      std::cout << Cs_b << std::endl;
+      // std::cout << Cs_b << std::endl;
 
       const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
 
-      std::cout << Cs_o << std::endl;
+      // std::cout << Cs_o << std::endl;
 
       rm::CrossStatistics Cs_weighted_o = Cs_o;
       Cs_weighted_o.n_meas *= sensor->merge_weight_multiplier;
@@ -578,7 +603,7 @@ void MICPLocalizationNode::correctOnce()
         Cmerged_weighted_o += Cs_weighted_o;
       }
 
-      std::cout << "Merged:" << std::endl;
+      // std::cout << "Merged:" << std::endl;
       std::cout << Cmerged_o << std::endl;
     }
 
@@ -592,7 +617,7 @@ void MICPLocalizationNode::correctOnce()
       break;
     }
 
-    std::cout << "Tbo_latest: " << Tbo_latest_ << std::endl;
+    // std::cout << "Tbo_latest: " << Tbo_latest_ << std::endl;
 
     const auto Cmerged_b = ~Tbo_latest_ * Cmerged_o;
 

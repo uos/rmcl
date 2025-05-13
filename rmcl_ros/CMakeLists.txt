@@ -20,12 +20,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-message(STATUS "CMake Version: ${CMAKE_VERSION}")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
-    message(STATUS ">= 3.9 - Enabling Link Time Optimization")
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
-
 # DEFAULT RELEASE
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
   if (NOT CMAKE_BUILD_TYPE)
@@ -74,10 +68,10 @@ if(TARGET rmcl-cuda)
     set(RMCL_CUDA True)
 endif(TARGET rmcl-cuda)
 
-if(TARGET rmagine::optix)
+if(TARGET rmcl-optix)
     add_definitions(-DRMCL_OPTIX)
     set(RMCL_OPTIX True)
-endif(TARGET rmagine::optix)
+endif(TARGET rmcl-optix)
 
 # find_package(Eigen3 REQUIRED)
 
@@ -104,6 +98,7 @@ target_include_directories(rmcl_ros PUBLIC
 
 target_link_libraries(rmcl_ros
     rmcl
+    rmagine::core
 )
 
 ament_target_dependencies(rmcl_ros
@@ -220,6 +215,7 @@ target_include_directories(micp_localization
 
 target_link_libraries(micp_localization
     rmcl_ros
+    rmagine::core
     OpenMP::OpenMP_CXX
 )
 

@@ -4,7 +4,6 @@ project(rmcl
 	VERSION 2.1.0
 	)
 
-
 option(BUILD_TESTS "Build tests" ON)
 
 # This gives an compiler error for standard ubuntu 20 setup including
@@ -50,14 +49,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
 
-
-
-# message(STATUS "CMake Version: ${CMAKE_VERSION}")
-# if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
-#     message(STATUS ">= 3.9 - Enabling Link Time Optimization")
-#     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-# endif()
-
 list(APPEND CMAKE_MODULE_PATH ${rmcl_SOURCE_DIR}/cmake)
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
@@ -86,14 +77,14 @@ if(TARGET rmagine::embree)
 endif()
 
 if(TARGET rmagine::cuda)
-    option(DISABLE_CUDA "Disable CUDA related compilations" FALSE)
+    option(DISABLE_CUDA "Disable CUDA related compilations" TRUE)
     if(CMAKE_CUDA_COMPILER)
         enable_language(CUDA)
     endif(CMAKE_CUDA_COMPILER)
 endif()
 
 if(TARGET rmagine::optix)
-    option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
+    option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" TRUE)
 endif()
 
 
