@@ -57,30 +57,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   
   std::cout << "MICPLocalizationNode" << std::endl;
 
-  // rm::Matrix3x3 test;
-  // test = {
-  //   0.0225, 0.0, 0.0,
-  //   0.0, 0.0324, 0.0,
-  //   0.0, 0.0, 0.0
-  // };
-
-  // std::cout << "Call SVD" << std::endl;
-  // rm::Matrix3x3 U, S, V;
-  // rm::svd(test, U, S, V);
-
-  // std::cout << "U" << std::endl;
-  // std::cout << U << std::endl;
-
-
-  // // rm::CrossStatistics stats_test;
-  // // stats_test.covariance = test;
-  // // stats_test.n_meas = 4;
-
-  // // rm::Transform bla = rm::umeyama_transform(stats_test);
-  // // std::cout << "BLA: " << bla << std::endl;
-
-  // throw std::runtime_error("BREAK");
-
   { // set up tf
     tf_buffer_ =
       std::make_shared<tf2_ros::Buffer>(this->get_clock());
