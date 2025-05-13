@@ -329,6 +329,39 @@ if(BUILD_CONV)
       LIBRARY DESTINATION lib
       RUNTIME DESTINATION bin      
     )
+
+    ####### SCAN to SCAN CONVERTER
+    add_library(conv_scan_to_scan SHARED 
+        src/nodes/conversion/scan_to_scan.cpp)
+
+    ## Specify libraries to link a library or executable target against
+    target_link_libraries(conv_scan_to_scan
+        rmcl_ros
+    )
+
+    ament_target_dependencies(conv_scan_to_scan
+        rclcpp
+        rclcpp_components
+        geometry_msgs
+        sensor_msgs
+        tf2
+        tf2_ros
+        rmcl_msgs
+        image_transport
+        visualization_msgs
+    )
+
+    rclcpp_components_register_node(conv_scan_to_scan 
+        PLUGIN "rmcl::ScanToScanNode" 
+        EXECUTABLE conv_scan_to_scan_node)
+
+    install(TARGETS 
+        conv_scan_to_scan
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin
+    )
+
     
     ####### PC2 to DEPTH CONVERTER
     # add_executable(conv_pc2_to_depth src/nodes/conv/pc2_to_depth.cpp)
