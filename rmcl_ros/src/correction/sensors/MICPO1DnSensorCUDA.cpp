@@ -120,7 +120,7 @@ void MICPO1DnSensorCUDA::topicCB(
   // Part 1: transfrom sensor and filter input data
   dataset_stamp_ = msg->header.stamp;
   sensor_frame = msg->header.frame_id;
-  fetchTF();
+  fetchTF(dataset_stamp_);
   correspondences_->setTsb(Tsb);
   const double el_fetch_tf = sw();
 

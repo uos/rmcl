@@ -149,7 +149,10 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
         std::cout << "Loaded:  " << sensor->name << std::endl;
         sensors_[sensor->name] = sensor;
         sensors_vec_.push_back(sensor);
-
+        if(!sensor->static_dataset)
+        {
+          num_dynamic_sensors_++;
+        }
       } else {
         std::string sensor_name = elem.second->name;
         std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;
@@ -161,6 +164,8 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   }
 
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
+
+  fetchTF(now());
 
   // incoming pose this needs to be synced with tf
   stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("~/micpl_stats", 10);
@@ -182,6 +187,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   });
   // correction_thread_.detach();
   // last_correction_stamp = this->now();
+
 }
 
 void MICPLocalizationNode::poseCB(
@@ -207,8 +213,6 @@ void MICPLocalizationNode::poseCB(
       return;
     }
   }
-  
-  
 
   // transform from actual pose (base) to the pose coordinate system
   rm::Transform T_b_pc;
@@ -217,17 +221,8 @@ void MICPLocalizationNode::poseCB(
 
   // transform b -> m == transform b -> pc -> m
   const rm::Transform Tbm = T_pc_m * T_b_pc * initial_pose_offset_;
-  
-  // TODO: remove this
-  // update sensors
-  // for(MICPSensorPtr& sensor : sensors_vec_)
-  // {
-  //   const rm::Transform Tom = Tbm * ~sensor->Tbo;
-  //   sensor->setTom(Tom); // Tbm = Tom * Tbo
-  // }
-  
-  this->Tom = Tbm * ~Tbo_latest_;
-  
+
+  this->Tom = Tbm * ~Tbo_latest_;  
   std::cout << "Initial pose guess processed." << std::endl;
 }
 
@@ -312,20 +307,25 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         return sensor;
       }
     }
-    // else if(model_type == "spherical")
-    // {
-    //   sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor, topic_name);
-    //   if(corr_type == "RC")
-    //   {
-    //     sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
-    //   } else if(corr_type == "CP") {
-    //     sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
-    //   } else {
-    //     // ERROR
-    //     std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
-    //     return sensor;
-    //   }
-    // }
+    else if(model_type == "spherical")
+    {
+      sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    } 
+    else 
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor model (embree) '" << model_type << "'.");
+      return sensor;
+    }
     
     sensor_cpu->correspondences_->params = umeyama_params;
     sensor_cpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
@@ -411,7 +411,6 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   sensor->odom_frame = odom_frame_;
   sensor->map_frame = map_frame_;
   sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
-  
 
   return sensor;
 }
@@ -422,6 +421,35 @@ void MICPLocalizationNode::sensorDataReceived(
   // std::cout << sensor->name << " received data!" << std::endl;
   data_stamp_latest_ = sensor->dataset_stamp_;
   Tbo_latest_ = sensor->Tbo;
+  Tbo_stamp_latest_ = sensor->Tbo_stamp;
+}
+
+bool MICPLocalizationNode::fetchTF(
+  const rclcpp::Time stamp)
+{
+  try {
+    if(tf_buffer_->canTransform(
+      odom_frame_, base_frame_, stamp, rclcpp::Duration::from_seconds(1.0)))
+    {
+      geometry_msgs::msg::TransformStamped T_base_odom 
+        = tf_buffer_->lookupTransform(
+            odom_frame_, base_frame_, stamp);
+      Tbo_stamp_latest_ = T_base_odom.header.stamp;
+      convert(T_base_odom.transform, Tbo_latest_);
+    }
+    else
+    {
+      RCLCPP_WARN(this->get_logger(), "Transform not available yet.");
+      return false;
+    }
+  } catch (tf2::TransformException& ex) {
+    // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
+    RCLCPP_WARN(get_logger(), "%s", ex.what());
+    RCLCPP_WARN_STREAM(get_logger(), "Source (Base): " 
+      << base_frame_ << ", Target (Odom): " << odom_frame_);
+    return false;
+  }
+  return true;
 }
 
 void MICPLocalizationNode::correct()
@@ -450,15 +478,52 @@ void MICPLocalizationNode::correctOnce()
 
   stats.measurement_stamp = data_stamp_latest_;
 
+  if(num_dynamic_sensors_ == 0)
+  {
+    for(auto sensor : sensors_vec_)
+    {
+      if(!sensor->fetchTF(now()))
+      {
+        return;
+      }
+    }
+  } else {
+    for(auto sensor : sensors_vec_)
+    {
+      if(sensor->static_dataset)
+      {
+        if(!sensor->fetchTF(data_stamp_latest_))
+        {
+          return;
+        }
+      }
+    }
+  }
+
   // collect infos
 
+  std::cout << "Robot:" << std::endl;
+  std::cout << "- Tom: " << Tom << std::endl;
+  std::cout << "- Tbo_latest: " << Tbo_latest_ << std::endl; 
+
+  std::cout << "Sensor:" << std::endl;
   // #pragma omp parallel for
   for(auto sensor : sensors_vec_)
   {
     // only set current transform from odom to map
     // Tbo and Tsb are fetched synchron to the arriving sensor data
+    // if(sensor->static_dataset)
+    // {
+    //   // set transfer latest Tbo to static sensors
+    //   sensor->Tbo_stamp = Tbo_stamp_latest_;
+    //   sensor->Tbo = Tbo_latest_;
+    // }
     sensor->setTom(Tom);
     sensor->findCorrespondences();
+    sensor->drawCorrespondences();
+
+    std::cout << "- Tbo: " << sensor->Tbo << std::endl;
+    std::cout << "- Tsb: " << sensor->Tsb << std::endl;
   }
 
   rm::Transform T_onew_oold = rm::Transform::Identity();
@@ -468,7 +533,7 @@ void MICPLocalizationNode::correctOnce()
   
   for(size_t i=0; i<optimization_iterations_; i++)
   {
-    // std::cout << "Correct! " << correction_counter << ", " << i << std::endl;
+    std::cout << "Correct! " << i << std::endl;
     Cmerged_o = rm::CrossStatistics::Identity();
     Cmerged_weighted_o = rm::CrossStatistics::Identity();
 
@@ -477,12 +542,12 @@ void MICPLocalizationNode::correctOnce()
     // #pragma omp parallel for
     for(const auto sensor : sensors_vec_)
     {
-      if(sensor->correspondencesOutdated())
-      {
-        RCLCPP_DEBUG_STREAM(get_logger(), "Correspondences outdated!");
-        outdated = true;
-        continue;
-      }
+      // if(sensor->correspondencesOutdated())
+      // {
+      //   RCLCPP_DEBUG_STREAM(get_logger(), "Correspondences outdated!");
+      //   outdated = true;
+      //   continue;
+      // }
       
       // transform delta from odom frame to base frame, at time of respective sensor
       const rm::Transform T_bnew_bold = ~sensor->Tbo * T_onew_oold * sensor->Tbo;
@@ -494,11 +559,15 @@ void MICPLocalizationNode::correctOnce()
       // std::cout << "Cs_trace: " << Cs_trace << std::endl;
       // std::cout << "Cmerged_o trace: " << Cmerged_o << std::endl;
       
-      // std::cout << sensor->name << " : " 
-      //   << Cs_b.n_meas << " valid matches, " 
-      //   << Cs_trace / static_cast<double>(Cs_b.n_meas) << " normed trace." << std::endl;
+      std::cout << sensor->name << " : " 
+        << Cs_b.n_meas << " valid matches, " 
+        << Cs_trace / static_cast<double>(Cs_b.n_meas) << " normed trace." << std::endl;
+
+      std::cout << Cs_b << std::endl;
 
       const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
+
+      std::cout << Cs_o << std::endl;
 
       rm::CrossStatistics Cs_weighted_o = Cs_o;
       Cs_weighted_o.n_meas *= sensor->merge_weight_multiplier;
@@ -508,6 +577,9 @@ void MICPLocalizationNode::correctOnce()
         Cmerged_o += Cs_o; // optimal merge in odom frame
         Cmerged_weighted_o += Cs_weighted_o;
       }
+
+      std::cout << "Merged:" << std::endl;
+      std::cout << Cmerged_o << std::endl;
     }
 
     if(outdated)
@@ -520,14 +592,21 @@ void MICPLocalizationNode::correctOnce()
       break;
     }
 
+    std::cout << "Tbo_latest: " << Tbo_latest_ << std::endl;
+
     const auto Cmerged_b = ~Tbo_latest_ * Cmerged_o;
+
+    std::cout << "Merged: " << Cmerged_b << std::endl;
 
     // std::cout << "Merged trace" << std::endl;
     // std::cout << "- base: " << Cmerged_b.covariance.trace() << std::endl;
     // std::cout << "- odom: " << Cmerged_o.covariance.trace() << std::endl;
 
     // Cmerged_o -> T_onew_oold
-    const rm::Transform T_onew_oold_inner = rm::umeyama_transform(Cmerged_o);
+    const rm::Transform T_onew_oold_inner 
+      = rm::umeyama_transform(Cmerged_o);
+
+    std::cout << "Umeyama: " << T_onew_oold_inner << std::endl;
 
     // update T_onew_oold: 
     // transform from new odom frame to old odom frame
@@ -544,7 +623,9 @@ void MICPLocalizationNode::correctOnce()
   // we want T_onew_map, we have Tom which is T_oold_map
   const rm::Transform T_onew_map = Tom * T_onew_oold;
 
-  if(!disable_correction_)
+  std::cout << "Tom new: " << T_onew_map << std::endl;
+
+  if(!disable_correction_ && Cmerged_o.n_meas > 0)
   {
     // store/update Tom, if allowed
     Tom = T_onew_map;
@@ -558,8 +639,7 @@ void MICPLocalizationNode::correctOnce()
     const float trans_force = T_onew_map.t.l2norm();
     const float trans_progress = 1.0 / exp(10.0 * trans_force);
 
-    rm::Quaternion qunit;
-    qunit.setIdentity();
+    const rm::Quaternion qunit = rm::Quaternion::Identity();
     float qscalar = T_onew_map.R.dot(qunit);
     float rot_progress = qscalar * qscalar;
 

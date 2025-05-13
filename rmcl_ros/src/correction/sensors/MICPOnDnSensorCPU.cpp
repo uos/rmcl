@@ -24,12 +24,11 @@ namespace rmcl
 
 MICPOnDnSensorCPU::MICPOnDnSensorCPU(
   rclcpp::Node::SharedPtr nh)
-:MICPSensor_<rmagine::RAM>(nh)
+:MICPSensorCPU(nh)
 {
+  Tsb.setIdentity();
   Tom.setIdentity();
   correspondences_.reset();
-
-  // check parameter
 }
 
 void MICPOnDnSensorCPU::connectToTopic(const std::string& topic_name)
@@ -43,6 +42,8 @@ void MICPOnDnSensorCPU::connectToTopic(const std::string& topic_name)
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
   tf_filter_->registerCallback(&MICPOnDnSensorCPU::updateMsg, this);
+
+  static_dataset = false;
 
   RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "Waiting for message from topic '" << topic_name << "'...");
 }
@@ -90,6 +91,10 @@ void MICPOnDnSensorCPU::getDataFromParameters()
 
   const std::vector<double> data_ranges = sensor_data_params->at("ranges")->data->as_double_array();
 
+  dataset_stamp_ = nh_->now();
+  sensor_frame = sensor_data_params->at("frame")->data->as_string();
+  fetchTF(dataset_stamp_);
+
   if(auto model_setter = std::dynamic_pointer_cast<
     rm::ModelSetter<rm::OnDnModel> >(correspondences_))
   {
@@ -113,14 +118,13 @@ void MICPOnDnSensorCPU::getDataFromParameters()
   total_dataset_measurements = n_new_measurements;
   valid_dataset_measurements = n_new_measurements;
 
-
   for(unsigned int vid = 0; vid < sensor_model_.getHeight(); vid++)
   {
     for(unsigned int hid = 0; hid < sensor_model_.getWidth(); hid++)
     {
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
       const float real_range = data_ranges[loc_id];
-      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
+      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range + sensor_model_.getOrigin(vid, hid);
       correspondences_->dataset.points[loc_id] = real_point;
     }
   }
@@ -131,9 +135,6 @@ void MICPOnDnSensorCPU::getDataFromParameters()
   correspondences_->setTsb(rm::Transform::Identity());
 
   static_dataset = true;
-  dataset_stamp_ = nh_->now();
-
-  on_data_received(this);
 }
 
 void MICPOnDnSensorCPU::updateMsg(
@@ -157,7 +158,7 @@ void MICPOnDnSensorCPU::updateMsg(
   // Part 1: transfrom sensor and filter input data
   dataset_stamp_ = msg->header.stamp;
   sensor_frame = msg->header.frame_id;
-  fetchTF();
+  fetchTF(dataset_stamp_);
   correspondences_->setTsb(Tsb);
   const double el_fetch_tf = sw();
 

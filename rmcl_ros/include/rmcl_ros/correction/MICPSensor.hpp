@@ -20,7 +20,7 @@
 
 #include <rmcl/registration/Correspondences.hpp>
 
-
+#include <visualization_msgs/msg/marker.hpp>
 
 
 namespace rmcl
@@ -41,7 +41,9 @@ public:
   /**
    * Fetch TF chain. except for odom->map (this is estimated or has to be provided from extern)
    */
-  void fetchTF();
+  bool fetchTF(const rclcpp::Time stamp);
+
+  virtual void drawCorrespondences() = 0;
 
   inline std::mutex& mutex()
   {
@@ -99,6 +101,10 @@ public:
   // TF
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+
+  // Visualization
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr 
+    correspondence_viz_pub_;
 
   // This is called as soon as data was received and pre-processed
   std::function<void(MICPSensorBase*)> on_data_received;

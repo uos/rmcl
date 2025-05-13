@@ -71,6 +71,8 @@ private:
 
   void publishPose();
 
+  bool fetchTF(const rclcpp::Time stamp);
+
   std::string map_frame_;
   std::string base_frame_;
   std::string odom_frame_;
@@ -95,7 +97,6 @@ private:
   
   std::thread correction_thread_;
   bool stop_correction_thread_ = false;
-  
 
   // tf2
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
@@ -112,12 +113,20 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr 
     Tbm_publisher_;
 
+  // High-Level stats about sensors
   rclcpp::Time data_stamp_latest_;
   rmagine::Transform Tbo_latest_;
+  rclcpp::Time Tbo_stamp_latest_;
   rmcl_msgs::msg::MICPSensorStats correction_stats_latest_;
   double convergence_progress_ = 0.0;
+  bool first_message_received_ = false;
 
-  
+  // IF there are at least 1 dynamic sensors (reading data from topic):
+  //    synchronize all static sensors with the latest dynamic message
+  //    to get small time errors. 
+  // ELSE 
+  //    It is OK to synchronize with the current time. 
+  size_t num_dynamic_sensors_ = 0;
   
   bool disable_correction_ = false;
   size_t optimization_iterations_ = 10;

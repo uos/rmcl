@@ -40,6 +40,23 @@ public:
 
   bool outdated = true;
 
+  inline rmagine::PointCloudView_<MemT> modelView()
+  {
+    return rmagine::PointCloudView_<MemT>{
+      .points = model_buffers_.points,
+      .mask = model_buffers_.hits,
+      .normals = model_buffers_.normals
+    };
+  }
+
+  inline rmagine::PointCloudView_<MemT> datasetView()
+  {
+    return rmagine::PointCloudView_<MemT>{
+      .points = dataset.points,
+      .mask = dataset.mask
+    };
+  }
+
   /**
    * 
    * Computes cross statistics of correspondences that 

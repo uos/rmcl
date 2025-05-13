@@ -23,7 +23,7 @@ namespace rmcl
 
 MICPO1DnSensorCPU::MICPO1DnSensorCPU(
   rclcpp::Node::SharedPtr nh)
-:MICPSensor_<rmagine::RAM>(nh)
+:MICPSensorCPU(nh)
 {
   Tom.setIdentity();
   correspondences_.reset();
@@ -71,7 +71,7 @@ void MICPO1DnSensorCPU::updateMsg(
   // Part 1: transfrom sensor and filter input data
   dataset_stamp_ = msg->header.stamp;
   sensor_frame = msg->header.frame_id;
-  fetchTF();
+  fetchTF(dataset_stamp_);
   correspondences_->setTsb(Tsb);
   const double el_fetch_tf = sw();
 
@@ -142,7 +142,7 @@ void MICPO1DnSensorCPU::unpackMessage(
     {
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
       const float real_range = msg->o1dn.data.ranges[loc_id];
-      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
+      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range + sensor_model_.getOrigin(vid, hid);
       correspondences_->dataset.points[loc_id] = real_point;
 
       if(real_range < sensor_model_.range.min || real_range > sensor_model_.range.max)

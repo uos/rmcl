@@ -3,6 +3,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rmcl_ros/correction/MICPSensor.hpp>
+#include <rmcl_ros/correction/sensors/MICPSensorCPU.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -29,27 +30,24 @@
 #include <rmcl/registration/Correspondences.hpp>
 #include <rmcl/registration/RCCEmbree.hpp>
 
-
 #include <mutex>
 #include <thread>
-
-
-
 namespace rmcl
 {
 
 class MICPO1DnSensorCPU
-: public MICPSensor_<rmagine::RAM>
+: public MICPSensorCPU
 {
 public:
 
-  using Base = MICPSensor_<rmagine::RAM>;
+  using Base = MICPSensorCPU;
 
   MICPO1DnSensorCPU(
     rclcpp::Node::SharedPtr nh);
 
+  // Data Loaders
+  // TODO: Can we move this to seperate data loader instances?
   void connectToTopic(const std::string& topic_name);
-
   void getDataFromParameters();
 
   void updateMsg(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);

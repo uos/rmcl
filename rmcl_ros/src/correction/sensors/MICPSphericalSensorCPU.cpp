@@ -22,9 +22,14 @@ namespace rmcl
 {
 
 MICPSphericalSensorCPU::MICPSphericalSensorCPU(
-  rclcpp::Node::SharedPtr nh, 
-  std::string topic_name)
-:MICPSensor_<rm::RAM>(nh)
+  rclcpp::Node::SharedPtr nh)
+:MICPSensorCPU(nh)
+{
+  Tom.setIdentity();
+  correspondences_.reset();
+}
+
+void MICPSphericalSensorCPU::connectToTopic(const std::string& topic_name)
 {
   std::chrono::duration<int> buffer_timeout(1);
 
@@ -34,13 +39,74 @@ MICPSphericalSensorCPU::MICPSphericalSensorCPU(
   
   rclcpp::QoS qos(10);
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  tf_filter_->registerCallback(&MICPSphericalSensorCPU::topicCB, this);
+  tf_filter_->registerCallback(&MICPSphericalSensorCPU::updateMsg, this);
 
-  Tom.setIdentity();
-
-  correspondences_.reset();
+  static_dataset = false;
 
   RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "Waiting for message from topic '" << topic_name << "'...");
+}
+
+void MICPSphericalSensorCPU::getDataFromParameters()
+{
+  // TODO:
+}
+
+void MICPSphericalSensorCPU::updateMsg(
+  const rmcl_msgs::msg::ScanStamped::SharedPtr msg)
+{
+  rm::StopWatch sw;
+  const rclcpp::Time msg_time = msg->header.stamp;
+  const double diff_now_msg = (nh_->get_clock()->now() - msg_time).seconds();
+
+  if(fabs(diff_now_msg) > 0.1)
+  {
+    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "] WARNING: (now - input msg's stamp) is more than 100 ms apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
+  }
+  
+  sw();
+  data_correction_mutex_.lock();
+  const double el_mutex_lock = sw();
+
+  sw();
+  // Part 1: transfrom sensor and filter input data
+  dataset_stamp_ = msg->header.stamp;
+  sensor_frame = msg->header.frame_id;
+  fetchTF(dataset_stamp_);
+  correspondences_->setTsb(Tsb);
+  const double el_fetch_tf = sw();
+
+  const double diff_odom_msg = (Tbo_stamp - dataset_stamp_).seconds();
+
+  // copy to internal representation
+  // fill sensor_model_ and initialize copy data to dataset
+  sw();
+  unpackMessage(msg);
+
+  // TODO: make some kind of SphericalSetter base class that doesnt depend on Embree
+  if(auto model_setter = std::dynamic_pointer_cast<
+    rm::ModelSetter<rm::SphericalModel> >(correspondences_))
+  {
+    // RCC required sensor model
+    model_setter->setModel(sensor_model_);
+  }
+  
+  const double el_unpack_msg = sw();
+
+  correspondences_->outdated = true;
+  first_message_received = true;
+
+  data_correction_mutex_.unlock();
+
+  { // print stats
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPSphericalSensorCPU Timings:");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Fetch TF: " << el_fetch_tf * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
+  }
+
+  on_data_received(this);
 }
 
 void MICPSphericalSensorCPU::unpackMessage(
@@ -95,64 +161,6 @@ void MICPSphericalSensorCPU::unpackMessage(
   }
   
   dataset_stamp_ = msg->header.stamp;
-}
-
-void MICPSphericalSensorCPU::topicCB(
-  const rmcl_msgs::msg::ScanStamped::SharedPtr msg)
-{
-  rm::StopWatch sw;
-  const rclcpp::Time msg_time = msg->header.stamp;
-  const double diff_now_msg = (nh_->get_clock()->now() - msg_time).seconds();
-
-  if(fabs(diff_now_msg) > 0.1)
-  {
-    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "] WARNING: (now - input msg's stamp) is more than 100 ms apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
-  }
-  
-  sw();
-  data_correction_mutex_.lock();
-  const double el_mutex_lock = sw();
-
-  sw();
-  // Part 1: transfrom sensor and filter input data
-  dataset_stamp_ = msg->header.stamp;
-  sensor_frame = msg->header.frame_id;
-  fetchTF();
-  correspondences_->setTsb(Tsb);
-  const double el_fetch_tf = sw();
-
-  const double diff_odom_msg = (Tbo_stamp - dataset_stamp_).seconds();
-
-  // copy to internal representation
-  // fill sensor_model_ and initialize copy data to dataset
-  sw();
-  unpackMessage(msg);
-
-  // TODO: make some kind of SphericalSetter base class that doesnt depend on Embree
-  if(auto model_setter = std::dynamic_pointer_cast<
-    rm::ModelSetter<rm::SphericalModel> >(correspondences_))
-  {
-    // RCC required sensor model
-    model_setter->setModel(sensor_model_);
-  }
-  
-  const double el_unpack_msg = sw();
-
-  correspondences_->outdated = true;
-  first_message_received = true;
-
-  data_correction_mutex_.unlock();
-
-  { // print stats
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPSphericalSensorCPU Timings:");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Fetch TF: " << el_fetch_tf * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
-  }
-
-  on_data_received(this);
 }
 
 } // namespace rmcl

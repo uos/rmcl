@@ -3,6 +3,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rmcl_ros/correction/MICPSensor.hpp>
+#include <rmcl_ros/correction/sensors/MICPSensorCPU.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
@@ -38,16 +39,20 @@ namespace rmcl
 {
 
 class MICPSphericalSensorCPU
-: public MICPSensor_<rmagine::RAM>
+: public MICPSensorCPU
 {
 public:
-  using Base = MICPSensor_<rmagine::RAM>;
+  using Base = MICPSensorCPU;
 
   MICPSphericalSensorCPU(
-    rclcpp::Node::SharedPtr nh,
-    std::string topic_name);
+    rclcpp::Node::SharedPtr nh);
 
-  void topicCB(const rmcl_msgs::msg::ScanStamped::SharedPtr msg);
+  // Data Loaders
+  // TODO: Can we move this to seperate data loader instances?
+  void connectToTopic(const std::string& topic_name);
+  void getDataFromParameters();
+
+  void updateMsg(const rmcl_msgs::msg::ScanStamped::SharedPtr msg);
   
 protected:
 

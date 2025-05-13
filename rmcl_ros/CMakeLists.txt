@@ -92,6 +92,7 @@ add_library(rmcl_ros SHARED
     src/util/ros_helper.cpp
     # micp localization
     src/correction/MICPSensor.cpp
+    src/correction/sensors/MICPSensorCPU.cpp
     src/correction/sensors/MICPSphericalSensorCPU.cpp
     src/correction/sensors/MICPO1DnSensorCPU.cpp
     src/correction/sensors/MICPOnDnSensorCPU.cpp
@@ -111,6 +112,7 @@ ament_target_dependencies(rmcl_ros
     rmcl_msgs
     geometry_msgs
     tf2_ros
+    visualization_msgs
 )
 
 install(TARGETS rmcl_ros
