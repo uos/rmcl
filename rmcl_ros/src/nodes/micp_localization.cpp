@@ -23,6 +23,7 @@
 
 
 #include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
+#include <rmcl_ros/correction/sensors/MICPSphericalSensorCPU.hpp>
 
 #ifdef RMCL_EMBREE
 #include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
@@ -253,72 +254,83 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
     const std::string topic_name = sensor_param_tree->at("topic")->at("name")->data->as_string();
     const std::string topic_type = sensor_param_tree->at("topic")->at("type")->data->as_string();
 
-    if(topic_type == "rmcl_msgs/msg/O1DnStamped")
+    if(corr_backend == "embree")
     {
+      #ifdef RMCL_EMBREE
       std::cout << "- Backend: " << corr_backend << std::endl;
-      
-      if(corr_backend == "embree")
-      {
-        #ifdef RMCL_EMBREE
-        auto sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
 
+      std::shared_ptr<MICPSensor_<rm::RAM> > sensor_cpu;
+      
+      if(topic_type == "rmcl_msgs/msg/O1DnStamped")
+      {
+        sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
         if(corr_type == "RC")
         {
-          auto rcc_embree = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
-          rcc_embree->params = umeyama_params;
-          rcc_embree->adaptive_max_dist_min = adaptive_max_dist_min;
-          sensor_cpu->correspondences_ = rcc_embree;
-        } 
-        else if(corr_type == "CP") 
-        {
-          auto cpc_embree = std::make_shared<CPCEmbree>(map_embree_);
-          cpc_embree->params = umeyama_params;
-          cpc_embree->adaptive_max_dist_min = adaptive_max_dist_min;
-          sensor_cpu->correspondences_ = cpc_embree;
-        } 
-        else 
-        {
+          sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
+        } else if(corr_type == "CP") {
+          sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+        } else {
           // ERROR
           std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
           return sensor;
         }
-
-        sensor_cpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
-      
-        sensor = sensor_cpu;
-        #else
-        throw std::runtime_error("backend 'embree' not compiled / not found");
-        #endif // RMCL_EMBREE
+      }
+      else if(topic_type == "rmcl_msgs/msg/ScanStamped")
+      {
+        sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor, topic_name);
+        if(corr_type == "RC")
+        {
+          sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
+        } else if(corr_type == "CP") {
+          sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+        } else {
+          // ERROR
+          std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+          return sensor;
+        }
       }
 
-      if(corr_backend == "optix")
+      sensor_cpu->correspondences_->params = umeyama_params;
+      sensor_cpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
+
+      sensor = sensor_cpu;
+      #else
+      throw std::runtime_error("backend 'embree' not compiled / not found");
+      #endif // RMCL_EMBREE
+    }
+    else if(corr_backend == "optix")
+    {
+      #ifdef RMCL_OPTIX
+      if(topic_type == "rmcl_msgs/msg/O1DnStamped")
       {
-        #ifdef RMCL_OPTIX
         auto sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor, topic_name);
 
         if(corr_type == "RC")
         {
-          auto rcc_optix = std::make_shared<RCCOptixO1Dn>(map_optix_);
-          rcc_optix->params = umeyama_params;
-          rcc_optix->adaptive_max_dist_min = adaptive_max_dist_min;
-          sensor_gpu->correspondences_ = rcc_optix;
+          sensor_gpu->correspondences_ = std::make_shared<RCCOptixO1Dn>(map_optix_);
         } else {
           std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
           return sensor;
         }
-        
-        sensor_gpu->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
       
+        sensor_gpu->correspondences_->params = umeyama_params;
+        sensor_gpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
         sensor = sensor_gpu;
-        #else
-        throw std::runtime_error("backend 'optix' not compiled / not found");
-        #endif // RMCL_OPTIX
       }
-      
+      #else
+      throw std::runtime_error("backend 'optix' not compiled / not found");
+      #endif // RMCL_OPTIX
+    } 
+    else 
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Backend '" << corr_backend << "' not implemented.");
+      throw std::runtime_error("Backend not known");
     }
-  } else {
-    RCLCPP_ERROR_STREAM(get_logger(), "Topic source '" << data_source << "' not implemented.");
-    throw std::runtime_error("Topic source not known");
+  } 
+  else 
+  {
+    RCLCPP_ERROR_STREAM(get_logger(), "Data Source '" << data_source << "' not implemented.");
+    throw std::runtime_error("Data source not known");
   }
 
   if(sensor)
@@ -327,6 +339,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
     sensor->base_frame = base_frame_;
     sensor->odom_frame = odom_frame_;
     sensor->map_frame = map_frame_;
+    sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
   }
 
   return sensor;

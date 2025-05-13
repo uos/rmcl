@@ -18,6 +18,39 @@
 namespace rmcl
 {
 
+class RCCEmbreeSpherical
+: public CorrespondencesCPU
+, public ModelSetter<rmagine::SphericalModel>
+, protected rmagine::SphereSimulatorEmbree
+{
+public:
+
+  RCCEmbreeSpherical(
+    rmagine::EmbreeMapPtr map);
+
+  void setModel(const rmagine::SphericalModel& sensor_model);
+
+  virtual void setTsb(const rmagine::Transform& Tsb) override;
+
+  virtual void find(const rmagine::Transform& Tbm_est);
+};
+
+class RCCEmbreePinhole
+: public CorrespondencesCPU
+, public ModelSetter<rmagine::PinholeModel>
+, protected rmagine::PinholeSimulatorEmbree
+{
+public:
+  RCCEmbreePinhole(
+    rmagine::EmbreeMapPtr map);
+
+  void setModel(const rmagine::PinholeModel& sensor_model);
+
+  virtual void setTsb(const rmagine::Transform& Tsb) override;
+
+  virtual void find(const rmagine::Transform& Tbm_est);
+};
+
 class RCCEmbreeO1Dn
 : public CorrespondencesCPU
 , public ModelSetter<rmagine::O1DnModel>
@@ -29,6 +62,23 @@ public:
     rmagine::EmbreeMapPtr map);
 
   void setModel(const rmagine::O1DnModel& sensor_model);
+
+  virtual void setTsb(const rmagine::Transform& Tsb) override;
+
+  virtual void find(const rmagine::Transform& Tbm_est);
+};
+
+class RCCEmbreeOnDn
+: public CorrespondencesCPU
+, public ModelSetter<rmagine::OnDnModel>
+, protected rmagine::OnDnSimulatorEmbree
+{
+public:
+
+  RCCEmbreeOnDn(
+    rmagine::EmbreeMapPtr map);
+
+  void setModel(const rmagine::OnDnModel& sensor_model);
 
   virtual void setTsb(const rmagine::Transform& Tsb) override;
 

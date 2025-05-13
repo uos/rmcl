@@ -93,6 +93,7 @@ add_library(rmcl_ros SHARED
     # micp localization
     src/correction/MICPSensor.cpp
     src/correction/sensors/MICPO1DnSensorCPU.cpp
+    src/correction/sensors/MICPSphericalSensorCPU.cpp
     src/correction/correspondences/CorrespondencesCPU.cpp
 )
 

@@ -1,5 +1,5 @@
 #include <rmcl_ros/correction/MICPSensor.hpp>
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
+#include <rmcl_ros/correction/sensors/MICPSphericalSensorCPU.hpp>
 
 #include <rmcl_ros/util/conversions.h>
 
@@ -23,7 +23,7 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-MICPO1DnSensorCPU::MICPO1DnSensorCPU(
+MICPSphericalSensorCPU::MICPSphericalSensorCPU(
   rclcpp::Node::SharedPtr nh, 
   std::string topic_name)
 :MICPSensor_<rmagine::RAM>(nh)
@@ -32,13 +32,13 @@ MICPO1DnSensorCPU::MICPO1DnSensorCPU(
 
   std::chrono::duration<int> buffer_timeout(1);
 
-  tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> >(
+  tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::ScanStamped> >(
     data_sub_, *tf_buffer_, odom_frame, 10, nh_->get_node_logging_interface(),
     nh_->get_node_clock_interface(), buffer_timeout);
   
-  rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
+  rclcpp::QoS qos(10);
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  tf_filter_->registerCallback(&MICPO1DnSensorCPU::topicCB, this);
+  tf_filter_->registerCallback(&MICPSphericalSensorCPU::topicCB, this);
 
   std::cout << "Waiting for message..." << std::endl;
 
@@ -47,20 +47,20 @@ MICPO1DnSensorCPU::MICPO1DnSensorCPU(
   correspondences_.reset();
 }
 
-void MICPO1DnSensorCPU::unpackMessage(
-  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPSphericalSensorCPU::unpackMessage(
+  const rmcl_msgs::msg::ScanStamped::SharedPtr msg)
 {
   /////
   // sensor model
   // std::cout << "INFO: " << msg->o1dn.info.range_min << ", " << msg->o1dn.info.range_max << std::endl;
-  rmcl::convert(msg->o1dn.info, sensor_model_);
+  rmcl::convert(msg->scan.info, sensor_model_);
   
   ////
   // data: TODOs: 
   // - use input mask values
   // - use input normals
   size_t n_old_measurements = correspondences_->dataset.points.size();
-  size_t n_new_measurements = msg->o1dn.data.ranges.size();
+  size_t n_new_measurements = msg->scan.data.ranges.size();
   if(n_new_measurements > n_old_measurements)
   {
     // need to resize buffers
@@ -83,7 +83,7 @@ void MICPO1DnSensorCPU::unpackMessage(
     for(unsigned int hid = 0; hid < sensor_model_.getWidth(); hid++)
     {
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
-      const float real_range = msg->o1dn.data.ranges[loc_id];
+      const float real_range = msg->scan.data.ranges[loc_id];
       const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
       correspondences_->dataset.points[loc_id] = real_point;
 
@@ -101,8 +101,8 @@ void MICPO1DnSensorCPU::unpackMessage(
   dataset_stamp_ = msg->header.stamp;
 }
 
-void MICPO1DnSensorCPU::topicCB(
-  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPSphericalSensorCPU::topicCB(
+  const rmcl_msgs::msg::ScanStamped::SharedPtr msg)
 {
   // std::lock_guard<std::mutex> guard(data_correction_mutex_);
   data_correction_mutex_.lock();
@@ -124,9 +124,9 @@ void MICPO1DnSensorCPU::topicCB(
   sw();
   unpackMessage(msg);
 
-  // TODO: make some kind of O1DnSetter base class that doesnt depend on Embree
+  // TODO: make some kind of SphericalSetter base class that doesnt depend on Embree
   if(auto model_setter = std::dynamic_pointer_cast<
-    ModelSetter<rm::O1DnModel> >(correspondences_))
+    ModelSetter<rm::SphericalModel> >(correspondences_))
   {
     // RCC required sensor model
     model_setter->setModel(sensor_model_);
