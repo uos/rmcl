@@ -122,7 +122,6 @@ void MICPO1DnSensorCPU::topicCB(
   sw();
   unpackMessage(msg);
 
-  // TODO: make some kind of O1DnSetter base class that doesnt depend on Embree
   if(auto model_setter = std::dynamic_pointer_cast<
     rm::ModelSetter<rm::O1DnModel> >(correspondences_))
   {
