@@ -25,8 +25,6 @@ MICPO1DnSensorCUDA::MICPO1DnSensorCUDA(
   std::string topic_name)
 :Base(nh)
 {
-  std::cout << "Load data from topic '" << topic_name << "'" << std::endl;
-
   std::chrono::duration<int> buffer_timeout(1);
 
   tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> >(
@@ -37,11 +35,10 @@ MICPO1DnSensorCUDA::MICPO1DnSensorCUDA(
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
   tf_filter_->registerCallback(&MICPO1DnSensorCUDA::topicCB, this);
 
-  std::cout << "Waiting for message..." << std::endl;
-
   Tom.setIdentity();
-
   correspondences_.reset();
+
+  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "Waiting for message from topic '" << topic_name << "'...");
 }
 
 void MICPO1DnSensorCUDA::unpackMessage(
@@ -61,7 +58,6 @@ void MICPO1DnSensorCUDA::unpackMessage(
   if(n_new_measurements > n_old_measurements)
   {
     // need to resize buffers
-    std::cout << "Need to resize buffers: " << n_old_measurements << " -> " << n_new_measurements << std::endl;
     correspondences_->dataset.points.resize(n_new_measurements);
     correspondences_->dataset.mask.resize(n_new_measurements);
     dataset_cpu_.points.resize(n_new_measurements);
@@ -107,22 +103,30 @@ void MICPO1DnSensorCUDA::unpackMessage(
 void MICPO1DnSensorCUDA::topicCB(
   const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
 {
-  // std::lock_guard<std::mutex> guard(data_correction_mutex_);
-  data_correction_mutex_.lock();
-
   rm::StopWatch sw;
-  double el;
+  const rclcpp::Time msg_time = msg->header.stamp;
+  const double diff_now_msg = (nh_->get_clock()->now() - msg_time).seconds();
 
-  dataset_stamp_ = msg->header.stamp;
+  if(fabs(diff_now_msg) > 0.1)
+  {
+    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING: (now - input msg's stamp) is more than 100 ms apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
+  }
 
-  sensor_frame = msg->header.frame_id;
+  sw();
+  data_correction_mutex_.lock();
+  const double el_mutex_lock = sw();
 
+  sw();
   // Part 1: transfrom sensor and filter input data
+  dataset_stamp_ = msg->header.stamp;
+  sensor_frame = msg->header.frame_id;
   fetchTF();
   correspondences_->setTsb(Tsb);
+  const double el_fetch_tf = sw();
+
+  const double diff_odom_msg = (Tbo_stamp - dataset_stamp_).seconds();
 
   // copy to internal representation
-
   // fill sensor_model_ and initialize copy data to dataset
   sw();
   unpackMessage(msg);
@@ -131,23 +135,21 @@ void MICPO1DnSensorCUDA::topicCB(
     // RCC required sensor model
     model_setter->setModel(sensor_model_);
   }
-  
-  el = sw();
-  
-  std::cout << "- Unpack Message & fill data (" 
-    << correspondences_->dataset.points.size() << "): " << el * 1000.0 << "ms" << std::endl;
-  
-  { // print conversion & sync delay
-    rclcpp::Time msg_time = msg->header.stamp;
-    rclcpp::Duration conversion_time = nh_->get_clock()->now() - msg_time;
-    std::cout << "- Time lost due to rmcl msg conversion + tf sync: " << conversion_time.seconds() * 1000.0 << "ms" << std::endl;
-  }
+  const double el_unpack_msg = sw();
 
   correspondences_->outdated = true;
-
   first_message_received = true;
-
+  
   data_correction_mutex_.unlock();
+
+  { // print conversion & sync delay
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPO1DnSensorCUDA Timings:");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Fetch TF: " << el_fetch_tf * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
+  }
 
   on_data_received(this);
 }
