@@ -57,8 +57,13 @@ public:
     double convergence_progress = 0.0
   ) const = 0;
 
+  virtual void connectToTopic(const std::string& topic_name) = 0;
+
+  virtual void getDataFromParameters() = 0;
+
   // name of the sensor
   std::string name;
+  bool static_dataset = false;
 
   // transform chain from sensor -> base -> odom -> map
 
@@ -76,7 +81,7 @@ public:
   std::string base_frame = "base_footprint";
   std::string sensor_frame = "velodyne";
 
-  bool first_message_received = false;
+  bool first_message_received = false; 
 
   // weight multiplier
   double merge_weight_multiplier = 1.0;

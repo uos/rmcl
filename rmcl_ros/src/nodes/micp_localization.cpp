@@ -22,8 +22,9 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
 #include <rmcl_ros/correction/sensors/MICPSphericalSensorCPU.hpp>
+#include <rmcl_ros/correction/sensors/MICPOnDnSensorCPU.hpp>
+#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
 
 #ifdef RMCL_EMBREE
 #include <rmcl/registration/RCCEmbree.hpp>
@@ -98,6 +99,29 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   pose_noise_ = rmcl::get_parameter(this, "pose_noise", 0.01);
   adaptive_max_dist_ = rmcl::get_parameter(this, "adaptive_max_dist", true);
 
+  std::vector<double> initial_pose_offset = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  initial_pose_offset = rmcl::get_parameter(this, "initial_pose_offset", initial_pose_offset);
+
+  initial_pose_offset_.t.x = initial_pose_offset[0];
+  initial_pose_offset_.t.y = initial_pose_offset[1];
+  initial_pose_offset_.t.z = initial_pose_offset[2];
+
+  if(initial_pose_offset.size() == 6)
+  {
+    rm::EulerAngles euler;
+    euler.roll = initial_pose_offset[4];
+    euler.pitch = initial_pose_offset[5];
+    euler.yaw = initial_pose_offset[6];
+    initial_pose_offset_.R = euler;
+  }
+  else if(initial_pose_offset.size() == 7)
+  {
+    initial_pose_offset_.R.x = initial_pose_offset[4];
+    initial_pose_offset_.R.y = initial_pose_offset[5];
+    initial_pose_offset_.R.z = initial_pose_offset[6];
+    initial_pose_offset_.R.w = initial_pose_offset[7];
+  }
+
   #ifdef RMCL_EMBREE
   map_embree_ = rm::import_embree_map(map_filename_);
   #endif // RMCL_EMBREE
@@ -139,14 +163,14 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
 
   // incoming pose this needs to be synced with tf
-  stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("micpl_stats", 10);
+  stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("~/micpl_stats", 10);
 
   pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "/initialpose", 10, std::bind(&MICPLocalizationNode::poseCB, this, std::placeholders::_1));
 
   if(publish_pose_)
   {
-    Tbm_publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("micpl_pose", 10);
+    Tbm_publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("~/micpl_pose", 10);
   }
 
   std::cout << "Waiting for pose..." << std::endl;
@@ -184,13 +208,15 @@ void MICPLocalizationNode::poseCB(
     }
   }
   
+  
+
   // transform from actual pose (base) to the pose coordinate system
   rm::Transform T_b_pc;
   convert(msg->pose.pose, T_b_pc);
   // figure out what transform from odom to map is
 
   // transform b -> m == transform b -> pc -> m
-  const rm::Transform Tbm = T_pc_m * T_b_pc;
+  const rm::Transform Tbm = T_pc_m * T_b_pc * initial_pose_offset_;
   
   // TODO: remove this
   // update sensors
@@ -233,6 +259,8 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   // std::cout << "- Model Source: " << model_source << std::endl;
   const std::string data_source = sensor_param_tree->at("data_source")->data->as_string();
   std::cout << "- Data Source: " << data_source << std::endl;
+  const std::string model_type = sensor_param_tree->at("model_type")->data->as_string();
+  std::cout << "- Model Type: " << model_type << std::endl;
 
   auto corr_params = sensor_param_tree->at("correspondences");
   const std::string corr_backend = corr_params->at("backend")->data->as_string();
@@ -250,98 +278,140 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 
   std::cout << "- Correspondence Backend: " << corr_backend << std::endl;
 
-  if(data_source == "topic")
+  if(corr_backend == "embree")
   {
-    const std::string topic_name = sensor_param_tree->at("topic")->at("name")->data->as_string();
-    const std::string topic_type = sensor_param_tree->at("topic")->at("type")->data->as_string();
+    #ifdef RMCL_EMBREE
 
-    if(corr_backend == "embree")
+    std::shared_ptr<MICPSensor_<rm::RAM> > sensor_cpu;
+    
+    if(model_type == "o1dn")
     {
-      #ifdef RMCL_EMBREE
-      std::cout << "- Backend: " << corr_backend << std::endl;
-
-      std::shared_ptr<MICPSensor_<rm::RAM> > sensor_cpu;
-      
-      if(topic_type == "rmcl_msgs/msg/O1DnStamped")
+      sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
       {
-        sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor, topic_name);
-        if(corr_type == "RC")
-        {
-          sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
-        } else if(corr_type == "CP") {
-          sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
-        } else {
-          // ERROR
-          std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
-          return sensor;
-        }
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
       }
-      else if(topic_type == "rmcl_msgs/msg/ScanStamped")
-      {
-        sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor, topic_name);
-        if(corr_type == "RC")
-        {
-          sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
-        } else if(corr_type == "CP") {
-          sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
-        } else {
-          // ERROR
-          std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
-          return sensor;
-        }
-      }
-
-      sensor_cpu->correspondences_->params = umeyama_params;
-      sensor_cpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
-
-      sensor = sensor_cpu;
-      #else
-      throw std::runtime_error("backend 'embree' not compiled / not found");
-      #endif // RMCL_EMBREE
     }
-    else if(corr_backend == "optix")
+    else if(model_type == "ondn")
     {
-      #ifdef RMCL_OPTIX
-      if(topic_type == "rmcl_msgs/msg/O1DnStamped")
+      sensor_cpu = std::make_shared<MICPOnDnSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
       {
-        auto sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor, topic_name);
-
-        if(corr_type == "RC")
-        {
-          sensor_gpu->correspondences_ = std::make_shared<RCCOptixO1Dn>(map_optix_);
-        } else {
-          std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
-          return sensor;
-        }
-      
-        sensor_gpu->correspondences_->params = umeyama_params;
-        sensor_gpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
-        sensor = sensor_gpu;
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeOnDn>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
       }
-      #else
-      throw std::runtime_error("backend 'optix' not compiled / not found");
-      #endif // RMCL_OPTIX
-    } 
-    else 
-    {
-      RCLCPP_ERROR_STREAM(get_logger(), "Backend '" << corr_backend << "' not implemented.");
-      throw std::runtime_error("Backend not known");
     }
+    // else if(model_type == "spherical")
+    // {
+    //   sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor, topic_name);
+    //   if(corr_type == "RC")
+    //   {
+    //     sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
+    //   } else if(corr_type == "CP") {
+    //     sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+    //   } else {
+    //     // ERROR
+    //     std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+    //     return sensor;
+    //   }
+    // }
+    
+    sensor_cpu->correspondences_->params = umeyama_params;
+    sensor_cpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
+
+    if(!sensor_cpu)
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization (embree) '" << sensor_name << "'.");
+      return sensor;
+    }
+
+    sensor = sensor_cpu;
+    
+    #else
+    throw std::runtime_error("backend 'embree' not compiled / not found");
+    #endif // RMCL_EMBREE
+  }
+  else if(corr_backend == "optix")
+  {
+    #ifdef RMCL_OPTIX
+
+    std::shared_ptr<MICPSensor_<rm::VRAM_CUDA> > sensor_gpu;
+    
+    if(model_type == "o1dn")
+    {
+      // auto sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor, topic_name);
+
+      // if(corr_type == "RC")
+      // {
+      //   sensor_gpu->correspondences_ = std::make_shared<RCCOptixO1Dn>(map_optix_);
+      // } else {
+      //   std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+      //   return sensor;
+      // }
+    
+      // sensor_gpu->correspondences_->params = umeyama_params;
+      // sensor_gpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
+      // sensor = sensor_gpu;
+    }
+
+    if(!sensor_gpu)
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization (optix) '" << sensor_name << "'.");
+      return sensor;
+    }
+
+    sensor = sensor_gpu;
+
+    #else
+    throw std::runtime_error("backend 'optix' not compiled / not found");
+    #endif // RMCL_OPTIX
   } 
   else 
   {
+    RCLCPP_ERROR_STREAM(get_logger(), "Backend '" << corr_backend << "' not implemented.");
+    throw std::runtime_error("Backend not known");
+  }
+  
+  // at this point a sensor must be initialized
+  if(!sensor)
+  {
+    RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization '" << sensor_name << "'.");
+    return sensor;
+  }
+
+  std::cout << "Connect to data..." << std::endl;
+
+  if(data_source == "topic")
+  {
+    const std::string topic_name = sensor_param_tree->at("topic_name")->data->as_string();
+    sensor->connectToTopic(topic_name);
+  }
+  else if(data_source == "parameters") 
+  {
+    std::cout << "Get Data From parameter" << std::endl;
+    sensor->getDataFromParameters();
+  } else {
     RCLCPP_ERROR_STREAM(get_logger(), "Data Source '" << data_source << "' not implemented.");
     throw std::runtime_error("Data source not known");
   }
 
-  if(sensor)
-  {
-    // set frames
-    sensor->base_frame = base_frame_;
-    sensor->odom_frame = odom_frame_;
-    sensor->map_frame = map_frame_;
-    sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
-  }
+  // set frames
+  sensor->base_frame = base_frame_;
+  sensor->odom_frame = odom_frame_;
+  sensor->map_frame = map_frame_;
+  sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
+  
 
   return sensor;
 }

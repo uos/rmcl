@@ -1,5 +1,4 @@
-#include <rmcl_ros/correction/MICPSensor.hpp>
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
+#include "rmcl_ros/correction/sensors/MICPOnDnSensorCPU.hpp"
 
 #include <rmcl_ros/util/conversions.h>
 
@@ -13,6 +12,8 @@
 
 #include <rmagine/util/prints.h>
 
+#include <rmcl_ros/util/ros_helper.h>
+
 
 using namespace std::chrono_literals;
 
@@ -21,37 +22,122 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-MICPO1DnSensorCPU::MICPO1DnSensorCPU(
+MICPOnDnSensorCPU::MICPOnDnSensorCPU(
   rclcpp::Node::SharedPtr nh)
 :MICPSensor_<rmagine::RAM>(nh)
 {
   Tom.setIdentity();
   correspondences_.reset();
+
+  // check parameter
 }
 
-void MICPO1DnSensorCPU::connectToTopic(const std::string& topic_name)
+void MICPOnDnSensorCPU::connectToTopic(const std::string& topic_name)
 {
   std::chrono::duration<int> buffer_timeout(1);
 
-  tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> >(
+  tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::OnDnStamped> >(
     data_sub_, *tf_buffer_, odom_frame, 10, nh_->get_node_logging_interface(),
     nh_->get_node_clock_interface(), buffer_timeout);
 
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  tf_filter_->registerCallback(&MICPO1DnSensorCPU::updateMsg, this);
+  tf_filter_->registerCallback(&MICPOnDnSensorCPU::updateMsg, this);
 
   RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "Waiting for message from topic '" << topic_name << "'...");
 }
 
-void MICPO1DnSensorCPU::getDataFromParameters()
+void MICPOnDnSensorCPU::getDataFromParameters()
 {
   // rmcl::get_parameter(nh_, "~model.width");
-  // TODO
+  
+  std::cout << "Try to load model" << std::endl;
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
+    = get_parameter_tree(nh_, "~");
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params = sensor_param_tree->at("model");
+  sensor_model_.width  = sensor_model_params->at("width")->data->as_int();
+  sensor_model_.height = sensor_model_params->at("height")->data->as_int();
+  sensor_model_.range.min = sensor_model_params->at("range_min")->data->as_double();
+  sensor_model_.range.max = sensor_model_params->at("range_max")->data->as_double();
+  sensor_model_.origs.resize(sensor_model_.width * sensor_model_.height);
+  sensor_model_.dirs.resize(sensor_model_.width * sensor_model_.height);
+
+  const std::vector<double> origs_data = sensor_model_params->at("origs")->data->as_double_array();
+  for(size_t i=0; i<origs_data.size() / 3; i++)
+  {
+    sensor_model_.origs[i].x = origs_data[i * 3 + 0];
+    sensor_model_.origs[i].y = origs_data[i * 3 + 1];
+    sensor_model_.origs[i].z = origs_data[i * 3 + 2];
+  }
+
+  const std::vector<double> dirs_data = sensor_model_params->at("dirs")->data->as_double_array();
+  for(size_t i=0; i<dirs_data.size() / 3; i++)
+  {
+    sensor_model_.dirs[i].x = dirs_data[i * 3 + 0];
+    sensor_model_.dirs[i].y = dirs_data[i * 3 + 1];
+    sensor_model_.dirs[i].z = dirs_data[i * 3 + 2];
+  }
+
+  if(dirs_data.size() != origs_data.size())
+  {
+    RCLCPP_ERROR_STREAM(nh_->get_logger(), "OnDn must have same sized dirs and origs!");
+    throw std::runtime_error("OnDn must have same sized dirs and origs!");
+  }
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_data_params = sensor_param_tree->at("data");
+
+  const std::vector<double> data_ranges = sensor_data_params->at("ranges")->data->as_double_array();
+
+  if(auto model_setter = std::dynamic_pointer_cast<
+    rm::ModelSetter<rm::OnDnModel> >(correspondences_))
+  {
+    // RCC required sensor model
+    model_setter->setModel(sensor_model_);
+  }
+
+  size_t n_old_measurements = correspondences_->dataset.points.size();
+  size_t n_new_measurements = data_ranges.size();
+  if(n_new_measurements > n_old_measurements)
+  {
+    // need to resize buffers
+    correspondences_->dataset.points.resize(n_new_measurements);
+    correspondences_->dataset.mask.resize(n_new_measurements);
+    for(size_t i=n_old_measurements; i<n_new_measurements; i++)
+    {
+      correspondences_->dataset.mask[i] = 1;
+    }
+  }
+
+  total_dataset_measurements = n_new_measurements;
+  valid_dataset_measurements = n_new_measurements;
+
+
+  for(unsigned int vid = 0; vid < sensor_model_.getHeight(); vid++)
+  {
+    for(unsigned int hid = 0; hid < sensor_model_.getWidth(); hid++)
+    {
+      const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
+      const float real_range = data_ranges[loc_id];
+      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
+      correspondences_->dataset.points[loc_id] = real_point;
+    }
+  }
+
+  correspondences_->outdated = true;
+  first_message_received = true;
+
+  correspondences_->setTsb(rm::Transform::Identity());
+
+  static_dataset = true;
+  dataset_stamp_ = nh_->now();
+
+  on_data_received(this);
 }
 
-void MICPO1DnSensorCPU::updateMsg(
-  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPOnDnSensorCPU::updateMsg(
+  const rmcl_msgs::msg::OnDnStamped::SharedPtr msg)
 {
   rm::StopWatch sw;
   const rclcpp::Time msg_time = msg->header.stamp;
@@ -82,7 +168,7 @@ void MICPO1DnSensorCPU::updateMsg(
   sw();
   unpackMessage(msg);
   if(auto model_setter = std::dynamic_pointer_cast<
-    rm::ModelSetter<rm::O1DnModel> >(correspondences_))
+    rm::ModelSetter<rm::OnDnModel> >(correspondences_))
   {
     // RCC required sensor model
     model_setter->setModel(sensor_model_);
@@ -95,7 +181,7 @@ void MICPO1DnSensorCPU::updateMsg(
   data_correction_mutex_.unlock();
 
   { // print stats
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPO1DnSensorCPU Timings:");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPOnDnSensorCPU Timings:");
     RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
     RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
     RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
@@ -107,19 +193,19 @@ void MICPO1DnSensorCPU::updateMsg(
 }
 
 
-void MICPO1DnSensorCPU::unpackMessage(
-  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPOnDnSensorCPU::unpackMessage(
+  const rmcl_msgs::msg::OnDnStamped::SharedPtr msg)
 {
   /////
   // sensor model
-  rmcl::convert(msg->o1dn.info, sensor_model_);
+  rmcl::convert(msg->ondn.info, sensor_model_);
   
   ////
   // data: TODOs: 
   // - use input mask values
   // - use input normals
   size_t n_old_measurements = correspondences_->dataset.points.size();
-  size_t n_new_measurements = msg->o1dn.data.ranges.size();
+  size_t n_new_measurements = msg->ondn.data.ranges.size();
   if(n_new_measurements > n_old_measurements)
   {
     // need to resize buffers
@@ -141,7 +227,7 @@ void MICPO1DnSensorCPU::unpackMessage(
     for(unsigned int hid = 0; hid < sensor_model_.getWidth(); hid++)
     {
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
-      const float real_range = msg->o1dn.data.ranges[loc_id];
+      const float real_range = msg->ondn.data.ranges[loc_id];
       const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
       correspondences_->dataset.points[loc_id] = real_point;
 
