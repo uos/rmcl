@@ -1,4 +1,4 @@
-#include "rmcl_ros/correction/correspondences/RCCOptix.hpp"
+#include "rmcl/registration/RCCOptix.hpp"
 
 namespace rm = rmagine;
 

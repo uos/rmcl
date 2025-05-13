@@ -94,7 +94,7 @@ add_library(rmcl_ros SHARED
     src/correction/MICPSensor.cpp
     src/correction/sensors/MICPO1DnSensorCPU.cpp
     src/correction/sensors/MICPSphericalSensorCPU.cpp
-    src/correction/correspondences/CorrespondencesCPU.cpp
+    # src/correction/correspondences/CorrespondencesCPU.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
@@ -120,36 +120,36 @@ install(TARGETS rmcl_ros
 )
 
 if(RMCL_EMBREE)
-    add_library(rmcl_ros_embree SHARED
-        src/correction/correspondences/RCCEmbree.cpp
-        src/correction/correspondences/CPCEmbree.cpp
-    )
-    target_include_directories(rmcl_ros_embree PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>")
-    target_link_libraries(rmcl_ros_embree
-        rmcl_ros
-        rmagine::embree
-        OpenMP::OpenMP_CXX
-    )
+    # add_library(rmcl_ros_embree SHARED
+    #     src/correction/correspondences/RCCEmbree.cpp
+    #     src/correction/correspondences/CPCEmbree.cpp
+    # )
+    # target_include_directories(rmcl_ros_embree PUBLIC
+    #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    #     "$<INSTALL_INTERFACE:include>")
+    # target_link_libraries(rmcl_ros_embree
+    #     rmcl_ros
+    #     rmcl-embree
+    #     rmagine::embree
+    #     OpenMP::OpenMP_CXX
+    # )
 
-    ament_target_dependencies(rmcl_ros_embree
-        rclcpp
-        sensor_msgs
-        rmcl_msgs
-        geometry_msgs
-    )
+    # ament_target_dependencies(rmcl_ros_embree
+    #     rclcpp
+    #     sensor_msgs
+    #     rmcl_msgs
+    #     geometry_msgs
+    # )
 
-    install(TARGETS rmcl_ros_embree
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
+    # install(TARGETS rmcl_ros_embree
+    #     ARCHIVE DESTINATION lib
+    #     LIBRARY DESTINATION lib
+    #     RUNTIME DESTINATION bin
+    # )
 endif(RMCL_EMBREE)
 
 if(RMCL_CUDA)
     add_library(rmcl_ros_cuda SHARED
-        src/correction/correspondences/CorrespondencesCUDA.cpp
         src/correction/sensors/MICPO1DnSensorCUDA.cpp
     )
     target_include_directories(rmcl_ros_cuda PUBLIC
@@ -176,29 +176,30 @@ if(RMCL_CUDA)
 endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
-    add_library(rmcl_ros_optix SHARED
-        src/correction/correspondences/RCCOptix.cpp
-    )
-    target_include_directories(rmcl_ros_optix PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>")
-    target_link_libraries(rmcl_ros_optix
-        rmcl_ros
-        rmagine::optix
-    )
+    # add_library(rmcl_ros_optix SHARED
+    #     src/correction/correspondences/RCCOptix.cpp
+    # )
+    # target_include_directories(rmcl_ros_optix PUBLIC
+    #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    #     "$<INSTALL_INTERFACE:include>")
+    # target_link_libraries(rmcl_ros_optix
+    #     rmcl_ros
+    #     rmcl-optix
+    #     rmagine::optix
+    # )
 
-    ament_target_dependencies(rmcl_ros_optix
-        rclcpp
-        sensor_msgs
-        rmcl_msgs
-        geometry_msgs
-    )
+    # ament_target_dependencies(rmcl_ros_optix
+    #     rclcpp
+    #     sensor_msgs
+    #     rmcl_msgs
+    #     geometry_msgs
+    # )
 
-    install(TARGETS rmcl_ros_optix
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-    )
+    # install(TARGETS rmcl_ros_optix
+    #     ARCHIVE DESTINATION lib
+    #     LIBRARY DESTINATION lib
+    #     RUNTIME DESTINATION bin
+    # )
 endif(RMCL_OPTIX)
 
 ## Nodes
@@ -222,7 +223,7 @@ target_link_libraries(micp_localization
 
 if(RMCL_EMBREE)
     target_link_libraries(micp_localization
-        rmcl_ros_embree
+        rmcl-embree
     )
 endif(RMCL_EMBREE)
     
@@ -234,7 +235,7 @@ endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
     target_link_libraries(micp_localization
-        rmcl_ros_optix
+        rmcl-optix
     )
 endif(RMCL_OPTIX)
 
@@ -403,39 +404,6 @@ if(BUILD_CONV)
 
 endif(BUILD_CONV)
 
-# ################
-# ### EXAMPLES ###
-# ################
-if(BUILD_MICP_EXPERIMENTS)
-
-if(TARGET rmcl-embree)
-
-### EVAL ###
-add_executable(micp_eval src/nodes/micp_eval.cpp)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(micp_eval
-    rmcl-embree
-    rmcl_ros
-)
-
-ament_target_dependencies(micp_eval
-    rclcpp
-    geometry_msgs
-    sensor_msgs
-    tf2_ros
-    rmcl_msgs
-    image_transport
-    visualization_msgs
-)
-
-install(TARGETS 
-    micp_eval
-    DESTINATION lib/${PROJECT_NAME})
-
-endif(TARGET rmcl-embree)
-
-endif(BUILD_MICP_EXPERIMENTS)
 
 # TODO: add more segmentation nodes
 if(TARGET rmcl-embree)

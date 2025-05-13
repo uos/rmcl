@@ -13,8 +13,6 @@
 
 #include <rmagine/util/prints.h>
 
-#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
-
 using namespace std::chrono_literals;
 
 namespace rm = rmagine;
@@ -128,7 +126,7 @@ void MICPO1DnSensorCUDA::topicCB(
   // fill sensor_model_ and initialize copy data to dataset
   sw();
   unpackMessage(msg);
-  if(auto model_setter = std::dynamic_pointer_cast<ModelSetter<rm::O1DnModel> >(correspondences_))
+  if(auto model_setter = std::dynamic_pointer_cast<rm::ModelSetter<rm::O1DnModel> >(correspondences_))
   {
     // RCC required sensor model
     model_setter->setModel(sensor_model_);

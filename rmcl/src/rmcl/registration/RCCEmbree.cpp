@@ -1,4 +1,4 @@
-#include "rmcl_ros/correction/correspondences/RCCEmbree.hpp"
+#include "rmcl/registration/RCCEmbree.hpp"
 
 namespace rm = rmagine;
 

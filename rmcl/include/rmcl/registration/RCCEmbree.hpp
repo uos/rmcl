@@ -10,17 +10,14 @@
 #include <rmagine/simulation/O1DnSimulatorEmbree.hpp>
 #include <rmagine/simulation/OnDnSimulatorEmbree.hpp>
 
-#include <rmcl_ros/correction/Correspondences.hpp>
-#include <rmcl_ros/correction/correspondences/CorrespondencesCPU.hpp>
-
-#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
+#include <rmcl/registration/CorrespondencesCPU.hpp>
 
 namespace rmcl
 {
 
 class RCCEmbreeSpherical
 : public CorrespondencesCPU
-, public ModelSetter<rmagine::SphericalModel>
+, public rmagine::ModelSetter<rmagine::SphericalModel>
 , protected rmagine::SphereSimulatorEmbree
 {
 public:
@@ -37,7 +34,7 @@ public:
 
 class RCCEmbreePinhole
 : public CorrespondencesCPU
-, public ModelSetter<rmagine::PinholeModel>
+, public rmagine::ModelSetter<rmagine::PinholeModel>
 , protected rmagine::PinholeSimulatorEmbree
 {
 public:
@@ -53,7 +50,7 @@ public:
 
 class RCCEmbreeO1Dn
 : public CorrespondencesCPU
-, public ModelSetter<rmagine::O1DnModel>
+, public rmagine::ModelSetter<rmagine::O1DnModel>
 , protected rmagine::O1DnSimulatorEmbree
 {
 public:
@@ -70,7 +67,7 @@ public:
 
 class RCCEmbreeOnDn
 : public CorrespondencesCPU
-, public ModelSetter<rmagine::OnDnModel>
+, public rmagine::ModelSetter<rmagine::OnDnModel>
 , protected rmagine::OnDnSimulatorEmbree
 {
 public:

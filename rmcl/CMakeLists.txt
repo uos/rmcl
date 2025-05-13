@@ -130,6 +130,8 @@ include_directories(
 add_library(rmcl SHARED
     # Math
     src/rmcl/math/math_batched.cpp
+    # Registration
+    src/rmcl/registration/CorrespondencesCPU.cpp
     # # Spatial
     # src/rmcl/spatial/KdTree.cpp # TODO: fix nanoflann
     # # Clustering
@@ -160,6 +162,45 @@ set_target_properties(rmcl
 #     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 #     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 # )
+
+# EMBREE
+if(TARGET rmagine::embree)
+
+    add_library(rmcl-embree SHARED
+        # Correction
+        src/rmcl/registration/RCCEmbree.cpp
+        src/rmcl/registration/CPCEmbree.cpp
+    )
+
+    target_link_libraries(rmcl-embree
+        rmagine::core
+        rmagine::embree
+        ${rmagine_ext_LIBRARIES}
+        rmcl
+    )
+
+    target_include_directories(rmcl-embree
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
+    )
+
+    set_target_properties(rmcl-embree
+        PROPERTIES
+            SOVERSION ${rmcl_VERSION_MAJOR}
+            VERSION ${rmcl_VERSION}
+            # CXX_STANDARD 17
+    )
+
+    install(TARGETS rmcl-embree
+        EXPORT rmcl-targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+
+    add_definitions(-DRMCL_EMBREE)
+    set(RMCL_EMBREE TRUE)
+endif()
 
 if(TARGET rmagine::cuda OR TARGET rmagine::optix)
 
@@ -219,6 +260,7 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     add_library(rmcl-cuda SHARED
         # math
         src/rmcl/math/math_batched.cu
+        src/rmcl/registration/CorrespondencesCUDA.cpp
     )
 
     target_link_libraries(rmcl-cuda
@@ -250,11 +292,46 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
 endif()
 
 
-#### TESTS
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif(BUILD_TESTS)
+# CUDA
+if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
+    add_library(rmcl-optix SHARED
+        # math
+        src/rmcl/registration/RCCOptix.cpp
+    )
+
+    target_link_libraries(rmcl-optix
+        rmagine::optix
+        ${CUDA_LIBRARIES}
+    )
+
+    target_include_directories(rmcl-optix
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
+    )
+
+    set_target_properties(rmcl-optix
+        PROPERTIES
+            SOVERSION ${rmcl_VERSION_MAJOR}
+            VERSION ${rmcl_VERSION}
+            # CXX_STANDARD 17
+    )
+
+    install(TARGETS rmcl-optix
+        EXPORT rmcl-targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+
+    add_definitions(-DRMCL_OPTIX)
+    set(RMCL_OPTIX True)
+endif()
+
+#### TESTS: TODO Tests
+# if(BUILD_TESTS)
+#     enable_testing()
+#     add_subdirectory(tests)
+# endif(BUILD_TESTS)
 
 
 ### INSTALL

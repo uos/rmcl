@@ -13,8 +13,6 @@
 
 #include <rmagine/util/prints.h>
 
-#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
-
 
 using namespace std::chrono_literals;
 
@@ -26,7 +24,7 @@ namespace rmcl
 MICPSphericalSensorCPU::MICPSphericalSensorCPU(
   rclcpp::Node::SharedPtr nh, 
   std::string topic_name)
-:MICPSensor_<rmagine::RAM>(nh)
+:MICPSensor_<rm::RAM>(nh)
 {
   std::cout << "Load data from topic '" << topic_name << "'" << std::endl;
 
@@ -126,7 +124,7 @@ void MICPSphericalSensorCPU::topicCB(
 
   // TODO: make some kind of SphericalSetter base class that doesnt depend on Embree
   if(auto model_setter = std::dynamic_pointer_cast<
-    ModelSetter<rm::SphericalModel> >(correspondences_))
+    rm::ModelSetter<rm::SphericalModel> >(correspondences_))
   {
     // RCC required sensor model
     model_setter->setModel(sensor_model_);

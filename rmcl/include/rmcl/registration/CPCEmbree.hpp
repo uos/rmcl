@@ -6,8 +6,7 @@
 #include <rmagine/types/PointCloud.hpp>
 #include <rmagine/map/EmbreeMap.hpp>
 
-#include <rmcl_ros/correction/Correspondences.hpp>
-#include <rmcl_ros/correction/correspondences/CorrespondencesCPU.hpp>
+#include <rmcl/registration/CorrespondencesCPU.hpp>
 
 
 namespace rmcl

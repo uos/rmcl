@@ -2,7 +2,7 @@
 #define RMCL_CORRECTION_CORRESPONDENCES_CPU_HPP
 
 #include <rmagine/types/Memory.hpp>
-#include <rmcl_ros/correction/Correspondences.hpp>
+#include <rmcl/registration/Correspondences.hpp>
 
 namespace rmcl
 {

@@ -10,17 +10,14 @@
 #include <rmagine/simulation/O1DnSimulatorOptix.hpp>
 #include <rmagine/simulation/OnDnSimulatorOptix.hpp>
 
-#include <rmcl_ros/correction/Correspondences.hpp>
-#include <rmcl_ros/correction/correspondences/CorrespondencesCUDA.hpp>
-
-#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
+#include <rmcl/registration/CorrespondencesCUDA.hpp>
 
 namespace rmcl
 {
 
 class RCCOptixO1Dn
 : public CorrespondencesCUDA
-, public ModelSetter<rmagine::O1DnModel>
+, public rmagine::ModelSetter<rmagine::O1DnModel>
 , protected rmagine::O1DnSimulatorOptix
 {
 public:

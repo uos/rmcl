@@ -1,4 +1,4 @@
-#include <rmcl_ros/correction/correspondences/CorrespondencesCUDA.hpp>
+#include "rmcl/registration/CorrespondencesCUDA.hpp"
 #include <rmagine/math/statistics.cuh>
 
 namespace rm = rmagine;

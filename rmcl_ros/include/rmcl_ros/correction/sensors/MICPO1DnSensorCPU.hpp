@@ -27,8 +27,8 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
 // Correspondences
-#include <rmcl_ros/correction/Correspondences.hpp>
-#include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
+#include <rmcl/registration/Correspondences.hpp>
+#include <rmcl/registration/RCCEmbree.hpp>
 
 
 #include <mutex>

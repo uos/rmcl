@@ -26,19 +26,20 @@
 #include <rmcl_ros/correction/sensors/MICPSphericalSensorCPU.hpp>
 
 #ifdef RMCL_EMBREE
-#include <rmcl_ros/correction/correspondences/RCCEmbree.hpp>
-#include <rmcl_ros/correction/correspondences/CPCEmbree.hpp>
+#include <rmcl/registration/RCCEmbree.hpp>
+#include <rmcl/registration/CPCEmbree.hpp>
 #endif // RMCL_EMBREE
 
 #ifdef RMCL_CUDA
 #include <rmcl_ros/correction/sensors/MICPO1DnSensorCUDA.hpp>
-#include <rmcl_ros/correction/correspondences/RCCOptix.hpp>
-
 #endif // RMCL_CUDA
+
+#ifdef RMCL_OPTIX
+#include <rmcl/registration/RCCOptix.hpp>
+#endif // RMCL_OPTIX
 
 #include <rmcl_msgs/msg/micp_stats.hpp>
 #include <rmcl_msgs/msg/micp_sensor_stats.hpp>
-
 
 using namespace std::chrono_literals;
 

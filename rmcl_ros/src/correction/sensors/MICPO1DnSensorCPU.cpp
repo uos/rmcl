@@ -13,8 +13,6 @@
 
 #include <rmagine/util/prints.h>
 
-#include <rmcl_ros/correction/sensors/ModelSetter.hpp>
-
 
 using namespace std::chrono_literals;
 
@@ -126,7 +124,7 @@ void MICPO1DnSensorCPU::topicCB(
 
   // TODO: make some kind of O1DnSetter base class that doesnt depend on Embree
   if(auto model_setter = std::dynamic_pointer_cast<
-    ModelSetter<rm::O1DnModel> >(correspondences_))
+    rm::ModelSetter<rm::O1DnModel> >(correspondences_))
   {
     // RCC required sensor model
     model_setter->setModel(sensor_model_);
