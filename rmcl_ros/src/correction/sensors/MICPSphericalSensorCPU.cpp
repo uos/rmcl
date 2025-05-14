@@ -43,7 +43,7 @@ void MICPSphericalSensorCPU::connectToTopic(const std::string& topic_name)
 
   static_dataset = false;
 
-  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "Waiting for message from topic '" << topic_name << "'...");
+  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "] [MICPSphericalSensorCPU] " << "Waiting for message from topic '" << topic_name << "'...");
 }
 
 void MICPSphericalSensorCPU::getDataFromParameters()
@@ -98,12 +98,12 @@ void MICPSphericalSensorCPU::updateMsg(
   data_correction_mutex_.unlock();
 
   { // print stats
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPSphericalSensorCPU Timings:");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Fetch TF: " << el_fetch_tf * 1000.0 << " ms");
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
+    // RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPSphericalSensorCPU Timings:");
+    // RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
+    // RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
+    // RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
+    // RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Fetch TF: " << el_fetch_tf * 1000.0 << " ms");
+    // RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
   }
 
   on_data_received(this);

@@ -19,7 +19,7 @@ Pc2ToScanNode::Pc2ToScanNode(
   if(debug_cloud)
   {
     pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
-      "debug_cloud", 10);
+      "~/debug_cloud", 10);
   }
 
   tf_buffer_ =

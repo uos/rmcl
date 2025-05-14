@@ -36,7 +36,12 @@ MICPSensorBase::MICPSensorBase(
   name = sensor_param_tree->name.substr(
     sensor_param_tree->name.find_last_of(".") + 1);
 
-  correspondence_viz_pub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("~/correspondences", 10);
+  // std::cout << "SENSOR NH: " << std::endl;
+  // std::cout << "- name: " << nh_->get_name() << std::endl;
+  // std::cout << "- fully_qualified_name: " << nh_->get_fully_qualified_name() << std::endl;
+  // std::cout << "- namespace: " << nh_->get_namespace() << std::endl;
+  // std::cout << "- get_effective_namespace: " << nh_->get_effective_namespace() << std::endl;
+  correspondence_viz_pub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("~/sensors/" + name + "/correspondences", 10);
 
   on_data_received = [](MICPSensorBase*){
     // default: dont use

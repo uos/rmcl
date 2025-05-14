@@ -25,7 +25,7 @@ Pc2ToO1DnNode::Pc2ToO1DnNode(
   if(debug_cloud_)
   {
     pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
-      "debug_cloud", 10);
+      "~/debug_cloud", 10);
   }
 
   tf_buffer_ =

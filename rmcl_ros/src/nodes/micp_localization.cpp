@@ -48,12 +48,58 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
+bool check(const rm::Vector& v)
+{
+  return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
+bool check(const rm::Quaternion& q)
+{
+  return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w) && (fabs(q.l2norm()-1.0) < 0.0001);
+}
+
+bool check(const rm::Transform& T)
+{
+  return check(T.t) && check(T.R);
+}
+
+template<typename T>
+bool is_valid(T a)
+{
+  return a == a;
+}
+
+template<typename DataT>
+void checkStats(rm::CrossStatistics_<DataT> stats)
+{
+  // check for nans
+  if(!is_valid(stats.dataset_mean.x)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.dataset_mean.y)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.dataset_mean.z)){throw std::runtime_error("ERROR: NAN");};
+  
+  if(!is_valid(stats.model_mean.x)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.model_mean.y)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.model_mean.z)){throw std::runtime_error("ERROR: NAN");};
+
+  if(!is_valid(stats.covariance(0,0))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(0,1))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(0,2))){throw std::runtime_error("ERROR: NAN");};
+
+  if(!is_valid(stats.covariance(1,0))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(1,1))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(1,2))){throw std::runtime_error("ERROR: NAN");};
+
+  if(!is_valid(stats.covariance(2,0))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(2,1))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(2,2))){throw std::runtime_error("ERROR: NAN");};
+}
+
 MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 :rclcpp::Node("micp_localization_node", rclcpp::NodeOptions(options)
     .allow_undeclared_parameters(true)
     .automatically_declare_parameters_from_overrides(true))
 {
-  Tom = rmagine::Transform::Identity();
+  Tom_ = rmagine::Transform::Identity();
   
   std::cout << "MICPLocalizationNode" << std::endl;
 
@@ -93,6 +139,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   correction_rate_max_ = rmcl::get_parameter(this, "correction_rate_max", 1000.0);
 
   broadcast_tf_ = rmcl::get_parameter(this, "broadcast_tf", true);
+  tf_rate_ = rmcl::get_parameter(this, "tf_rate", 100.0);
   publish_pose_ = rmcl::get_parameter(this, "publish_pose", false);
 
   pose_noise_ = rmcl::get_parameter(this, "pose_noise", 0.01);
@@ -185,14 +232,20 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     correctionLoop();
   });
   // correction_thread_.detach();
-  // last_correction_stamp = this->now();
+  
+  stop_tf_broadcaster_thread_ = false;
+  tf_broadcaster_thread_ = std::thread([&](){
+    tfBroadcastLoop();
+  });
 
+  // last_correction_stamp = this->now();
 }
 
 void MICPLocalizationNode::poseCB(
   const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
   std::cout << "POSE RECEIVED!" << std::endl;
+  
 
   // wait for correction loop to finish
   
@@ -221,8 +274,11 @@ void MICPLocalizationNode::poseCB(
   // transform b -> m == transform b -> pc -> m
   const rm::Transform Tbm = T_pc_m * T_b_pc * initial_pose_offset_;
 
-  this->Tom = Tbm * ~Tbo_latest_;  
-  std::cout << "Initial pose guess processed." << std::endl;
+  mutex_.lock();
+  Tom_ = Tbm * ~Tbo_latest_;
+  mutex_.unlock();
+  std::cout << "Initial pose guess processed. Tom: " << Tom_ << std::endl;
+  
 }
 
 MICPSensorPtr MICPLocalizationNode::loadSensor(
@@ -231,6 +287,12 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   MICPSensorPtr sensor;
   std::string sensor_name = sensor_params->name;
   std::cout << "Loading '" << sensor_name << "'" << std::endl;
+
+  // std::cout << "ROOT NODE:" << std::endl;
+  // std::cout << "- name: " << this->get_name() << std::endl;
+  // std::cout << "- fully_qualified_name: " << this->get_fully_qualified_name() << std::endl;
+  // std::cout << "- namespace: " << this->get_namespace() << std::endl;
+  // std::cout << "- get_effective_namespace: " << this->get_effective_namespace() << std::endl;
 
   rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
   
@@ -462,6 +524,10 @@ void MICPLocalizationNode::correct()
 
 void MICPLocalizationNode::correctOnce()
 {
+  // std::cout << "-------------| correctOnce |----------------" << std::endl;
+  mutex_.lock();
+  const rm::Transform Tom = Tom_;
+  
   rmcl_msgs::msg::MICPSensorStats stats;
   stats.total_measurements = 0;
   stats.valid_measurements = 0;
@@ -483,6 +549,7 @@ void MICPLocalizationNode::correctOnce()
     {
       if(!sensor->fetchTF(now()))
       {
+        std::cout << "Couldn't fetch tf from " << sensor->name << std::endl;
         return;
       }
     }
@@ -493,6 +560,7 @@ void MICPLocalizationNode::correctOnce()
       {
         if(!sensor->fetchTF(data_stamp_latest_))
         {
+          std::cout << "Couldn't fetch tf from " << sensor->name << std::endl;
           return;
         }
       }
@@ -501,11 +569,11 @@ void MICPLocalizationNode::correctOnce()
 
   // collect infos
 
-  std::cout << "Robot:" << std::endl;
-  std::cout << "- Tom: " << Tom << std::endl;
-  std::cout << "- Tbo_latest: " << Tbo_latest_ << std::endl; 
+  // std::cout << "Robot:" << std::endl;
+  // std::cout << "- Tom: " << Tom << std::endl;
+  // std::cout << "- Tbo_latest: " << Tbo_latest_ << std::endl; 
 
-  std::cout << "Sensor:" << std::endl;
+  // std::cout << "Sensor:" << std::endl;
   // #pragma omp parallel for
   for(auto sensor : sensors_vec_)
   {
@@ -521,11 +589,9 @@ void MICPLocalizationNode::correctOnce()
     sensor->findCorrespondences();
     sensor->drawCorrespondences();
 
-    std::cout << "- Tbo: " << sensor->Tbo << std::endl;
-    std::cout << "- Tsb: " << sensor->Tsb << std::endl;
+    // std::cout << "- Tbo: " << sensor->Tbo << std::endl;
+    // std::cout << "- Tsb: " << sensor->Tsb << std::endl;
   }
-
-  
 
   rm::Transform T_onew_oold = rm::Transform::Identity();
 
@@ -534,55 +600,30 @@ void MICPLocalizationNode::correctOnce()
   
   for(size_t i=0; i<optimization_iterations_; i++)
   {
-    std::cout << "Correct! " << i << std::endl;
+    // std::cout << "Correct! " << i << std::endl;
     Cmerged_o = rm::CrossStatistics::Identity();
     Cmerged_weighted_o = rm::CrossStatistics::Identity();
 
     bool outdated = false;
 
-    // #pragma omp parallel for
     for(const auto sensor : sensors_vec_)
-    {
-      // if(sensor->correspondencesOutdated())
-      // {
-      //   RCLCPP_DEBUG_STREAM(get_logger(), "Correspondences outdated!");
-      //   outdated = true;
-      //   continue;
-      // }
-      
+    { 
       // transform delta from odom frame to base frame, at time of respective sensor
       const rm::Transform T_bnew_bold = ~sensor->Tbo * T_onew_oold * sensor->Tbo;
 
       const rm::CrossStatistics Cs_b 
         = sensor->computeCrossStatistics(T_bnew_bold, convergence_progress_);
 
-      const float Cs_trace = Cs_b.covariance.trace();
-      // std::cout << "Cs_trace: " << Cs_trace << std::endl;
-      // std::cout << "Cmerged_o trace: " << Cmerged_o << std::endl;
-      
-      std::cout << sensor->name << " : " 
-        << Cs_b.n_meas << " valid matches, " 
-        << Cs_trace / static_cast<double>(Cs_b.n_meas) << " normed trace." << std::endl;
-
-      // std::cout << Cs_b << std::endl;
-
       const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
-
-      // std::cout << Cs_o << std::endl;
 
       rm::CrossStatistics Cs_weighted_o = Cs_o;
       Cs_weighted_o.n_meas *= sensor->merge_weight_multiplier;
 
-      // #pragma omp critical
-      {
-        Cmerged_o += Cs_o; // optimal merge in odom frame
-        Cmerged_weighted_o += Cs_weighted_o;
-      }
-
-      // std::cout << "Merged:" << std::endl;
-      std::cout << Cmerged_o << std::endl;
+      Cmerged_o += Cs_o; // optimal merge in odom frame
+      Cmerged_weighted_o += Cs_weighted_o;
     }
 
+    // checkStats(Cmerged_o);
     if(outdated)
     {
       break;
@@ -592,22 +633,12 @@ void MICPLocalizationNode::correctOnce()
     {
       break;
     }
-
-    // std::cout << "Tbo_latest: " << Tbo_latest_ << std::endl;
-
-    const auto Cmerged_b = ~Tbo_latest_ * Cmerged_o;
-
-    std::cout << "Merged: " << Cmerged_b << std::endl;
-
-    // std::cout << "Merged trace" << std::endl;
-    // std::cout << "- base: " << Cmerged_b.covariance.trace() << std::endl;
-    // std::cout << "- odom: " << Cmerged_o.covariance.trace() << std::endl;
-
+    
     // Cmerged_o -> T_onew_oold
     const rm::Transform T_onew_oold_inner 
       = rm::umeyama_transform(Cmerged_o);
 
-    std::cout << "Umeyama: " << T_onew_oold_inner << std::endl;
+    // std::cout << "Umeyama: " << T_onew_oold_inner << std::endl;
 
     // update T_onew_oold: 
     // transform from new odom frame to old odom frame
@@ -624,13 +655,37 @@ void MICPLocalizationNode::correctOnce()
   // we want T_onew_map, we have Tom which is T_oold_map
   const rm::Transform T_onew_map = Tom * T_onew_oold;
 
-  std::cout << "Tom new: " << T_onew_map << std::endl;
+  // {
+  //   const rm::Transform T_bnew_m = T_onew_map * Tbo_latest_;
+  //   const rm::Transform T_bold_m = Tom * Tbo_latest_;
 
+  //   const rm::Transform T_bnew_bold = ~T_bold_m * T_bnew_m;
+  //   const double correction_dist = T_bnew_bold.t.l2norm();
+    
+  //   std::cout << "Correction:" << std::endl;
+  //   std::cout << "- T_bnew_bold: " << T_bnew_bold << std::endl;
+  //   std::cout << "- dist: " << correction_dist << std::endl;
+
+  //   if(correction_dist > 2.0)
+  //   {
+  //     // std::cout << "HIGH CORRECTION DIST!" << std::endl;
+  //     // RCLCPP_WARN_STREAM(get_logger(), "HIGH CORRECTION DIST!");
+  //     // std::cout << T_onew_oold << std::endl;
+  //   }
+  // }
+
+  // std::cout << "Tom new: " << T_onew_map << std::endl;
   if(!disable_correction_ && Cmerged_o.n_meas > 0)
   {
+    if(!check(T_onew_map))
+    {
+      std::cout << "NNNOOOO" << std::endl;
+    }
     // store/update Tom, if allowed
-    Tom = T_onew_map;
+    Tom_ = T_onew_map;
   }
+
+  mutex_.unlock();
 
   //  std::cout << "Cmerged_o trace: " << Cmerged_o.covariance << std::endl;
   if(Cmerged_o.n_meas == 0 || !adaptive_max_dist_)
@@ -661,6 +716,8 @@ void MICPLocalizationNode::correctOnce()
     correction_stats_latest_ = stats;
     stats_publisher_->publish(stats);
   }
+
+  // std::cout << "-------------| correctOnce - END |----------------" << std::endl;
 }
 
 void MICPLocalizationNode::broadcastTransform()
@@ -684,12 +741,28 @@ void MICPLocalizationNode::broadcastTransform()
   
   T_odom_map.header.frame_id = map_frame_;
   T_odom_map.child_frame_id = odom_frame_;
-  convert(Tom, T_odom_map.transform);
+
+
+  
+
+  // check Tom
+  if(!check(Tom_))
+  {
+    std::cout << "Tom is malformed!" << std::endl;
+    std::cout << Tom_ << std::endl;
+    throw std::runtime_error("Tom malformed");
+  }
+  convert(Tom_, T_odom_map.transform);
+  mutex_.unlock();
+  
+
   tf_broadcaster_->sendTransform(T_odom_map);
 }
 
 void MICPLocalizationNode::publishPose()
 {
+  // mutex_.lock();
+
   geometry_msgs::msg::PoseWithCovarianceStamped pose;
 
   pose.header.stamp = data_stamp_latest_;
@@ -711,8 +784,11 @@ void MICPLocalizationNode::publishPose()
     0.0, 0.0, 0.0, 0.0, 0.0, XX/4.0
   };
   
-  rm::Transform Tbm = Tom * Tbo_latest_;
+  const rm::Transform Tbm = Tom_ * Tbo_latest_;
   rmcl::convert(Tbm, pose.pose.pose);
+
+  // mutex_.unlock();
+
   Tbm_publisher_->publish(pose);
 }
 
@@ -749,15 +825,15 @@ void MICPLocalizationNode::correctionLoop()
     sw();
     correctOnce();
 
-    if(broadcast_tf_)
-    {
-      broadcastTransform();
-    }
+    // if(broadcast_tf_)
+    // {
+    //   broadcastTransform();
+    // }
 
-    if(publish_pose_)
-    {
-      publishPose();
-    }
+    // if(publish_pose_)
+    // {
+    //   publishPose();
+    // }
 
     const double el = sw();
     runtime_avg += (el - runtime_avg) * new_factor;
@@ -769,7 +845,30 @@ void MICPLocalizationNode::correctionLoop()
       this->get_clock()->sleep_for(std::chrono::duration<double>(wait_delay));
     }
   }
+}
+
+void MICPLocalizationNode::tfBroadcastLoop()
+{
   
+
+  double runtime_avg = 0.001;
+  double new_factor = 0.1;
+
+  rm::StopWatch sw;
+  while(rclcpp::ok() && !stop_correction_thread_)
+  {
+    sw();
+    broadcastTransform(); // this is the only important line
+    const double el = sw();
+    runtime_avg += (el - runtime_avg) * new_factor;
+    const double desired_tf_time = 1.0 / tf_rate_;
+    const double wait_delay = desired_tf_time - runtime_avg;
+    if(wait_delay > 0.0)
+    {
+      // wait
+      this->get_clock()->sleep_for(std::chrono::duration<double>(wait_delay));
+    }
+  }
 }
 
 } // namespace rmcl

@@ -35,6 +35,9 @@
 #include <rmcl_msgs/msg/micp_stats.hpp>
 #include <rmcl_msgs/msg/micp_sensor_stats.hpp>
 
+#include <mutex>
+#include <atomic>
+
 namespace rmcl
 {
 
@@ -52,8 +55,8 @@ public:
 
   // I make this public if someone wants to write an application 
   // for multiple robots
-  rmagine::Transform Tom;
-  rclcpp::Time Tom_stamp;
+  rmagine::Transform Tom_;
+  rclcpp::Time Tom_stamp_;
 
 private:
   void poseCB(
@@ -72,6 +75,8 @@ private:
   void publishPose();
 
   bool fetchTF(const rclcpp::Time stamp);
+
+  void tfBroadcastLoop();
 
   std::string map_frame_;
   std::string base_frame_;
@@ -98,6 +103,9 @@ private:
   std::thread correction_thread_;
   bool stop_correction_thread_ = false;
 
+  std::thread tf_broadcaster_thread_;
+  bool stop_tf_broadcaster_thread_ = false;
+
   // tf2
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -112,6 +120,10 @@ private:
 
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr 
     Tbm_publisher_;
+
+
+  
+  std::mutex mutex_;
 
   // High-Level stats about sensors
   rclcpp::Time data_stamp_latest_;
@@ -137,6 +149,8 @@ private:
   bool adaptive_max_dist_ = true;
   double correction_rate_max_ = 100.0;
   rmagine::Transform initial_pose_offset_;
+
+  double tf_rate_ = 100.0;
 };
 
 

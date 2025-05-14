@@ -119,7 +119,7 @@ public:
   MICPSensor_(rclcpp::Node::SharedPtr nh)
   :MICPSensorBase(nh)
   {
-
+    
   }
 
   virtual void findCorrespondences() 
