@@ -464,11 +464,6 @@ install(TARGETS
 
 endif(TARGET rmcl-embree)
 
-
-# install(DIRECTORY launch
-#   DESTINATION share/${PROJECT_NAME}
-# )
-
 ament_export_include_directories(
   include
 )
