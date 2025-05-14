@@ -4,7 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <rmcl_ros/util/ros_helper.h>
-#include <rmcl_ros/correction/MICPSensor.hpp>
+#include <rmcl_ros/micpl/MICPSensor.hpp>
 
 #include <unordered_map>
 #include <string>

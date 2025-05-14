@@ -8,7 +8,7 @@
 #include <rmagine/math/linalg.h>
 // #include <rmagine/math/linalg.cuh>
 
-// #include <rmcl_ros/correction/MICP.hpp>
+// #include <rmcl_ros/micpl/MICP.hpp>
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/ros_helper.h>
 
@@ -21,9 +21,9 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 
-#include <rmcl_ros/correction/sensors/MICPSphericalSensorCPU.hpp>
-#include <rmcl_ros/correction/sensors/MICPOnDnSensorCPU.hpp>
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPSphericalSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPOnDnSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPO1DnSensorCPU.hpp>
 
 #ifdef RMCL_EMBREE
 #include <rmcl/registration/RCCEmbree.hpp>
@@ -31,7 +31,7 @@
 #endif // RMCL_EMBREE
 
 #ifdef RMCL_CUDA
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorCUDA.hpp>
+#include <rmcl_ros/micpl/MICPO1DnSensorCUDA.hpp>
 #endif // RMCL_CUDA
 
 #ifdef RMCL_OPTIX

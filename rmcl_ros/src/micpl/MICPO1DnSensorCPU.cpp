@@ -1,7 +1,9 @@
-#include <rmcl_ros/correction/MICPSensor.hpp>
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorCPU.hpp>
+#include "rmcl_ros/micpl/MICPO1DnSensorCPU.hpp"
+
+#include <rmcl_ros/micpl/MICPSensor.hpp>
 
 #include <rmcl_ros/util/conversions.h>
+#include <rmcl_ros/util/ros_helper.h>
 
 #include <rmagine/util/StopWatch.hpp>
 
@@ -31,6 +33,8 @@ MICPO1DnSensorCPU::MICPO1DnSensorCPU(
 
 void MICPO1DnSensorCPU::connectToTopic(const std::string& topic_name)
 {
+  static_dataset = false;
+
   std::chrono::duration<int> buffer_timeout(1);
 
   tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> >(
@@ -46,8 +50,46 @@ void MICPO1DnSensorCPU::connectToTopic(const std::string& topic_name)
 
 void MICPO1DnSensorCPU::getDataFromParameters()
 {
-  // rmcl::get_parameter(nh_, "~model.width");
-  // TODO
+  static_dataset = true;
+
+  // fill this:
+  rmcl_msgs::msg::O1DnStamped::SharedPtr o1dn_stamped
+      = std::make_shared<rmcl_msgs::msg::O1DnStamped>();
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
+      = get_parameter_tree(nh_, "~");
+
+  // 1. Load Model
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params 
+      = sensor_param_tree->at("model");
+  
+  if(!convert(sensor_model_params, o1dn_stamped->o1dn.info))
+  {
+    // could parse data from parameters
+    throw std::runtime_error("Could not load O1Dn model from parameters!");
+    return;
+  }
+  
+  // 2. Load Data
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_data_params 
+      = sensor_param_tree->at("data");
+
+  if(!convert(sensor_data_params, o1dn_stamped->o1dn.data))
+  {
+    // could parse data from parameters
+    throw std::runtime_error("Could not load O1Dn data from parameters!");
+    return;
+  }
+
+  if(sensor_data_params->exists("frame"))
+  {
+    sensor_frame = sensor_data_params->at("frame")->data->as_string();
+  }
+
+  o1dn_stamped->header.frame_id = sensor_frame;
+  o1dn_stamped->header.stamp = nh_->now();
+
+  updateMsg(o1dn_stamped);
 }
 
 void MICPO1DnSensorCPU::updateMsg(
@@ -103,7 +145,10 @@ void MICPO1DnSensorCPU::updateMsg(
     RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
   }
 
-  on_data_received(this);
+  if(!static_dataset)
+  {
+    on_data_received(this);
+  }
 }
 
 

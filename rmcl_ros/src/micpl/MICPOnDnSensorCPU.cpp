@@ -1,4 +1,4 @@
-#include "rmcl_ros/correction/sensors/MICPOnDnSensorCPU.hpp"
+#include "rmcl_ros/micpl/MICPOnDnSensorCPU.hpp"
 
 #include <rmcl_ros/util/conversions.h>
 
@@ -33,6 +33,8 @@ MICPOnDnSensorCPU::MICPOnDnSensorCPU(
 
 void MICPOnDnSensorCPU::connectToTopic(const std::string& topic_name)
 {
+  static_dataset = false;
+
   std::chrono::duration<int> buffer_timeout(1);
 
   tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::OnDnStamped> >(
@@ -43,98 +45,51 @@ void MICPOnDnSensorCPU::connectToTopic(const std::string& topic_name)
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
   tf_filter_->registerCallback(&MICPOnDnSensorCPU::updateMsg, this);
 
-  static_dataset = false;
-
-  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "Waiting for message from topic '" << topic_name << "'...");
+  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "] [MICPOnDnSensorCPU] Waiting for message from topic '" << topic_name << "'...");
 }
 
 void MICPOnDnSensorCPU::getDataFromParameters()
 {
-  // rmcl::get_parameter(nh_, "~model.width");
+  static_dataset = true;
   
-  std::cout << "Try to load model" << std::endl;
+  // fill this:
+  rmcl_msgs::msg::OnDnStamped::SharedPtr ondn_stamped
+      = std::make_shared<rmcl_msgs::msg::OnDnStamped>();
 
   const ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
     = get_parameter_tree(nh_, "~");
 
-  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params = sensor_param_tree->at("model");
-  sensor_model_.width  = sensor_model_params->at("width")->data->as_int();
-  sensor_model_.height = sensor_model_params->at("height")->data->as_int();
-  sensor_model_.range.min = sensor_model_params->at("range_min")->data->as_double();
-  sensor_model_.range.max = sensor_model_params->at("range_max")->data->as_double();
-  sensor_model_.origs.resize(sensor_model_.width * sensor_model_.height);
-  sensor_model_.dirs.resize(sensor_model_.width * sensor_model_.height);
+  // 1. Load Model
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params 
+      = sensor_param_tree->at("model");
 
-  const std::vector<double> origs_data = sensor_model_params->at("origs")->data->as_double_array();
-  for(size_t i=0; i<origs_data.size() / 3; i++)
+  if(!convert(sensor_model_params, ondn_stamped->ondn.info))
   {
-    sensor_model_.origs[i].x = origs_data[i * 3 + 0];
-    sensor_model_.origs[i].y = origs_data[i * 3 + 1];
-    sensor_model_.origs[i].z = origs_data[i * 3 + 2];
+    // could parse data from parameters
+    throw std::runtime_error("Could not load OnDn model from parameters!");
+    return;
   }
 
-  const std::vector<double> dirs_data = sensor_model_params->at("dirs")->data->as_double_array();
-  for(size_t i=0; i<dirs_data.size() / 3; i++)
+  // 2. Load Data
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_data_params 
+      = sensor_param_tree->at("data");
+
+  if(!convert(sensor_data_params, ondn_stamped->ondn.data))
   {
-    sensor_model_.dirs[i].x = dirs_data[i * 3 + 0];
-    sensor_model_.dirs[i].y = dirs_data[i * 3 + 1];
-    sensor_model_.dirs[i].z = dirs_data[i * 3 + 2];
+    // could parse data from parameters
+    throw std::runtime_error("Could not load O1Dn data from parameters!");
+    return;
   }
 
-  if(dirs_data.size() != origs_data.size())
+  if(sensor_data_params->exists("frame"))
   {
-    RCLCPP_ERROR_STREAM(nh_->get_logger(), "OnDn must have same sized dirs and origs!");
-    throw std::runtime_error("OnDn must have same sized dirs and origs!");
+    sensor_frame = sensor_data_params->at("frame")->data->as_string();
   }
 
-  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_data_params = sensor_param_tree->at("data");
+  ondn_stamped->header.frame_id = sensor_frame;
+  ondn_stamped->header.stamp = nh_->now();
 
-  const std::vector<double> data_ranges = sensor_data_params->at("ranges")->data->as_double_array();
-
-  dataset_stamp_ = nh_->now();
-  sensor_frame = sensor_data_params->at("frame")->data->as_string();
-  fetchTF(dataset_stamp_);
-
-  if(auto model_setter = std::dynamic_pointer_cast<
-    rm::ModelSetter<rm::OnDnModel> >(correspondences_))
-  {
-    // RCC required sensor model
-    model_setter->setModel(sensor_model_);
-  }
-
-  size_t n_old_measurements = correspondences_->dataset.points.size();
-  size_t n_new_measurements = data_ranges.size();
-  if(n_new_measurements > n_old_measurements)
-  {
-    // need to resize buffers
-    correspondences_->dataset.points.resize(n_new_measurements);
-    correspondences_->dataset.mask.resize(n_new_measurements);
-    for(size_t i=n_old_measurements; i<n_new_measurements; i++)
-    {
-      correspondences_->dataset.mask[i] = 1;
-    }
-  }
-
-  total_dataset_measurements = n_new_measurements;
-  valid_dataset_measurements = n_new_measurements;
-
-  for(unsigned int vid = 0; vid < sensor_model_.getHeight(); vid++)
-  {
-    for(unsigned int hid = 0; hid < sensor_model_.getWidth(); hid++)
-    {
-      const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
-      const float real_range = data_ranges[loc_id];
-      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range + sensor_model_.getOrigin(vid, hid);
-      correspondences_->dataset.points[loc_id] = real_point;
-    }
-  }
-
-  correspondences_->outdated = true;
-  first_message_received = true;
-
-  correspondences_->setTsb(rm::Transform::Identity());
-
-  static_dataset = true;
+  updateMsg(ondn_stamped);
 }
 
 void MICPOnDnSensorCPU::updateMsg(
@@ -190,7 +145,10 @@ void MICPOnDnSensorCPU::updateMsg(
     RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
   }
 
-  on_data_received(this);
+  if(!static_dataset)
+  {
+    on_data_received(this);
+  }
 }
 
 

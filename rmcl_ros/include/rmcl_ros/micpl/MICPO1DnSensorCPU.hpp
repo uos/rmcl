@@ -1,13 +1,13 @@
-#ifndef RMCL_MICP_ONDN_SENSOR_HPP
-#define RMCL_MICP_ONDN_SENSOR_HPP
+#ifndef RMCL_MICPO1DN_SENSOR_HPP
+#define RMCL_MICPO1DN_SENSOR_HPP
 
 #include <rclcpp/rclcpp.hpp>
-#include <rmcl_ros/correction/MICPSensor.hpp>
-#include <rmcl_ros/correction/sensors/MICPSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPSensor.hpp>
+#include <rmcl_ros/micpl/MICPSensorCPU.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
-#include <rmcl_msgs/msg/on_dn_stamped.hpp>
+#include <rmcl_msgs/msg/o1_dn_stamped.hpp>
 
 #include <rmagine/types/sensor_models.h>
 
@@ -30,23 +30,19 @@
 #include <rmcl/registration/Correspondences.hpp>
 #include <rmcl/registration/RCCEmbree.hpp>
 
-
 #include <mutex>
 #include <thread>
-
-
-
 namespace rmcl
 {
 
-class MICPOnDnSensorCPU
+class MICPO1DnSensorCPU
 : public MICPSensorCPU
 {
 public:
 
   using Base = MICPSensorCPU;
 
-  MICPOnDnSensorCPU(
+  MICPO1DnSensorCPU(
     rclcpp::Node::SharedPtr nh);
 
   // Data Loaders
@@ -54,19 +50,19 @@ public:
   void connectToTopic(const std::string& topic_name);
   void getDataFromParameters();
 
-  void updateMsg(const rmcl_msgs::msg::OnDnStamped::SharedPtr msg);
-
+  void updateMsg(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
+  
 protected:
 
-  void unpackMessage(const rmcl_msgs::msg::OnDnStamped::SharedPtr msg);
+  void unpackMessage(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
 
 private:
-  rmagine::OnDnModel sensor_model_;
+  rmagine::O1DnModel sensor_model_;
 
-  message_filters::Subscriber<rmcl_msgs::msg::OnDnStamped> data_sub_;
-  std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::OnDnStamped> > tf_filter_;
+  message_filters::Subscriber<rmcl_msgs::msg::O1DnStamped> data_sub_;
+  std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> > tf_filter_;
 };
 
 } // namespace rmcl
 
-#endif // RMCL_MICP_ONDN_SENSOR_HPP
+#endif // RMCL_MICPO1DN_SENSOR_HPP

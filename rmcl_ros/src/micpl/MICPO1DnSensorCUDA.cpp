@@ -1,5 +1,5 @@
-#include <rmcl_ros/correction/MICPSensor.hpp>
-#include <rmcl_ros/correction/sensors/MICPO1DnSensorCUDA.hpp>
+#include <rmcl_ros/micpl/MICPSensor.hpp>
+#include <rmcl_ros/micpl/MICPO1DnSensorCUDA.hpp>
 
 #include <rmcl_ros/util/conversions.h>
 

@@ -85,11 +85,12 @@ add_library(rmcl_ros SHARED
     src/util/scan_operations.cpp
     src/util/ros_helper.cpp
     # micp localization
-    src/correction/MICPSensor.cpp
-    src/correction/sensors/MICPSensorCPU.cpp
-    src/correction/sensors/MICPSphericalSensorCPU.cpp
-    src/correction/sensors/MICPO1DnSensorCPU.cpp
-    src/correction/sensors/MICPOnDnSensorCPU.cpp
+    src/micpl/MICPSensor.cpp
+    src/micpl/MICPSensorCPU.cpp
+    src/micpl/MICPSphericalSensorCPU.cpp
+    src/micpl/MICPPinholeSensorCPU.cpp
+    src/micpl/MICPO1DnSensorCPU.cpp
+    src/micpl/MICPOnDnSensorCPU.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
@@ -118,8 +119,8 @@ install(TARGETS rmcl_ros
 
 if(RMCL_EMBREE)
     # add_library(rmcl_ros_embree SHARED
-    #     src/correction/correspondences/RCCEmbree.cpp
-    #     src/correction/correspondences/CPCEmbree.cpp
+    #     src/micpl/correspondences/RCCEmbree.cpp
+    #     src/micpl/correspondences/CPCEmbree.cpp
     # )
     # target_include_directories(rmcl_ros_embree PUBLIC
     #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -147,7 +148,7 @@ endif(RMCL_EMBREE)
 
 if(RMCL_CUDA)
     add_library(rmcl_ros_cuda SHARED
-        src/correction/sensors/MICPO1DnSensorCUDA.cpp
+        src/micpl/MICPO1DnSensorCUDA.cpp
     )
     target_include_directories(rmcl_ros_cuda PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -174,7 +175,7 @@ endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
     # add_library(rmcl_ros_optix SHARED
-    #     src/correction/correspondences/RCCOptix.cpp
+    #     src/micpl/correspondences/RCCOptix.cpp
     # )
     # target_include_directories(rmcl_ros_optix PUBLIC
     #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"

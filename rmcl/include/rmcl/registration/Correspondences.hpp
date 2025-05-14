@@ -18,11 +18,17 @@ class Correspondences_
 {
 public:
 
+  // public attributes that have to be filled
   rmagine::UmeyamaReductionConstraints params;
   float adaptive_max_dist_min;
-
-  // fill this
   rmagine::PointCloud_<MemT> dataset;
+  
+  /**
+   * Mark dataset<->model correspondences as outdated:
+   * - when a new dataset is added (new sensor data is acquired)
+   * - model has substantially changed
+   */
+  bool outdated = true;
 
   virtual void setTsb(const rmagine::Transform& Tsb)
   {
@@ -37,7 +43,6 @@ public:
     const rmagine::Transform& Tbm_est 
   ) = 0;
 
-  bool outdated = true;
 
   inline rmagine::PointCloudView_<MemT> modelView()
   {
@@ -82,6 +87,15 @@ protected:
   rmagine::Transform Tsb_;
 };
 
+template<typename MemT1, typename MemT2>
+Correspondences_<MemT1> copy(const Correspondences_<MemT2>& corr_in)
+{
+  Correspondences_<MemT1> corr_out = corr_in;
+  return corr_out;
+}
+
 } // namespace rmcl
+
+
 
 #endif // RMCL_CORRECTION_CORRESPONDENCES_HPP

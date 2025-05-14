@@ -2,7 +2,7 @@
 #define RMCL_MICPO1DN_SENSOR_GPU_HPP
 
 #include <rclcpp/rclcpp.hpp>
-#include <rmcl_ros/correction/MICPSensor.hpp>
+#include <rmcl_ros/micpl/MICPSensor.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 

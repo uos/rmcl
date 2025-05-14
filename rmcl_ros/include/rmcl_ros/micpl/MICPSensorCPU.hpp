@@ -1,7 +1,7 @@
 #ifndef RMCL_CORRECTION_MICP_SENSOR_CPU_HPP
 #define RMCL_CORRECTION_MICP_SENSOR_CPU_HPP
 
-#include <rmcl_ros/correction/MICPSensor.hpp>
+#include <rmcl_ros/micpl/MICPSensor.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 // #include <visualization_msgs/msg/marker.hpp>

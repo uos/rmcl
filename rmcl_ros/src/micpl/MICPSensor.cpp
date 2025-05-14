@@ -1,4 +1,4 @@
-#include "rmcl_ros/correction/MICPSensor.hpp"
+#include "rmcl_ros/micpl/MICPSensor.hpp"
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <rmcl_ros/util/conversions.h>
