@@ -1,15 +1,11 @@
-#ifndef RMCL_MICPO1DN_SENSOR_GPU_HPP
-#define RMCL_MICPO1DN_SENSOR_GPU_HPP
+#ifndef RMCL_MICPL_O1DN_SENSOR_CUDA_HPP
+#define RMCL_MICPL_O1DN_SENSOR_CUDA_HPP
 
 #include <rclcpp/rclcpp.hpp>
-#include <rmcl_ros/micpl/MICPSensor.hpp>
-
-#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <rmcl_ros/micpl/MICPSensorCUDA.hpp>
 
 #include <rmcl_msgs/msg/o1_dn_stamped.hpp>
-
 #include <rmagine/types/sensor_models.h>
-#include <rmagine/simulation/O1DnSimulatorEmbree.hpp>
 
 #include <tf2/exceptions.h>
 #include <tf2_ros/transform_listener.h>
@@ -40,17 +36,20 @@ namespace rmcl
 {
 
 class MICPO1DnSensorCUDA
-: public MICPSensor_<rmagine::VRAM_CUDA>
+: public MICPSensorCUDA
 {
 public:
-
-  using Base = MICPSensor_<rmagine::VRAM_CUDA>;
+  using Base = MICPSensorCUDA;
 
   MICPO1DnSensorCUDA(
-    rclcpp::Node::SharedPtr nh,
-    std::string topic_name);
+    rclcpp::Node::SharedPtr nh);
 
-  void topicCB(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
+  // Data Loaders
+  // TODO: Can we move this to seperate data loader instances?
+  void connectToTopic(const std::string& topic_name);
+  void getDataFromParameters();
+
+  void updateMsg(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
   
 protected:
 
@@ -69,4 +68,4 @@ private:
 
 } // namespace rmcl
 
-#endif // RMCL_MICPO1DN_SENSOR_GPU_HPP
+#endif // RMCL_MICPL_O1DN_SENSOR_CUDA_HPP

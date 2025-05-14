@@ -1,7 +1,5 @@
 #include "rmcl_ros/micpl/MICPO1DnSensorCPU.hpp"
 
-#include <rmcl_ros/micpl/MICPSensor.hpp>
-
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/ros_helper.h>
 
@@ -10,11 +8,7 @@
 #include <memory>
 #include <chrono>
 
-#include <rmagine/math/statistics.h>
-#include <rmagine/math/linalg.h>
-
 #include <rmagine/util/prints.h>
-
 
 using namespace std::chrono_literals;
 
@@ -108,7 +102,6 @@ void MICPO1DnSensorCPU::updateMsg(
   data_correction_mutex_.lock();
   const double el_mutex_lock = sw();
 
-
   sw();
   // Part 1: transfrom sensor and filter input data
   dataset_stamp_ = msg->header.stamp;
@@ -137,12 +130,12 @@ void MICPO1DnSensorCPU::updateMsg(
   data_correction_mutex_.unlock();
 
   { // print stats
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPO1DnSensorCPU Timings:");
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Fetch TF: " << el_fetch_tf * 1000.0 << " ms");
-    RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPO1DnSensorCPU Timings:");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Fetch TF: " << el_fetch_tf * 1000.0 << " ms");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Unpack message (" << correspondences_->dataset.points.size() << "): " << el_unpack_msg * 1000.0 << " ms");
   }
 
   if(!static_dataset)
@@ -187,7 +180,8 @@ void MICPO1DnSensorCPU::unpackMessage(
     {
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
       const float real_range = msg->o1dn.data.ranges[loc_id];
-      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range + sensor_model_.getOrigin(vid, hid);
+      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range 
+                                    + sensor_model_.getOrigin(vid, hid);
       correspondences_->dataset.points[loc_id] = real_point;
 
       if(real_range < sensor_model_.range.min || real_range > sensor_model_.range.max)
@@ -195,8 +189,8 @@ void MICPO1DnSensorCPU::unpackMessage(
         // out of range
         correspondences_->dataset.mask[loc_id] = 0;
       } else {
-        valid_dataset_measurements++;
         correspondences_->dataset.mask[loc_id] = 1;
+        valid_dataset_measurements++;
       }
     }
   }

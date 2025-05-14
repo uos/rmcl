@@ -39,7 +39,6 @@ class MICPO1DnSensorCPU
 : public MICPSensorCPU
 {
 public:
-
   using Base = MICPSensorCPU;
 
   MICPO1DnSensorCPU(

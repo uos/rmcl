@@ -3,15 +3,16 @@
 
 #include <rmcl_ros/micpl/MICPSensor.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rmagine/types/MemoryCuda.hpp>
 
 namespace rmcl
 {
 
-class MICPSensorCPU
-: public MICPSensor_<rmagine::RAM> 
+class MICPSensorCUDA
+: public MICPSensor_<rmagine::VRAM_CUDA> 
 {
 public:
-  using Base = MICPSensor_<rmagine::RAM>;
+  using Base = MICPSensor_<rmagine::VRAM_CUDA>;
 
   MICPSensorCPU(rclcpp::Node::SharedPtr nh);
 
