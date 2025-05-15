@@ -1,10 +1,10 @@
-#ifndef RMCL_MICPL_O1DN_SENSOR_CUDA_HPP
-#define RMCL_MICPL_O1DN_SENSOR_CUDA_HPP
+#ifndef RMCL_MICPL_PINHOLE_SENSOR_CUDA_HPP
+#define RMCL_MICPL_PINHOLE_SENSOR_CUDA_HPP
 
 #include <rclcpp/rclcpp.hpp>
 #include <rmcl_ros/micpl/MICPSensorCUDA.hpp>
 
-#include <rmcl_msgs/msg/o1_dn_stamped.hpp>
+#include <rmcl_msgs/msg/depth_stamped.hpp>
 #include <rmagine/types/sensor_models.h>
 
 #include <tf2/exceptions.h>
@@ -20,19 +20,22 @@
 #include <rmagine/math/statistics.h>
 #include <rmagine/types/MemoryCuda.hpp>
 
+
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+
 #include <mutex>
 #include <thread>
 
 namespace rmcl
 {
 
-class MICPO1DnSensorCUDA
+class MICPPinholeSensorCUDA
 : public MICPSensorCUDA
 {
 public:
   using Base = MICPSensorCUDA;
 
-  MICPO1DnSensorCUDA(
+  MICPPinholeSensorCUDA(
     rclcpp::Node::SharedPtr nh);
 
   // Data Loaders
@@ -40,20 +43,20 @@ public:
   void connectToTopic(const std::string& topic_name);
   void getDataFromParameters();
 
-  void updateMsg(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
+  void updateMsg(const rmcl_msgs::msg::DepthStamped::SharedPtr msg);
   
 protected:
 
-  void unpackMessage(const rmcl_msgs::msg::O1DnStamped::SharedPtr msg);
+  void unpackMessage(const rmcl_msgs::msg::DepthStamped::SharedPtr msg);
 
 private:
 
-  rmagine::O1DnModel sensor_model_;
+  rmagine::PinholeModel sensor_model_;
 
-  message_filters::Subscriber<rmcl_msgs::msg::O1DnStamped> data_sub_;
-  std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> > tf_filter_;
+  message_filters::Subscriber<rmcl_msgs::msg::DepthStamped> data_sub_;
+  std::unique_ptr<tf2_ros::MessageFilter<rmcl_msgs::msg::DepthStamped> > tf_filter_;
 };
 
 } // namespace rmcl
 
-#endif // RMCL_MICPL_O1DN_SENSOR_CUDA_HPP
+#endif // RMCL_MICPL_PINHOLE_SENSOR_CUDA_HPP

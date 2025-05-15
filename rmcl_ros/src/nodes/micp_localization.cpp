@@ -22,6 +22,7 @@
 
 
 #include <rmcl_ros/micpl/MICPSphericalSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPPinholeSensorCPU.hpp>
 #include <rmcl_ros/micpl/MICPOnDnSensorCPU.hpp>
 #include <rmcl_ros/micpl/MICPO1DnSensorCPU.hpp>
 
@@ -31,7 +32,10 @@
 #endif // RMCL_EMBREE
 
 #ifdef RMCL_CUDA
+#include <rmcl_ros/micpl/MICPSphericalSensorCUDA.hpp>
+#include <rmcl_ros/micpl/MICPPinholeSensorCUDA.hpp>
 #include <rmcl_ros/micpl/MICPO1DnSensorCUDA.hpp>
+#include <rmcl_ros/micpl/MICPOnDnSensorCUDA.hpp>
 #endif // RMCL_CUDA
 
 #ifdef RMCL_OPTIX
@@ -246,7 +250,6 @@ void MICPLocalizationNode::poseCB(
 {
   std::cout << "POSE RECEIVED!" << std::endl;
   
-
   // wait for correction loop to finish
   
   // normally the pose is set in map coords
@@ -278,7 +281,6 @@ void MICPLocalizationNode::poseCB(
   Tom_ = Tbm * ~Tbo_latest_;
   mutex_.unlock();
   std::cout << "Initial pose guess processed. Tom: " << Tom_ << std::endl;
-  
 }
 
 MICPSensorPtr MICPLocalizationNode::loadSensor(
@@ -288,31 +290,11 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   std::string sensor_name = sensor_params->name;
   std::cout << "Loading '" << sensor_name << "'" << std::endl;
 
-  // std::cout << "ROOT NODE:" << std::endl;
-  // std::cout << "- name: " << this->get_name() << std::endl;
-  // std::cout << "- fully_qualified_name: " << this->get_fully_qualified_name() << std::endl;
-  // std::cout << "- namespace: " << this->get_namespace() << std::endl;
-  // std::cout << "- get_effective_namespace: " << this->get_effective_namespace() << std::endl;
-
   rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
   
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
     = get_parameter_tree(nh_sensor, "~");
   
-  // std::cout << "Param tree:" << std::endl;
-  // sensor_param_tree->print();
-  
-  // if(!sensor_param_tree->exists("type"))
-  // {
-  //   // ERROR!
-  //   throw std::runtime_error("PARAM ERROR");
-  // }
-  
-  // fetch parameters that decide which implementation is loaded
-  // const std::string sensor_type = sensor_param_tree->at("type")->data->as_string();
-  // std::cout << "- Type: " << sensor_type << std::endl;
-  // const std::string model_source = sensor_param_tree->at("model_source")->data->as_string();  
-  // std::cout << "- Model Source: " << model_source << std::endl;
   const std::string data_source = sensor_param_tree->at("data_source")->data->as_string();
   std::cout << "- Data Source: " << data_source << std::endl;
   const std::string model_type = sensor_param_tree->at("model_type")->data->as_string();
@@ -321,7 +303,6 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   auto corr_params = sensor_param_tree->at("correspondences");
   const std::string corr_backend = corr_params->at("backend")->data->as_string();
   const std::string corr_type = corr_params->at("type")->data->as_string();
-
 
   rm::UmeyamaReductionConstraints umeyama_params;
   umeyama_params.max_dist = corr_params->at("max_dist")->data->as_double(); // TODO: adaptive
@@ -338,9 +319,37 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   {
     #ifdef RMCL_EMBREE
 
-    std::shared_ptr<MICPSensor_<rm::RAM> > sensor_cpu;
-    
-    if(model_type == "o1dn")
+    std::shared_ptr<MICPSensorCPU> sensor_cpu;
+
+    if(model_type == "spherical")
+    {
+      sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "pinhole")
+    {
+      sensor_cpu = std::make_shared<MICPPinholeSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreePinhole>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    } 
+    else if(model_type == "o1dn")
     {
       sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor);
       if(corr_type == "RC")
@@ -368,35 +377,20 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
         return sensor;
       }
     }
-    else if(model_type == "spherical")
-    {
-      sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor);
-      if(corr_type == "RC")
-      {
-        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
-      } else if(corr_type == "CP") {
-        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
-      } else {
-        // ERROR
-        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
-        return sensor;
-      }
-    } 
     else 
     {
       RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor model (embree) '" << model_type << "'.");
       return sensor;
     }
     
-    sensor_cpu->correspondences_->params = umeyama_params;
-    sensor_cpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
-
     if(!sensor_cpu)
     {
       RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization (embree) '" << sensor_name << "'.");
       return sensor;
     }
 
+    sensor_cpu->correspondences_->params = umeyama_params;
+    sensor_cpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
     sensor = sensor_cpu;
     
     #else
@@ -407,23 +401,68 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   {
     #ifdef RMCL_OPTIX
 
-    std::shared_ptr<MICPSensor_<rm::VRAM_CUDA> > sensor_gpu;
+    std::shared_ptr<MICPSensorCUDA> sensor_gpu;
     
-    if(model_type == "o1dn")
+    if(model_type == "spherical")
     {
-      // auto sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor, topic_name);
-
-      // if(corr_type == "RC")
-      // {
-      //   sensor_gpu->correspondences_ = std::make_shared<RCCOptixO1Dn>(map_optix_);
-      // } else {
-      //   std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
-      //   return sensor;
-      // }
-    
-      // sensor_gpu->correspondences_->params = umeyama_params;
-      // sensor_gpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
-      // sensor = sensor_gpu;
+      sensor_gpu = std::make_shared<MICPSphericalSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixSpherical>(map_optix_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "pinhole")
+    {
+      sensor_gpu = std::make_shared<MICPPinholeSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixPinhole>(map_optix_);
+      }
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "o1dn")
+    {
+      sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixO1Dn>(map_optix_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "ondn")
+    {
+      sensor_gpu = std::make_shared<MICPOnDnSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixOnDn>(map_optix_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else 
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor model (optix) '" << model_type << "'.");
+      return sensor;
     }
 
     if(!sensor_gpu)
@@ -432,6 +471,8 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
       return sensor;
     }
 
+    sensor_gpu->correspondences_->params = umeyama_params;
+    sensor_gpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
     sensor = sensor_gpu;
 
     #else
@@ -479,7 +520,6 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 void MICPLocalizationNode::sensorDataReceived(
   const MICPSensorBase* sensor)
 {
-  // std::cout << sensor->name << " received data!" << std::endl;
   data_stamp_latest_ = sensor->dataset_stamp_;
   Tbo_latest_ = sensor->Tbo;
   Tbo_stamp_latest_ = sensor->Tbo_stamp;
@@ -524,7 +564,6 @@ void MICPLocalizationNode::correct()
 
 void MICPLocalizationNode::correctOnce()
 {
-  // std::cout << "-------------| correctOnce |----------------" << std::endl;
   mutex_.lock();
   const rm::Transform Tom = Tom_;
   
@@ -568,29 +607,14 @@ void MICPLocalizationNode::correctOnce()
   }
 
   // collect infos
-
-  // std::cout << "Robot:" << std::endl;
-  // std::cout << "- Tom: " << Tom << std::endl;
-  // std::cout << "- Tbo_latest: " << Tbo_latest_ << std::endl; 
-
-  // std::cout << "Sensor:" << std::endl;
-  // #pragma omp parallel for
   for(auto sensor : sensors_vec_)
   {
-    // only set current transform from odom to map
-    // Tbo and Tsb are fetched synchron to the arriving sensor data
-    // if(sensor->static_dataset)
-    // {
-    //   // set transfer latest Tbo to static sensors
-    //   sensor->Tbo_stamp = Tbo_stamp_latest_;
-    //   sensor->Tbo = Tbo_latest_;
-    // }
     sensor->setTom(Tom);
     sensor->findCorrespondences();
-    sensor->drawCorrespondences();
-
-    // std::cout << "- Tbo: " << sensor->Tbo << std::endl;
-    // std::cout << "- Tsb: " << sensor->Tsb << std::endl;
+    if(sensor->enable_visualizations)
+    {
+      sensor->drawCorrespondences();
+    }
   }
 
   rm::Transform T_onew_oold = rm::Transform::Identity();
@@ -638,15 +662,12 @@ void MICPLocalizationNode::correctOnce()
     const rm::Transform T_onew_oold_inner 
       = rm::umeyama_transform(Cmerged_o);
 
-    // std::cout << "Umeyama: " << T_onew_oold_inner << std::endl;
-
     // update T_onew_oold: 
     // transform from new odom frame to old odom frame
     // this is only virtual (a trick). we dont't want to change the odom frame in the end (instead the odom to map transform)
     T_onew_oold = T_onew_oold * T_onew_oold_inner;
   }
 
-  // #pragma omp parallel for
   for(auto sensor : sensors_vec_)
   {
     sensor->mutex().unlock();
@@ -655,31 +676,11 @@ void MICPLocalizationNode::correctOnce()
   // we want T_onew_map, we have Tom which is T_oold_map
   const rm::Transform T_onew_map = Tom * T_onew_oold;
 
-  // {
-  //   const rm::Transform T_bnew_m = T_onew_map * Tbo_latest_;
-  //   const rm::Transform T_bold_m = Tom * Tbo_latest_;
-
-  //   const rm::Transform T_bnew_bold = ~T_bold_m * T_bnew_m;
-  //   const double correction_dist = T_bnew_bold.t.l2norm();
-    
-  //   std::cout << "Correction:" << std::endl;
-  //   std::cout << "- T_bnew_bold: " << T_bnew_bold << std::endl;
-  //   std::cout << "- dist: " << correction_dist << std::endl;
-
-  //   if(correction_dist > 2.0)
-  //   {
-  //     // std::cout << "HIGH CORRECTION DIST!" << std::endl;
-  //     // RCLCPP_WARN_STREAM(get_logger(), "HIGH CORRECTION DIST!");
-  //     // std::cout << T_onew_oold << std::endl;
-  //   }
-  // }
-
-  // std::cout << "Tom new: " << T_onew_map << std::endl;
   if(!disable_correction_ && Cmerged_o.n_meas > 0)
   {
     if(!check(T_onew_map))
     {
-      std::cout << "NNNOOOO" << std::endl;
+      std::cout << "Malformed T_onew_map!" << std::endl;
     }
     // store/update Tom, if allowed
     Tom_ = T_onew_map;
@@ -687,11 +688,12 @@ void MICPLocalizationNode::correctOnce()
 
   mutex_.unlock();
 
-  //  std::cout << "Cmerged_o trace: " << Cmerged_o.covariance << std::endl;
   if(Cmerged_o.n_meas == 0 || !adaptive_max_dist_)
   {
     convergence_progress_ = 0.0;
-  } else {
+  } 
+  else 
+  {
     const float trans_force = T_onew_map.t.l2norm();
     const float trans_progress = 1.0 / exp(10.0 * trans_force);
 
@@ -707,8 +709,6 @@ void MICPLocalizationNode::correctOnce()
     convergence_progress_ = adaption_rate;
   }
 
-  // std::cout << "Total Progress: " << convergence_progress_ << std::endl;
-  
   { // publish stats
     stats.valid_matches = Cmerged_o.n_meas;
     stats.cov_trace = Cmerged_o.covariance.trace();
@@ -716,8 +716,6 @@ void MICPLocalizationNode::correctOnce()
     correction_stats_latest_ = stats;
     stats_publisher_->publish(stats);
   }
-
-  // std::cout << "-------------| correctOnce - END |----------------" << std::endl;
 }
 
 void MICPLocalizationNode::broadcastTransform()

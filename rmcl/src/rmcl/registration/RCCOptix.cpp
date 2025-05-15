@@ -5,6 +5,69 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
+
+RCCOptixSpherical::RCCOptixSpherical(
+  rm::OptixMapPtr map)
+: rm::SphereSimulatorOptix(map)
+{
+  
+}
+
+void RCCOptixSpherical::setTsb(const rm::Transform& Tsb)
+{
+  CorrespondencesCUDA::setTsb(Tsb);
+  rm::SphereSimulatorOptix::setTsb(Tsb);
+}
+
+void RCCOptixSpherical::setModel(const rm::SphericalModel& sensor_model)
+{
+  rm::SphereSimulatorOptix::setModel(sensor_model);
+}
+
+void RCCOptixSpherical::find(const rm::Transform& Tbm_est)
+{
+  size_t n_old_measurements = model_buffers_.points.size();
+  size_t n_new_measurements = m_model->size();
+  if(n_new_measurements > n_old_measurements)
+  {
+    rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, m_model->getHeight(), m_model->getWidth(), 1);
+  }
+
+  simulate(Tbm_est, model_buffers_);
+}
+
+
+RCCOptixPinhole::RCCOptixPinhole(
+  rm::OptixMapPtr map)
+: rm::PinholeSimulatorOptix(map)
+{
+  
+}
+
+void RCCOptixPinhole::setTsb(const rm::Transform& Tsb)
+{
+  CorrespondencesCUDA::setTsb(Tsb);
+  rm::PinholeSimulatorOptix::setTsb(Tsb);
+}
+
+void RCCOptixPinhole::setModel(const rm::PinholeModel& sensor_model)
+{
+  rm::PinholeSimulatorOptix::setModel(sensor_model);
+}
+
+void RCCOptixPinhole::find(const rm::Transform& Tbm_est)
+{
+  size_t n_old_measurements = model_buffers_.points.size();
+  size_t n_new_measurements = m_model->size();
+  if(n_new_measurements > n_old_measurements)
+  {
+    rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, m_model->getHeight(), m_model->getWidth(), 1);
+  }
+
+  simulate(Tbm_est, model_buffers_);
+}
+
+
 RCCOptixO1Dn::RCCOptixO1Dn(
   rm::OptixMapPtr map)
 : rm::O1DnSimulatorOptix(map)
@@ -20,9 +83,6 @@ void RCCOptixO1Dn::setTsb(const rm::Transform& Tsb)
 
 void RCCOptixO1Dn::setModel(const rm::O1DnModel& sensor_model)
 {
-  // std::cout << "Set Model!" << std::endl;
-  // std::cout << "- width: " << sensor_model.width << std::endl;
-  // std::cout << "- height: " << sensor_model.height << std::endl;
   rm::O1DnSimulatorOptix::setModel(sensor_model);
 }
 
@@ -37,5 +97,37 @@ void RCCOptixO1Dn::find(const rm::Transform& Tbm_est)
 
   simulate(Tbm_est, model_buffers_);
 }
+
+
+RCCOptixOnDn::RCCOptixOnDn(
+  rm::OptixMapPtr map)
+: rm::OnDnSimulatorOptix(map)
+{
+  
+}
+
+void RCCOptixOnDn::setTsb(const rm::Transform& Tsb)
+{
+  CorrespondencesCUDA::setTsb(Tsb);
+  rm::OnDnSimulatorOptix::setTsb(Tsb);
+}
+
+void RCCOptixOnDn::setModel(const rm::OnDnModel& sensor_model)
+{
+  rm::OnDnSimulatorOptix::setModel(sensor_model);
+}
+
+void RCCOptixOnDn::find(const rm::Transform& Tbm_est)
+{
+  size_t n_old_measurements = model_buffers_.points.size();
+  size_t n_new_measurements = m_model->size();
+  if(n_new_measurements > n_old_measurements)
+  {
+    rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, m_model->getHeight(), m_model->getWidth(), 1);
+  }
+
+  simulate(Tbm_est, model_buffers_);
+}
+
 
 } // namespace rmcl

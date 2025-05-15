@@ -77,14 +77,14 @@ if(TARGET rmagine::embree)
 endif()
 
 if(TARGET rmagine::cuda)
-    option(DISABLE_CUDA "Disable CUDA related compilations" TRUE)
+    option(DISABLE_CUDA "Disable CUDA related compilations" FALSE)
     if(CMAKE_CUDA_COMPILER)
         enable_language(CUDA)
     endif(CMAKE_CUDA_COMPILER)
 endif()
 
 if(TARGET rmagine::optix)
-    option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" TRUE)
+    option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
 

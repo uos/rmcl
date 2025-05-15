@@ -1,5 +1,5 @@
-#ifndef RMCL_MICP_ONDN_SENSOR_HPP
-#define RMCL_MICP_ONDN_SENSOR_HPP
+#ifndef RMCL_MICPL_ONDN_SENSOR_HPP
+#define RMCL_MICPL_ONDN_SENSOR_HPP
 
 #include <rclcpp/rclcpp.hpp>
 #include <rmcl_ros/micpl/MICPSensor.hpp>

@@ -148,7 +148,11 @@ endif(RMCL_EMBREE)
 
 if(RMCL_CUDA)
     add_library(rmcl_ros_cuda SHARED
+        src/micpl/MICPSensorCUDA.cpp
+        src/micpl/MICPSphericalSensorCUDA.cpp
+        src/micpl/MICPPinholeSensorCUDA.cpp
         src/micpl/MICPO1DnSensorCUDA.cpp
+        src/micpl/MICPOnDnSensorCUDA.cpp
     )
     target_include_directories(rmcl_ros_cuda PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"

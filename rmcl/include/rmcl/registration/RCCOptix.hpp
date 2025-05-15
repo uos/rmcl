@@ -15,6 +15,42 @@
 namespace rmcl
 {
 
+class RCCOptixSpherical
+: public CorrespondencesCUDA
+, public rmagine::ModelSetter<rmagine::SphericalModel>
+, protected rmagine::SphereSimulatorOptix
+{
+public:
+
+  RCCOptixSpherical(
+    rmagine::OptixMapPtr map);
+
+  void setModel(const rmagine::SphericalModel& sensor_model);
+
+  virtual void setTsb(const rmagine::Transform& Tsb) override;
+
+  virtual void find(const rmagine::Transform& Tbm_est);
+};
+
+
+class RCCOptixPinhole
+: public CorrespondencesCUDA
+, public rmagine::ModelSetter<rmagine::PinholeModel>
+, protected rmagine::PinholeSimulatorOptix
+{
+public:
+
+  RCCOptixPinhole(
+    rmagine::OptixMapPtr map);
+
+  void setModel(const rmagine::PinholeModel& sensor_model);
+
+  virtual void setTsb(const rmagine::Transform& Tsb) override;
+
+  virtual void find(const rmagine::Transform& Tbm_est);
+};
+
+
 class RCCOptixO1Dn
 : public CorrespondencesCUDA
 , public rmagine::ModelSetter<rmagine::O1DnModel>
@@ -31,6 +67,24 @@ public:
 
   virtual void find(const rmagine::Transform& Tbm_est);
 };
+
+class RCCOptixOnDn
+: public CorrespondencesCUDA
+, public rmagine::ModelSetter<rmagine::OnDnModel>
+, protected rmagine::OnDnSimulatorOptix
+{
+public:
+
+  RCCOptixOnDn(
+    rmagine::OptixMapPtr map);
+
+  void setModel(const rmagine::OnDnModel& sensor_model);
+
+  virtual void setTsb(const rmagine::Transform& Tsb) override;
+
+  virtual void find(const rmagine::Transform& Tbm_est);
+};
+
 
 } // namespace rmcl
 

@@ -1,4 +1,4 @@
-#include "rmcl_ros/micpl/MICPO1DnSensorCUDA.hpp"
+#include "rmcl_ros/micpl/MICPOnDnSensorCUDA.hpp"
 
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/ros_helper.h>
@@ -17,7 +17,7 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-MICPO1DnSensorCUDA::MICPO1DnSensorCUDA(
+MICPOnDnSensorCUDA::MICPOnDnSensorCUDA(
   rclcpp::Node::SharedPtr nh)
 :Base(nh)
 {
@@ -25,32 +25,32 @@ MICPO1DnSensorCUDA::MICPO1DnSensorCUDA(
   correspondences_.reset();
 }
 
-void MICPO1DnSensorCUDA::connectToTopic(const std::string& topic_name)
+void MICPOnDnSensorCUDA::connectToTopic(const std::string& topic_name)
 {
   static_dataset = false;
 
   std::chrono::duration<int> buffer_timeout(1);
 
-  tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::O1DnStamped> >(
+  tf_filter_ = std::make_unique<tf2_ros::MessageFilter<rmcl_msgs::msg::OnDnStamped> >(
     data_sub_, *tf_buffer_, odom_frame, 10, nh_->get_node_logging_interface(),
     nh_->get_node_clock_interface(), buffer_timeout);
   
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
-  tf_filter_->registerCallback(&MICPO1DnSensorCUDA::updateMsg, this);
+  tf_filter_->registerCallback(&MICPOnDnSensorCUDA::updateMsg, this);
 
 
 
-  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "] [MICPO1DnSensorCUDA] Waiting for message from topic '" << topic_name << "'...");
+  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "] [MICPOnDnSensorCUDA] Waiting for message from topic '" << topic_name << "'...");
 }
 
-void MICPO1DnSensorCUDA::getDataFromParameters()
+void MICPOnDnSensorCUDA::getDataFromParameters()
 {
   // TODO
 }
 
-void MICPO1DnSensorCUDA::updateMsg(
-  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPOnDnSensorCUDA::updateMsg(
+  const rmcl_msgs::msg::OnDnStamped::SharedPtr msg)
 {
   rm::StopWatch sw;
   const rclcpp::Time msg_time = msg->header.stamp;
@@ -80,7 +80,7 @@ void MICPO1DnSensorCUDA::updateMsg(
   sw();
   unpackMessage(msg);
   if(auto model_setter = std::dynamic_pointer_cast<
-    rm::ModelSetter<rm::O1DnModel> >(correspondences_))
+    rm::ModelSetter<rm::OnDnModel> >(correspondences_))
   {
     // RCC required sensor model
     model_setter->setModel(sensor_model_);
@@ -93,7 +93,7 @@ void MICPO1DnSensorCUDA::updateMsg(
   data_correction_mutex_.unlock();
 
   { // print conversion & sync delay
-    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPO1DnSensorCUDA Timings:");
+    RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] MICPOnDnSensorCUDA Timings:");
     RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Now - msg stamp) = " << diff_now_msg * 1000.0 << " ms");
     RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - (Odom - msg stamp) = " << diff_odom_msg * 1000.0 << " ms");
     RCLCPP_DEBUG_STREAM(nh_->get_logger(), "[" << name << "::topicCB] - Lock mutex: " << el_mutex_lock * 1000.0 << " ms");
@@ -107,20 +107,20 @@ void MICPO1DnSensorCUDA::updateMsg(
   }
 }
 
-void MICPO1DnSensorCUDA::unpackMessage(
-  const rmcl_msgs::msg::O1DnStamped::SharedPtr msg)
+void MICPOnDnSensorCUDA::unpackMessage(
+  const rmcl_msgs::msg::OnDnStamped::SharedPtr msg)
 {
   /////
   // sensor model
-  // std::cout << "INFO: " << msg->o1dn.info.range_min << ", " << msg->o1dn.info.range_max << std::endl;
-  rmcl::convert(msg->o1dn.info, sensor_model_);
+  // std::cout << "INFO: " << msg->ondn.info.range_min << ", " << msg->ondn.info.range_max << std::endl;
+  rmcl::convert(msg->ondn.info, sensor_model_);
   
   ////
   // data: TODOs: 
   // - use input mask values
   // - use input normals
   size_t n_old_measurements = correspondences_->dataset.points.size();
-  size_t n_new_measurements = msg->o1dn.data.ranges.size();
+  size_t n_new_measurements = msg->ondn.data.ranges.size();
   if(n_new_measurements > n_old_measurements)
   {
     // need to resize buffers
@@ -145,7 +145,7 @@ void MICPO1DnSensorCUDA::unpackMessage(
     for(unsigned int hid = 0; hid < sensor_model_.getWidth(); hid++)
     {
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
-      const float real_range = msg->o1dn.data.ranges[loc_id];
+      const float real_range = msg->ondn.data.ranges[loc_id];
       const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range
                                     + sensor_model_.getOrigin(vid, hid);;
       dataset_cpu_.points[loc_id] = real_point;

@@ -1,5 +1,5 @@
-#ifndef RMCL_CORRECTION_MICP_SENSOR_CPU_HPP
-#define RMCL_CORRECTION_MICP_SENSOR_CPU_HPP
+#ifndef RMCL_MICPL_SENSOR_CUDA_HPP
+#define RMCL_MICPL_SENSOR_CUDA_HPP
 
 #include <rmcl_ros/micpl/MICPSensor.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -14,11 +14,11 @@ class MICPSensorCUDA
 public:
   using Base = MICPSensor_<rmagine::VRAM_CUDA>;
 
-  MICPSensorCPU(rclcpp::Node::SharedPtr nh);
+  MICPSensorCUDA(rclcpp::Node::SharedPtr nh);
 
   void drawCorrespondences();
 };
 
 } // namespace rmcl
 
-#endif // RMCL_CORRECTION_MICP_SENSOR_CPU_HPP
+#endif // RMCL_MICPL_SENSOR_CUDA_HPP

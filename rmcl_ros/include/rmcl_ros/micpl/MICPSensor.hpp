@@ -66,6 +66,11 @@ public:
   std::string name;
   bool static_dataset = false;
 
+  /**
+   * This drops performance!
+   */
+  bool enable_visualizations = false;
+
   // transform chain from sensor -> base -> odom -> map
 
   // keep this up to date
@@ -163,6 +168,9 @@ public:
   }
 
   std::shared_ptr<Correspondences_<MemT> > correspondences_;
+
+  // this is a temporary storage for incoming topic data
+  rmagine::PointCloud_<rmagine::RAM> dataset_cpu_;
 };
 
 } // namespace rmcl

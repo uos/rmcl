@@ -13,6 +13,11 @@ MICPSensorCPU::MICPSensorCPU(rclcpp::Node::SharedPtr nh)
 
 void MICPSensorCPU::drawCorrespondences()
 {
+  if(enable_visualizations)
+  {
+    return;
+  }
+  
   visualization_msgs::msg::Marker marker;
   marker.header.frame_id = sensor_frame;
   
@@ -54,10 +59,6 @@ void MICPSensorCPU::drawCorrespondences()
   marker.scale.x = 0.05;
   marker.scale.y = 0.05;
   marker.scale.z = 0.05;
-
-  // make a copy for thread safety
-  const rm::Memory<rm::Vector> dataset_points 
-    = correspondences_->dataset.points;
   
   // const auto dataset = corre
   const auto model = correspondences_->modelView();
