@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(rmcl
     LANGUAGES CXX C
-	VERSION 2.1.0
+	VERSION 2.2.0
 	)
 
 option(BUILD_TESTS "Build tests" ON)
@@ -52,9 +52,9 @@ set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
 list(APPEND CMAKE_MODULE_PATH ${rmcl_SOURCE_DIR}/cmake)
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
-set(RMAGINE_MAX_VERSION "2.3.0")
+set(RMAGINE_MAX_VERSION "2.4.0")
 
-find_package(rmagine 2.2.12
+find_package(rmagine 2.3.0
     COMPONENTS
         core
     OPTIONAL_COMPONENTS

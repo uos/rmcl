@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(rmcl_ros
-	VERSION 2.1.0)
+	VERSION 2.2.0)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
@@ -45,7 +45,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(OpenMP REQUIRED)
 
 
-find_package(rmagine 2.2.12
+find_package(rmagine 2.3.0
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -54,7 +54,7 @@ find_package(rmagine 2.2.12
         optix
 )
 
-find_package(rmcl 2.1 REQUIRED)
+find_package(rmcl 2.2 REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
 # TODO: we can do this better. maybe but definitions to each target?
