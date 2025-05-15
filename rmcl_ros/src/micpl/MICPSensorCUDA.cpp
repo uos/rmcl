@@ -14,7 +14,7 @@ MICPSensorCUDA::MICPSensorCUDA(rclcpp::Node::SharedPtr nh)
 
 void MICPSensorCUDA::drawCorrespondences()
 {
-  if(enable_visualizations)
+  if(!enable_visualizations)
   {
     return;
   }

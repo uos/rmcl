@@ -13,7 +13,7 @@ MICPSensorCPU::MICPSensorCPU(rclcpp::Node::SharedPtr nh)
 
 void MICPSensorCPU::drawCorrespondences()
 {
-  if(enable_visualizations)
+  if(!enable_visualizations)
   {
     return;
   }

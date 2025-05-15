@@ -39,7 +39,7 @@ void MICPO1DnSensorCPU::connectToTopic(const std::string& topic_name)
   data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
   tf_filter_->registerCallback(&MICPO1DnSensorCPU::updateMsg, this);
 
-  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "Waiting for message from topic '" << topic_name << "'...");
+  RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "] [MICPO1DnSensorCPU] Waiting for message from topic '" << topic_name << "'...");
 }
 
 void MICPO1DnSensorCPU::getDataFromParameters()

@@ -41,6 +41,13 @@ MICPSensorBase::MICPSensorBase(
     enable_visualizations = sensor_param_tree->at("correspondences")->at("visualize")->data->as_bool();
   }
 
+  // if(enable_visualizations)
+  // {
+  //   std::cout << "ENABLE VISUALIZATIONS" << std::endl;
+  // } else {
+  //   std::cout << "DISABLE VISUALIZATIONS" << std::endl;
+  // }
+
   // std::cout << "SENSOR NH: " << std::endl;
   // std::cout << "- name: " << nh_->get_name() << std::endl;
   // std::cout << "- fully_qualified_name: " << nh_->get_fully_qualified_name() << std::endl;
