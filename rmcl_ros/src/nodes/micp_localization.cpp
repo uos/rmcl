@@ -630,7 +630,7 @@ void MICPLocalizationNode::correctOnce()
 
     bool outdated = false;
 
-    for(const auto sensor : sensors_vec_)
+    for(const auto& sensor : sensors_vec_)
     { 
       // transform delta from odom frame to base frame, at time of respective sensor
       const rm::Transform T_bnew_bold = ~sensor->Tbo * T_onew_oold * sensor->Tbo;
@@ -739,9 +739,6 @@ void MICPLocalizationNode::broadcastTransform()
   
   T_odom_map.header.frame_id = map_frame_;
   T_odom_map.child_frame_id = odom_frame_;
-
-
-  
 
   // check Tom
   if(!check(Tom_))
