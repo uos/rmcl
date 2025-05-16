@@ -16,7 +16,7 @@ Pc2ToScanNode::Pc2ToScanNode(
   pub_scan_ = this->create_publisher<rmcl_msgs::msg::ScanStamped>(
     "rmcl_scan", 10);
 
-  if(debug_cloud)
+  if(debug_cloud_)
   {
     pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
       "~/debug_cloud", 10);
@@ -37,63 +37,63 @@ Pc2ToScanNode::Pc2ToScanNode(
 
 void Pc2ToScanNode::fetchParameters()
 {
-  if(!this->get_parameter("sensor_frame", sensor_frame))
+  if(!this->get_parameter("sensor_frame", sensor_frame_))
   {
-    sensor_frame = "";
+    sensor_frame_ = "";
   }
   
   rmcl_msgs::msg::ScanInfo &scanner_model = scan_.scan.info;
 
   if (!this->get_parameter("model.phi_min", scanner_model.phi_min))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
+    return;
   }
   if (!this->get_parameter("model.phi_inc", scanner_model.phi_inc))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
+    return;
   }
 
   if (!this->get_parameter("model.theta_min", scanner_model.theta_min))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
+    return;
   }
   if (!this->get_parameter("model.theta_inc", scanner_model.theta_inc))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
+    return;
   }
 
   if (!this->get_parameter("model.range_min", scanner_model.range_min))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_min");
+    return;
   }
   if (!this->get_parameter("model.range_max", scanner_model.range_max))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model.phi_max");
+    return;
   }
 
   int phi_n_tmp, theta_n_tmp;
   if (!this->get_parameter("model.phi_n", phi_n_tmp))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model/phi_min");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model/phi_min");
+    return;
   }
   if (!this->get_parameter("model.theta_n", theta_n_tmp))
   {
-      RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model/phi_max");
-      return;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "When specifying auto_detect_phi to false you have to provide model/phi_max");
+    return;
   }
   scanner_model.phi_n = phi_n_tmp;
   scanner_model.theta_n = theta_n_tmp;
 
-  if(!this->get_parameter("debug_cloud", debug_cloud))
+  if(!this->get_parameter("debug_cloud", debug_cloud_))
   {
-      debug_cloud = false;
+    debug_cloud_ = false;
   }
 }
 
@@ -102,21 +102,20 @@ void Pc2ToScanNode::initScanArray()
   fillEmpty(scan_.scan);
 }
 
-
 bool Pc2ToScanNode::convert(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr& pcd,
   rmcl_msgs::msg::ScanStamped& scan) const
 {
   rm::Transform T = rm::Transform::Identity();
 
-  if(pcd->header.frame_id != sensor_frame)
+  if(pcd->header.frame_id != sensor_frame_)
   {
     // TODO: get transform
     geometry_msgs::msg::TransformStamped Tros;
 
     try
     {
-      Tros = tf_buffer_->lookupTransform(sensor_frame, pcd->header.frame_id,
+      Tros = tf_buffer_->lookupTransform(sensor_frame_, pcd->header.frame_id,
                                           pcd->header.stamp);
       T.t.x = Tros.transform.translation.x;
       T.t.y = Tros.transform.translation.y;
@@ -215,13 +214,13 @@ bool Pc2ToScanNode::convert(
 
 void Pc2ToScanNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
 {
-  if (sensor_frame == "")
+  if (sensor_frame_ == "")
   {
-    sensor_frame = msg->header.frame_id;
+    sensor_frame_ = msg->header.frame_id;
   }
 
   scan_.header.stamp = msg->header.stamp;
-  scan_.header.frame_id = sensor_frame;
+  scan_.header.frame_id = sensor_frame_;
   if(!convert(msg, scan_))
   {
     return;
@@ -229,7 +228,7 @@ void Pc2ToScanNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 
   pub_scan_->publish(scan_);
 
-  if (debug_cloud)
+  if (debug_cloud_)
   {
     sensor_msgs::msg::PointCloud cloud;
     rmcl::convert(scan_, cloud);

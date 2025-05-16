@@ -74,7 +74,6 @@ void MICPSensorBase::setTom(const rm::Transform& Tom_in)
 bool MICPSensorBase::fetchTF(const rclcpp::Time stamp)
 {
   // figure out current transform chain.
-  
   if(base_frame == sensor_frame)
   {
     Tsb_stamp = stamp;
@@ -113,7 +112,6 @@ bool MICPSensorBase::fetchTF(const rclcpp::Time stamp)
     return false;
   }
 
-  // std::cout << "TRANSFORM CHAIN COMPLETE!" << std::endl;
   return true;
 }
 

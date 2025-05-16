@@ -43,14 +43,15 @@ private:
 
   void cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg);
 
-  std::string sensor_frame = "";
-  bool debug_cloud = false;
+  std::string sensor_frame_ = "";
+  bool debug_cloud_ = false;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcd_;
+  
+  rmcl_msgs::msg::ScanStamped scan_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_debug_cloud_;
   rclcpp::Publisher<rmcl_msgs::msg::ScanStamped>::SharedPtr pub_scan_;
-  rmcl_msgs::msg::ScanStamped scan_;
 
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;

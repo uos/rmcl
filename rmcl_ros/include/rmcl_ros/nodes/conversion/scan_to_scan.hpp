@@ -49,10 +49,14 @@ private:
   size_t skip_begin_;
   size_t skip_end_;
   size_t increment_;
+  bool debug_cloud_ = false;
 
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_scan_;
-  rclcpp::Publisher<rmcl_msgs::msg::ScanStamped>::SharedPtr pub_scan_;
+
   rmcl_msgs::msg::ScanStamped scan_;
+
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_debug_cloud_;
+  rclcpp::Publisher<rmcl_msgs::msg::ScanStamped>::SharedPtr pub_scan_;
   
   OnSetParametersCallbackHandle::SharedPtr callback_handle_;
 };

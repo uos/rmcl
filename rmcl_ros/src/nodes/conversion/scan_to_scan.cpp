@@ -15,6 +15,9 @@ ScanToScanNode::ScanToScanNode(
   pub_scan_ = this->create_publisher<rmcl_msgs::msg::ScanStamped>(
     "rmcl_scan", 10);
 
+  pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
+    "~/debug_cloud", 10);
+
   sub_scan_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
     "scan", 10, 
     [=](const sensor_msgs::msg::LaserScan::ConstSharedPtr& msg) -> void
@@ -31,6 +34,7 @@ void ScanToScanNode::declareParameters()
   declare_parameter("skip_begin", 0);
   declare_parameter("skip_end", 0);
   declare_parameter("increment", 1);
+  declare_parameter("debug_cloud", false);
 }
 
 void ScanToScanNode::fetchParameters()
@@ -38,6 +42,7 @@ void ScanToScanNode::fetchParameters()
   skip_begin_ = get_parameter("skip_begin").as_int();
   skip_end_ = get_parameter("skip_end").as_int();
   increment_ = get_parameter("increment").as_int();
+  debug_cloud_ = get_parameter("debug_cloud").as_bool();
 }
 
 rcl_interfaces::msg::SetParametersResult ScanToScanNode::parametersCallback(
@@ -60,6 +65,10 @@ rcl_interfaces::msg::SetParametersResult ScanToScanNode::parametersCallback(
     else if(param.get_name() == "skip_end")
     {
       skip_end_ = param.as_int();
+    } 
+    else if(param.get_name() == "debug_cloud")
+    {
+      debug_cloud_ = param.as_bool();
     }
   }
 
@@ -109,6 +118,14 @@ void ScanToScanNode::scanCB(const sensor_msgs::msg::LaserScan::ConstSharedPtr& m
     return;
   }
   pub_scan_->publish(scan_);
+
+  if (debug_cloud_)
+  {
+    sensor_msgs::msg::PointCloud cloud;
+    rmcl::convert(scan_, cloud);
+    cloud.header.stamp = msg->header.stamp;
+    pub_debug_cloud_->publish(cloud);
+  }
 }
 
 } // namespace rmcl

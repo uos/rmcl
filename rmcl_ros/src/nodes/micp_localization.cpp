@@ -159,17 +159,17 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   if(initial_pose_offset.size() == 6)
   {
     rm::EulerAngles euler;
-    euler.roll = initial_pose_offset[4];
-    euler.pitch = initial_pose_offset[5];
-    euler.yaw = initial_pose_offset[6];
+    euler.roll = initial_pose_offset[3];
+    euler.pitch = initial_pose_offset[4];
+    euler.yaw = initial_pose_offset[5];
     initial_pose_offset_.R = euler;
   }
   else if(initial_pose_offset.size() == 7)
   {
-    initial_pose_offset_.R.x = initial_pose_offset[4];
-    initial_pose_offset_.R.y = initial_pose_offset[5];
-    initial_pose_offset_.R.z = initial_pose_offset[6];
-    initial_pose_offset_.R.w = initial_pose_offset[7];
+    initial_pose_offset_.R.x = initial_pose_offset[3];
+    initial_pose_offset_.R.y = initial_pose_offset[4];
+    initial_pose_offset_.R.z = initial_pose_offset[5];
+    initial_pose_offset_.R.w = initial_pose_offset[6];
   }
 
   #ifdef RMCL_EMBREE
@@ -215,7 +215,10 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
 
-  fetchTF(now());
+  if(num_dynamic_sensors_ == 0)
+  {
+    RCLCPP_INFO_STREAM(this->get_logger(), "- NUM DYNAMIC SENSORS: " << num_dynamic_sensors_);
+  }
 
   // incoming pose this needs to be synced with tf
   stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("~/micpl_stats", 10);
@@ -248,7 +251,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 void MICPLocalizationNode::poseCB(
   const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
-  std::cout << "POSE RECEIVED!" << std::endl;
+  RCLCPP_INFO_STREAM(get_logger(), "Initial pose guess received.");
   
   // wait for correction loop to finish
   
@@ -256,11 +259,20 @@ void MICPLocalizationNode::poseCB(
   rm::Transform T_pc_m = rm::Transform::Identity();
   if(msg->header.frame_id != map_frame_)
   {
-    // search for transform from pose to map
     try {
-      geometry_msgs::msg::TransformStamped T_pose_map;
-      T_pose_map = tf_buffer_->lookupTransform(map_frame_, msg->header.frame_id, msg->header.stamp);
-      convert(T_pose_map.transform, T_pc_m);
+      if(tf_buffer_->canTransform(
+        map_frame_, msg->header.frame_id, msg->header.stamp, rclcpp::Duration::from_seconds(1.0)))
+      {
+        // search for transform from pose to map
+        geometry_msgs::msg::TransformStamped T_pose_map;
+        T_pose_map = tf_buffer_->lookupTransform(map_frame_, msg->header.frame_id, msg->header.stamp);
+        convert(T_pose_map.transform, T_pc_m);
+      }
+      else
+      {
+        RCLCPP_WARN_STREAM(this->get_logger(), "[MICPLocalizationNode::poseCB] Timeout. Transform from '" << msg->header.frame_id << "' to '" << map_frame_ << "' not available yet.");
+        return;
+      }
     } catch (tf2::TransformException& ex) {
       // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
       RCLCPP_WARN(this->get_logger(), "%s", ex.what());
