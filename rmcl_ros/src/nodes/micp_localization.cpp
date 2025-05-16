@@ -108,7 +108,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   
   std::cout << "MICPLocalizationNode" << std::endl;
 
-
   // 1. Load parameters
   base_frame_ = rmcl::get_parameter(this, "base_frame", "base_link");
   map_frame_ = rmcl::get_parameter(this, "map_frame", "map");
