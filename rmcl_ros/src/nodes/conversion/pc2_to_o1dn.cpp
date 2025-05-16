@@ -20,7 +20,7 @@ Pc2ToO1DnNode::Pc2ToO1DnNode(
   fetchParameters();
 
   pub_scan_ = this->create_publisher<rmcl_msgs::msg::O1DnStamped>(
-    "rmcl_scan", 10);
+    "output", 10);
 
   if(debug_cloud_)
   {
@@ -34,7 +34,7 @@ Pc2ToO1DnNode::Pc2ToO1DnNode(
     std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   sub_pcl_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "cloud", 10, 
+    "input", 10, 
     [=](const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg) -> void
     { 
       cloudCB(msg); 

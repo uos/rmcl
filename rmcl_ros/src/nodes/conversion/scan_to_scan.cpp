@@ -13,13 +13,13 @@ ScanToScanNode::ScanToScanNode(
   fetchParameters();
 
   pub_scan_ = this->create_publisher<rmcl_msgs::msg::ScanStamped>(
-    "rmcl_scan", 10);
+    "output", 10);
 
   pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
     "~/debug_cloud", 10);
 
   sub_scan_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-    "scan", 10, 
+    "input", 10, 
     [=](const sensor_msgs::msg::LaserScan::ConstSharedPtr& msg) -> void
     { 
       scanCB(msg);
