@@ -53,12 +53,16 @@ public:
   MICPSensorPtr loadSensor(
       ParamTree<rclcpp::Parameter>::SharedPtr sensor_params);
 
+  void printSetup();
+
   // I make this public if someone wants to write an application 
   // for multiple robots
   rmagine::Transform Tom_;
   rclcpp::Time Tom_stamp_;
 
+
 private:
+
   void poseCB(
     const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
 

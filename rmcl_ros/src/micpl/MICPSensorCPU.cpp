@@ -56,9 +56,9 @@ void MICPSensorCPU::drawCorrespondences()
   marker.pose.orientation.z = 0.0;
   marker.pose.orientation.w = 1.0;
 
-  marker.scale.x = 0.05;
-  marker.scale.y = 0.05;
-  marker.scale.z = 0.05;
+  marker.scale.x = 0.02;
+  marker.scale.y = 0.02;
+  marker.scale.z = 0.02;
   
   // const auto dataset = corre
   const auto model = correspondences_->modelView();

@@ -6,11 +6,10 @@
 #include <rmagine/util/StopWatch.hpp>
 
 #include <rmagine/math/linalg.h>
-// #include <rmagine/math/linalg.cuh>
 
-// #include <rmcl_ros/micpl/MICP.hpp>
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/ros_helper.h>
+#include <rmcl_ros/util/text_colors.h>
 
 #include <thread>
 #include <mutex>
@@ -157,7 +156,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     initial_pose_offset_.R.w = initial_pose_offset[6];
   }
 
-
   #ifdef RMCL_EMBREE
   map_embree_ = rm::import_embree_map(map_filename_);
   #endif // RMCL_EMBREE
@@ -166,6 +164,38 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   #endif // RMCL_OPTIX
   // loading general micp config
 
+  
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree 
+    = get_parameter_tree(this, "sensors");
+  if(sensors_param_tree->size() == 0)
+  {
+    RCLCPP_ERROR(get_logger(), "ERROR: NO SENSORS SPECIFIED!");
+    throw std::runtime_error("ERROR: NO SENSORS SPECIFIED!");
+  }
+
+  for(auto elem : *sensors_param_tree)
+  {
+    auto sensor = loadSensor(elem.second);
+    if(sensor)
+    {
+      sensors_[sensor->name] = sensor;
+      sensors_vec_.push_back(sensor);
+      if(!sensor->static_dataset)
+      {
+        num_dynamic_sensors_++;
+      }
+    } else {
+      std::string sensor_name = elem.second->name;
+      std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;
+    }
+  }
+  
+  printSetup();
+
+  std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
+
+  // SETUP ROS CONNECTIONS
 
 
   { // set up tf
@@ -197,48 +227,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     }
   }
 
-  
-
-  // loading sensors from parameter tree
-  std::map<std::string, rclcpp::Parameter> sensors_param;
-  if(this->get_parameters("sensors", sensors_param))
-  {
-    std::cout << std::endl;
-    std::cout << "-------------------------" << std::endl;
-    std::cout << "     --- SENSORS ---     " << std::endl;
-    std::cout << "-------------------------" << std::endl;
-
-    ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree 
-      = get_parameter_tree(this, "sensors");
-    for(auto elem : *sensors_param_tree)
-    {
-      auto sensor = loadSensor(elem.second);
-      if(sensor)
-      {
-        std::cout << "Loaded:  " << sensor->name << std::endl;
-        sensors_[sensor->name] = sensor;
-        sensors_vec_.push_back(sensor);
-        if(!sensor->static_dataset)
-        {
-          num_dynamic_sensors_++;
-        }
-      } else {
-        std::string sensor_name = elem.second->name;
-        std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;
-      }
-    }
-  } else {
-    RCLCPP_ERROR(get_logger(), "ERROR: NO SENSORS SPECIFIED!");
-    throw std::runtime_error("ERROR: NO SENSORS SPECIFIED!");
-  }
-
-  std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
-
-  if(num_dynamic_sensors_ == 0)
-  {
-    RCLCPP_INFO_STREAM(this->get_logger(), "- NUM DYNAMIC SENSORS: " << num_dynamic_sensors_);
-  }
-
   // incoming pose this needs to be synced with tf
   stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("~/micpl_stats", 10);
 
@@ -265,6 +253,102 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   });
 
   // last_correction_stamp = this->now();
+}
+
+void MICPLocalizationNode::printSetup()
+{
+  std::cout << std::endl;
+  std::cout << "-------------------------" << std::endl;
+  std::cout << "       --- MAP ---       " << std::endl;
+  std::cout << "-------------------------" << std::endl;
+
+  rm::AssimpIO io;
+  const aiScene* ascene = io.ReadFile(map_filename_, 0);
+
+  std::cout << "- file: " << map_filename_ << std::endl;
+  std::cout << "- meshes: " << ascene->mNumMeshes << std::endl;
+  for(size_t i=0; i<ascene->mNumMeshes; i++)
+  {
+    const aiMesh* amesh = ascene->mMeshes[i];
+    std::cout << TC_SENSOR << amesh->mName.C_Str() << TC_END << std::endl;
+    std::cout << "  - vertices, faces: " << amesh->mNumVertices << ", " << amesh->mNumFaces << std::endl;
+  }
+  std::cout << "For more infos enter in terminal: " << std::endl;
+  std::cout << "$ rmagine_map_info " << map_filename_ << std::endl;
+  
+
+  std::cout << std::endl;
+  std::cout << "--------------------------" << std::endl;
+  std::cout << "     --- BACKENDS ---     " << std::endl;
+  std::cout << "--------------------------" << std::endl;
+
+  std::cout << "Available combining units:" << std::endl;
+  std::cout << "- " << TC_BACKENDS << "CPU" << TC_END << std::endl;
+  #ifdef RMCL_CUDA
+  std::cout << "- " << TC_BACKENDS << "GPU" << TC_END << std::endl; 
+  #endif // RMCL_CUDA
+
+  std::cout << "Available raytracing backends:" << std::endl;
+  #ifdef RMCL_EMBREE
+  std::cout << "- " << TC_BACKENDS << "Embree (CPU)" << TC_END << std::endl;
+  #endif // RMCL_EMBREE
+
+  #ifdef RMCL_OPTIX
+  std::cout << "- " << TC_BACKENDS << "Optix (GPU)" << TC_END << std::endl;
+  #endif // RMCL_OPTIX
+
+  std::cout << std::endl;
+  std::cout << "-------------------------" << std::endl;
+  std::cout << "     --- FRAMES ---      " << std::endl;
+  std::cout << "-------------------------" << std::endl;
+
+  std::cout << "- base:\t" << TC_FRAME << base_frame_ << TC_END << std::endl;
+  std::cout << "- odom:\t" << TC_FRAME << odom_frame_ << TC_END << std::endl;
+  std::cout << "- map:\t" << TC_FRAME << map_frame_ << TC_END << std::endl;
+  std::cout << "Estimating: " << TC_FRAME << base_frame_ << TC_END << " -> " << TC_FRAME << map_frame_ << TC_END << std::endl;
+  std::cout << "Providing:  " << TC_FRAME << odom_frame_ << TC_END << " -> " << TC_FRAME << map_frame_ << TC_END << std::endl;
+
+
+  std::cout << std::endl;
+  std::cout << "-------------------------" << std::endl;
+  std::cout << "     --- SENSORS ---     " << std::endl;
+  std::cout << "-------------------------" << std::endl;
+
+  for(const auto& sensor : sensors_vec_)
+  {
+    const ParamTree<rclcpp::Parameter>::SharedPtr sensor_params 
+      = get_parameter_tree(this, "sensors." + sensor->name);
+
+    std::cout << "- " << TC_SENSOR << sensor->name << TC_END << std::endl;
+
+    std::string data_source = sensor_params->at("data_source")->data->as_string();
+    std::cout << "  - data:\t" << data_source << std::endl;
+    if(data_source == "topic")
+    {
+      std::cout << "    - topic:\t" << TC_TOPIC << sensor_params->at("topic_name")->data->as_string() << TC_END << std::endl;
+      // while(!sensor->first_message_received)
+      // {
+      //   // Wait
+      //   this->get_clock()->sleep_for(std::chrono::duration<float>(0.1));
+      // }
+    } else if(data_source == "parameters") {
+      // TODO: 
+    }
+
+    std::cout << "    - frame:\t" << TC_FRAME << sensor->sensor_frame << TC_END << std::endl;
+    
+    std::cout << "  - model:\t" << TC_MSG << sensor_params->at("model_type")->data->as_string() << TC_END << std::endl;
+
+    const ParamTree<rclcpp::Parameter>::SharedPtr corr_params
+      = sensor_params->at("correspondences"); 
+
+    std::cout << "  - correspondences: " << std::endl;
+    std::cout << "     - backend: " << TC_BLUE << corr_params->at("backend")->data->as_string() << TC_END << std::endl;
+    std::cout << "     - type:    " << TC_MAGENTA << corr_params->at("type")->data->as_string() << TC_END << std::endl;
+    std::cout << "     - metric:  " << TC_GREEN << corr_params->at("metric")->data->as_string() << TC_END << std::endl;
+
+
+  }
 }
 
 void MICPLocalizationNode::poseCB(
@@ -342,7 +426,6 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
 {
   MICPSensorPtr sensor;
   std::string sensor_name = sensor_params->name;
-  std::cout << "Loading '" << sensor_name << "'" << std::endl;
 
   rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
   
@@ -350,9 +433,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
     = get_parameter_tree(nh_sensor, "~");
   
   const std::string data_source = sensor_param_tree->at("data_source")->data->as_string();
-  std::cout << "- Data Source: " << data_source << std::endl;
   const std::string model_type = sensor_param_tree->at("model_type")->data->as_string();
-  std::cout << "- Model Type: " << model_type << std::endl;
 
   auto corr_params = sensor_param_tree->at("correspondences");
   const std::string corr_backend = corr_params->at("backend")->data->as_string();
@@ -366,8 +447,6 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
   {
     adaptive_max_dist_min = corr_params->at("adaptive_max_dist_min")->data->as_double();
   }
-
-  std::cout << "- Correspondence Backend: " << corr_backend << std::endl;
 
   if(corr_backend == "embree")
   {
@@ -546,24 +625,19 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
     return sensor;
   }
 
-  std::cout << "Connect to data..." << std::endl;
-
   if(data_source == "topic")
   {
     const std::string topic_name = sensor_param_tree->at("topic_name")->data->as_string();
     sensor->connectToTopic(topic_name);
+    sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
   }
   else if(data_source == "parameters") 
   {
-    std::cout << "Get Data From parameter" << std::endl;
     sensor->getDataFromParameters();
   } else {
     RCLCPP_ERROR_STREAM(get_logger(), "Data Source '" << data_source << "' not implemented.");
     throw std::runtime_error("Data source not known");
   }
-
-  // TODO: only connect for dynamic sensors?
-  sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
 
   return sensor;
 }
@@ -737,14 +811,11 @@ void MICPLocalizationNode::correctOnce()
   {
     if(!check(T_onew_map))
     {
-      std::cout << "Malformed T_onew_map!" << std::endl;
+      std::cerr << "Malformed T_onew_map!" << std::endl;
     } 
 
-    // else 
-    // {
-      // store/update Tom, if allowed
-      Tom_ = T_onew_map;
-    // }
+    // store/update Tom, if allowed
+    Tom_ = T_onew_map;
   }
 
   mutex_.unlock();
@@ -794,7 +865,7 @@ void MICPLocalizationNode::broadcastTransform()
   else
   {
     // ERROR
-    std::cout << "ERROR UNKNOWN TF TIME SOURCE: " << tf_time_source_ << std::endl;
+    std::cerr << "ERROR UNKNOWN TF TIME SOURCE: " << tf_time_source_ << std::endl;
     return;
   }
   
