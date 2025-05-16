@@ -90,6 +90,12 @@ void MICPOnDnSensorCPU::getDataFromParameters()
   ondn_stamped->header.stamp = nh_->now();
 
   updateMsg(ondn_stamped);
+
+  // std::cout << "Loaded:" << std::endl;
+  // std::cout << "- range (min, max): " << sensor_model_.range.min << ", " << sensor_model_.range.max << std::endl;
+  // std::cout << "- width, height: " << sensor_model_.width << ", " << sensor_model_.height << std::endl;
+  // std::cout << "- origs: " << sensor_model_.origs << std::endl;
+  // std::cout << "- dirs: " << sensor_model_.dirs << std::endl;
 }
 
 void MICPOnDnSensorCPU::updateMsg(
@@ -187,7 +193,8 @@ void MICPOnDnSensorCPU::unpackMessage(
     {
       const unsigned int loc_id = sensor_model_.getBufferId(vid, hid);
       const float real_range = msg->ondn.data.ranges[loc_id];
-      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range;
+      const rm::Vector3f real_point = sensor_model_.getDirection(vid, hid) * real_range
+                                      + sensor_model_.getOrigin(vid, hid);
       correspondences_->dataset.points[loc_id] = real_point;
 
       if(real_range < sensor_model_.range.min || real_range > sensor_model_.range.max)

@@ -41,18 +41,22 @@ MICPSensorBase::MICPSensorBase(
     enable_visualizations = sensor_param_tree->at("correspondences")->at("visualize")->data->as_bool();
   }
 
-  // if(enable_visualizations)
-  // {
-  //   std::cout << "ENABLE VISUALIZATIONS" << std::endl;
-  // } else {
-  //   std::cout << "DISABLE VISUALIZATIONS" << std::endl;
-  // }
+  map_frame = nh_->get_parameter("map_frame").as_string();
+  odom_frame = nh_->get_parameter("odom_frame").as_string();
+  base_frame = nh_->get_parameter("base_frame").as_string();
 
-  // std::cout << "SENSOR NH: " << std::endl;
-  // std::cout << "- name: " << nh_->get_name() << std::endl;
-  // std::cout << "- fully_qualified_name: " << nh_->get_fully_qualified_name() << std::endl;
-  // std::cout << "- namespace: " << nh_->get_namespace() << std::endl;
-  // std::cout << "- get_effective_namespace: " << nh_->get_effective_namespace() << std::endl;
+  while(!tf_buffer_->_frameExists(base_frame))
+  {
+    RCLCPP_INFO_STREAM_ONCE(nh_->get_logger(), "Waiting for '" << base_frame << "' frame to become available ...");
+    nh_->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+  }
+
+  while(!tf_buffer_->_frameExists(odom_frame))
+  {
+    RCLCPP_INFO_STREAM_ONCE(nh_->get_logger(), "Waiting for '" << odom_frame << "' frame to become available ...");
+    nh_->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+  }
+
   correspondence_viz_pub_ = nh_->create_publisher<visualization_msgs::msg::Marker>("~/sensors/" + name + "/correspondences", 10);
 
   on_data_received = [](MICPSensorBase*){
@@ -102,6 +106,7 @@ bool MICPSensorBase::fetchTF(const rclcpp::Time stamp)
     }
     else
     {
+      std::cout << "ELSE!" << std::endl;
       RCLCPP_WARN(nh_->get_logger(), "Transform not available yet.");
       return false;
     }
@@ -111,7 +116,7 @@ bool MICPSensorBase::fetchTF(const rclcpp::Time stamp)
     RCLCPP_WARN_STREAM(nh_->get_logger(), "Source (Base): " << base_frame << ", Target (Odom): " << odom_frame);
     return false;
   }
-
+  
   return true;
 }
 

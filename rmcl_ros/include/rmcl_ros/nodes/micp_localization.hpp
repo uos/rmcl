@@ -81,7 +81,6 @@ private:
   std::string map_frame_;
   std::string base_frame_;
   std::string odom_frame_;
-  bool        use_odom_frame_;
 
   std::string map_filename_;
   std::unordered_map<std::string, MICPSensorPtr> sensors_;

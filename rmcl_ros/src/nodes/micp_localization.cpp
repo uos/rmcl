@@ -104,29 +104,15 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     .automatically_declare_parameters_from_overrides(true))
 {
   Tom_ = rmagine::Transform::Identity();
+  Tbo_latest_ = rmagine::Transform::Identity();
   
   std::cout << "MICPLocalizationNode" << std::endl;
 
-  { // set up tf
-    tf_buffer_ =
-      std::make_shared<tf2_ros::Buffer>(this->get_clock());
 
-    auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
-      this->get_node_base_interface(),
-      this->get_node_timers_interface());
-    tf_buffer_->setCreateTimerInterface(timer_interface);
-
-    tf_listener_ =
-      std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
-    tf_broadcaster_ =
-      std::make_shared<tf2_ros::TransformBroadcaster>(*this);
-  }
-
+  // 1. Load parameters
   base_frame_ = rmcl::get_parameter(this, "base_frame", "base_link");
   map_frame_ = rmcl::get_parameter(this, "map_frame", "map");
   odom_frame_ = rmcl::get_parameter(this, "odom_frame", "");
-  use_odom_frame_ = (odom_frame_ != "");
 
   map_filename_ = rmcl::get_parameter(this, "map_file", "");
   if(map_filename_ == "")
@@ -172,6 +158,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     initial_pose_offset_.R.w = initial_pose_offset[6];
   }
 
+
   #ifdef RMCL_EMBREE
   map_embree_ = rm::import_embree_map(map_filename_);
   #endif // RMCL_EMBREE
@@ -179,6 +166,39 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   map_optix_ = rm::import_optix_map(map_filename_);
   #endif // RMCL_OPTIX
   // loading general micp config
+
+
+
+  { // set up tf
+    tf_buffer_ =
+      std::make_shared<tf2_ros::Buffer>(this->get_clock());
+
+    auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+      this->get_node_base_interface(),
+      this->get_node_timers_interface());
+    tf_buffer_->setCreateTimerInterface(timer_interface);
+
+    tf_listener_ =
+      std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    tf_broadcaster_ =
+      std::make_shared<tf2_ros::TransformBroadcaster>(*this);
+
+    // odom and base frames have to be available!
+    while(!tf_buffer_->_frameExists(base_frame_))
+    {
+      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << base_frame_ << "' frame to become available ...");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+    }
+
+    while(!tf_buffer_->_frameExists(odom_frame_))
+    {
+      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << odom_frame_ << "' frame to become available ...");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+    }
+  }
+
+  
 
   // loading sensors from parameter tree
   std::map<std::string, rclcpp::Parameter> sensors_param;
@@ -264,8 +284,8 @@ void MICPLocalizationNode::poseCB(
         map_frame_, msg->header.frame_id, msg->header.stamp, rclcpp::Duration::from_seconds(1.0)))
       {
         // search for transform from pose to map
-        geometry_msgs::msg::TransformStamped T_pose_map;
-        T_pose_map = tf_buffer_->lookupTransform(map_frame_, msg->header.frame_id, msg->header.stamp);
+        const geometry_msgs::msg::TransformStamped T_pose_map 
+          = tf_buffer_->lookupTransform(map_frame_, msg->header.frame_id, msg->header.stamp);
         convert(T_pose_map.transform, T_pc_m);
       }
       else
@@ -281,6 +301,29 @@ void MICPLocalizationNode::poseCB(
     }
   }
 
+  rm::Transform Tbo;
+
+  try {
+    if(tf_buffer_->canTransform(
+      odom_frame_, base_frame_, msg->header.stamp, rclcpp::Duration::from_seconds(1.0)))
+    {
+      // search for transform from pose to map
+      const geometry_msgs::msg::TransformStamped T_base_odom 
+        = tf_buffer_->lookupTransform(odom_frame_, base_frame_, msg->header.stamp);
+      convert(T_base_odom.transform, Tbo);
+    }
+    else
+    {
+      RCLCPP_WARN_STREAM(this->get_logger(), "[MICPLocalizationNode::poseCB] Timeout. Transform from '" << base_frame_ << "' to '" << odom_frame_ << "' not available yet.");
+      return;
+    }
+  } catch (tf2::TransformException& ex) {
+    // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
+    RCLCPP_WARN(this->get_logger(), "%s", ex.what());
+    RCLCPP_WARN_STREAM(this->get_logger(), "Source (Base): " << base_frame_ << ", Target (Odom): " << odom_frame_);
+    return;
+  }
+
   // transform from actual pose (base) to the pose coordinate system
   rm::Transform T_b_pc;
   convert(msg->pose.pose, T_b_pc);
@@ -290,7 +333,7 @@ void MICPLocalizationNode::poseCB(
   const rm::Transform Tbm = T_pc_m * T_b_pc * initial_pose_offset_;
 
   mutex_.lock();
-  Tom_ = Tbm * ~Tbo_latest_;
+  Tom_ = Tbm * ~Tbo;
   mutex_.unlock();
   std::cout << "Initial pose guess processed. Tom: " << Tom_ << std::endl;
 }
@@ -520,10 +563,7 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
     throw std::runtime_error("Data source not known");
   }
 
-  // set frames
-  sensor->base_frame = base_frame_;
-  sensor->odom_frame = odom_frame_;
-  sensor->map_frame = map_frame_;
+  // TODO: only connect for dynamic sensors?
   sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
 
   return sensor;
@@ -552,6 +592,7 @@ bool MICPLocalizationNode::fetchTF(
     }
     else
     {
+      std::cout << "micp_localization fetchTF ELSE" << std::endl;
       RCLCPP_WARN(this->get_logger(), "Transform not available yet.");
       return false;
     }
@@ -671,8 +712,13 @@ void MICPLocalizationNode::correctOnce()
     }
     
     // Cmerged_o -> T_onew_oold
-    const rm::Transform T_onew_oold_inner 
+    rm::Transform T_onew_oold_inner 
       = rm::umeyama_transform(Cmerged_o);
+
+    if(!check(T_onew_oold_inner))
+    {
+      std::cout << "Malformed T_onew_oold_inner! " << T_onew_oold_inner.t << ", " << T_onew_oold_inner.R << std::endl;
+    }
 
     // update T_onew_oold: 
     // transform from new odom frame to old odom frame
@@ -693,9 +739,13 @@ void MICPLocalizationNode::correctOnce()
     if(!check(T_onew_map))
     {
       std::cout << "Malformed T_onew_map!" << std::endl;
-    }
-    // store/update Tom, if allowed
-    Tom_ = T_onew_map;
+    } 
+
+    // else 
+    // {
+      // store/update Tom, if allowed
+      Tom_ = T_onew_map;
+    // }
   }
 
   mutex_.unlock();
@@ -755,8 +805,7 @@ void MICPLocalizationNode::broadcastTransform()
   // check Tom
   if(!check(Tom_))
   {
-    std::cout << "Tom is malformed!" << std::endl;
-    std::cout << Tom_ << std::endl;
+    std::cout << "Tom is malformed! : " << Tom_.t << ", " << Tom_.R << std::endl;
     throw std::runtime_error("Tom malformed");
   }
   convert(Tom_, T_odom_map.transform);
@@ -808,6 +857,11 @@ void MICPLocalizationNode::correctionLoop()
     for(auto sensor : sensors_vec_)
     {
       all_first_message_received &= sensor->first_message_received;
+    }
+    if(!all_first_message_received)
+    {
+      std::cout << "Waiting for first messages to appear..." << std::endl;
+      this->get_clock()->sleep_for(std::chrono::duration<double>(0.1));
     }
   }
 

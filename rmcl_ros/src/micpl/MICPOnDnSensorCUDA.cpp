@@ -46,7 +46,46 @@ void MICPOnDnSensorCUDA::connectToTopic(const std::string& topic_name)
 
 void MICPOnDnSensorCUDA::getDataFromParameters()
 {
-  // TODO
+  static_dataset = true;
+  
+  // fill this:
+  rmcl_msgs::msg::OnDnStamped::SharedPtr ondn_stamped
+      = std::make_shared<rmcl_msgs::msg::OnDnStamped>();
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
+    = get_parameter_tree(nh_, "~");
+
+  // 1. Load Model
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params 
+      = sensor_param_tree->at("model");
+
+  if(!convert(sensor_model_params, ondn_stamped->ondn.info))
+  {
+    // could parse data from parameters
+    throw std::runtime_error("Could not load OnDn model from parameters!");
+    return;
+  }
+
+  // 2. Load Data
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_data_params 
+      = sensor_param_tree->at("data");
+
+  if(!convert(sensor_data_params, ondn_stamped->ondn.data))
+  {
+    // could parse data from parameters
+    throw std::runtime_error("Could not load O1Dn data from parameters!");
+    return;
+  }
+
+  if(sensor_data_params->exists("frame"))
+  {
+    sensor_frame = sensor_data_params->at("frame")->data->as_string();
+  }
+
+  ondn_stamped->header.frame_id = sensor_frame;
+  ondn_stamped->header.stamp = nh_->now();
+
+  updateMsg(ondn_stamped);
 }
 
 void MICPOnDnSensorCUDA::updateMsg(

@@ -46,7 +46,46 @@ void MICPO1DnSensorCUDA::connectToTopic(const std::string& topic_name)
 
 void MICPO1DnSensorCUDA::getDataFromParameters()
 {
-  // TODO
+  static_dataset = true;
+
+  // fill this:
+  rmcl_msgs::msg::O1DnStamped::SharedPtr o1dn_stamped
+      = std::make_shared<rmcl_msgs::msg::O1DnStamped>();
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
+      = get_parameter_tree(nh_, "~");
+
+  // 1. Load Model
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params 
+      = sensor_param_tree->at("model");
+  
+  if(!convert(sensor_model_params, o1dn_stamped->o1dn.info))
+  {
+    // could parse data from parameters
+    throw std::runtime_error("Could not load O1Dn model from parameters!");
+    return;
+  }
+  
+  // 2. Load Data
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_data_params 
+      = sensor_param_tree->at("data");
+
+  if(!convert(sensor_data_params, o1dn_stamped->o1dn.data))
+  {
+    // could parse data from parameters
+    throw std::runtime_error("Could not load O1Dn data from parameters!");
+    return;
+  }
+
+  if(sensor_data_params->exists("frame"))
+  {
+    sensor_frame = sensor_data_params->at("frame")->data->as_string();
+  }
+
+  o1dn_stamped->header.frame_id = sensor_frame;
+  o1dn_stamped->header.stamp = nh_->now();
+
+  updateMsg(o1dn_stamped);
 }
 
 void MICPO1DnSensorCUDA::updateMsg(
