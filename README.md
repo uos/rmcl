@@ -146,18 +146,16 @@ Make sure the fixed frame in RViz is set to match the map coordinate system.
 ## Installation
 
 Dependencies:
+- ROS 2 (check compatible branches)
 - Download and put [Rmagine](https://github.com/uos/rmagine) (v >= 2.3.0) into your ROS workspace.
-  - Recommended: Install OptiX backend if NVIDIA GPU is available (See installation instructions of rmagine)
-- ROS2 (check compatible branches)
+  - Recommended: Install OptiX backend if NVIDIA GPU is available.
+- Optional for functionality, but required for visualizations: [mesh_tools](https://github.com/naturerobots/mesh_tools).
 
 Clone this repository into your ROS workspace and build it.
 
 ```console
 colcon build
 ```
-
-Optional, but recommended: RMCL itself doesn't provide any tools to visualize the triangle mesh maps.
-If you want to see the map in RViz, use for example the `rviz_mesh_tools_plugins` of the [mesh_tools](https://github.com/naturerobots/mesh_tools).
 
 ## Mesh Navigation
 
