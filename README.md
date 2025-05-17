@@ -63,26 +63,23 @@ The paper is available on [IEEE Xplore](https://ieeexplore.ieee.org/document/108
 See the older branches or commits for reference.
 
 
-### Usage
+### Running `micp_localization_node` (Theoretical Usage)
 
-The `micp_localization_node` Node starts the process of localizing the robot in a mesh using MICP and a given pose estimate. 
-It is usually started through a launch file since it requires a large set of parameters.
+> **Note:** The following is a theoretical usage example meant to illustrate the general setup.  
+> For actual working examples and detailed instructions, please refer to:  
+> [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
 
-The following Launch-File
+
+The `micp_localization_node` starts the process of localizing the robot within a triangle mesh using MICP, based on a given pose estimate.  It is typically launched via a **launch file**:
 
 ```xml
 <launch>
-<node pkg="rmcl_ros" exec="micp_localization_node" name="rmcl_micpl" output="screen">
+  <node pkg="rmcl_ros" exec="micp_localization_node" name="rmcl_micpl" output="screen">
     <param name="map_file" value="/path/to/mesh/map.dae" />
     <param from="/path/to/config/file.yaml" />
-</node>
+  </node>
 </launch>
 ```
-
-runs the MICP localization node. After that a pose has to be given, e.g. by the RViz "2D Pose Estimate" Tool that publishes the results on the `/initialpose` topic.
-Doing that, make sure to set the fixed frame to the map coordinate system.
-RMCL itself doesn't provide any tools to visualize the maps (triangle meshes).
-If you want to see the map in RViz, use for example the `rviz_mesh_tools_plugins` of the [mesh_tools](https://github.com/naturerobots/mesh_tools).
 
 <details>
 <summary>Once the launch file is started, the output in Terminal should look as follows:</summary>
@@ -131,10 +128,18 @@ If you want to see the map in RViz, use for example the `rviz_mesh_tools_plugins
 [micp_localization_node-2] [INFO] [1747438141.203392843] [rmcl_micpl]: Waiting for 'odom' frame to become available ...
 [micp_localization_node-2] Waiting for pose...
 ```
-
 </details>
 
-This shows just the general setup. For more detailed explanations and examples, visit https://github.com/amock/rmcl_examples.
+
+After the node has been started, an initial pose estimate must be provided, eg, using the "2D Pose Estimate" tool in RViz, which publishes to the `/initialpose` topic.
+Make sure the fixed frame in RViz is set to match the map coordinate system.
+
+> Note: RMCL does not provide tools to visualize triangle mesh maps in RViz.
+> To view mesh maps, consider using the rviz_mesh_tools_plugins from the
+[mesh_tools](https://github.com/naturerobots/mesh_tools) repository.
+
+--> For an actual quick start, go to: [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
+
 
 # RMCL - Project
 
