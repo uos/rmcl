@@ -173,16 +173,16 @@ The planned Roadmap is as follows:
 
 ## News
 
-### 2025-05-17: ROS 2-ify MICP-L
+### 2025-05-17: ROS 2-ify MICP-L - v2.2.0
 
 After conducting real-world tests, we refactored the **MICP-L** node to better integrate it into the **ROS 2** ecosystem and added several new features:
 - Limited the possible inputs to *only* `rmcl_msgs`. Instead, we provide nodes and instructions to convert commonly used range sensor messages into `rmcl_msgs`.
 - MICP-L can now be launched as a composable node.
 - Separated correspondence search from optimization without losing much efficiency. This allowed us to add classic closest-point correspondences (CP), in addition to ray-casting correspondences (RC) (only available for embree backend).
 - Improved time synchronization between combinations of sensors and odometry.
-
 - Added many new examples and small demos for a quick start: [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
 
+> For the old version, download v2.1.0
 
 ### 2024-11-25: Restructuring - ROS 1 + ROS 2
 
