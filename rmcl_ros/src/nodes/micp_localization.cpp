@@ -119,8 +119,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     throw std::runtime_error("User must provide ~map_file");
   }
 
-  std::cout << "MAP FILE: " << map_filename_ << std::endl;
-
   disable_correction_ = rmcl::get_parameter(this, "disable_correction", false);
   tf_time_source_ = rmcl::get_parameter(this, "tf_time_source", 0);
   optimization_iterations_ = rmcl::get_parameter(this, "optimization_iterations", 5);
