@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(rmcl_ros
-	VERSION 2.1.0)
+	VERSION 2.2.0)
 
 option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
@@ -18,12 +18,6 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
-message(STATUS "CMake Version: ${CMAKE_VERSION}")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
-    message(STATUS ">= 3.9 - Enabling Link Time Optimization")
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
 # DEFAULT RELEASE
@@ -51,7 +45,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(OpenMP REQUIRED)
 
 
-find_package(rmagine 2.2.8
+find_package(rmagine 2.3.0
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -60,14 +54,14 @@ find_package(rmagine 2.2.8
         optix
 )
 
-find_package(rmcl 2.1 REQUIRED)
+find_package(rmcl 2.2 REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
 # TODO: we can do this better. maybe but definitions to each target?
-if(TARGET rmcl-embree)
+if(TARGET rmagine::embree)
     add_definitions(-DRMCL_EMBREE)
     set(RMCL_EMBREE TRUE)
-endif(TARGET rmcl-embree)
+endif(TARGET rmagine::embree)
 
 if(TARGET rmcl-cuda)
     add_definitions(-DRMCL_CUDA)
@@ -79,25 +73,33 @@ if(TARGET rmcl-optix)
     set(RMCL_OPTIX True)
 endif(TARGET rmcl-optix)
 
-find_package(Eigen3 REQUIRED)
+# find_package(Eigen3 REQUIRED)
 
 include_directories(
     include
 )
 
-
 # CORE LIB ROS
-add_library(rmcl_ros
+add_library(rmcl_ros SHARED
     src/util/conversions.cpp
     src/util/scan_operations.cpp
+    src/util/ros_helper.cpp
+    # micp localization
+    src/micpl/MICPSensor.cpp
+    src/micpl/MICPSensorCPU.cpp
+    src/micpl/MICPSphericalSensorCPU.cpp
+    src/micpl/MICPPinholeSensorCPU.cpp
+    src/micpl/MICPO1DnSensorCPU.cpp
+    src/micpl/MICPOnDnSensorCPU.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<INSTALL_INTERFACE:include>")
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(rmcl_ros
-  rmcl
+    rmcl
+    rmagine::core
 )
 
 ament_target_dependencies(rmcl_ros
@@ -105,6 +107,8 @@ ament_target_dependencies(rmcl_ros
     sensor_msgs
     rmcl_msgs
     geometry_msgs
+    tf2_ros
+    visualization_msgs
 )
 
 install(TARGETS rmcl_ros
@@ -113,20 +117,111 @@ install(TARGETS rmcl_ros
     RUNTIME DESTINATION bin
 )
 
+if(RMCL_EMBREE)
+    # add_library(rmcl_ros_embree SHARED
+    #     src/micpl/correspondences/RCCEmbree.cpp
+    #     src/micpl/correspondences/CPCEmbree.cpp
+    # )
+    # target_include_directories(rmcl_ros_embree PUBLIC
+    #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    #     "$<INSTALL_INTERFACE:include>")
+    # target_link_libraries(rmcl_ros_embree
+    #     rmcl_ros
+    #     rmcl-embree
+    #     rmagine::embree
+    #     OpenMP::OpenMP_CXX
+    # )
+
+    # ament_target_dependencies(rmcl_ros_embree
+    #     rclcpp
+    #     sensor_msgs
+    #     rmcl_msgs
+    #     geometry_msgs
+    # )
+
+    # install(TARGETS rmcl_ros_embree
+    #     ARCHIVE DESTINATION lib
+    #     LIBRARY DESTINATION lib
+    #     RUNTIME DESTINATION bin
+    # )
+endif(RMCL_EMBREE)
+
+if(RMCL_CUDA)
+    add_library(rmcl_ros_cuda SHARED
+        src/micpl/MICPSensorCUDA.cpp
+        src/micpl/MICPSphericalSensorCUDA.cpp
+        src/micpl/MICPPinholeSensorCUDA.cpp
+        src/micpl/MICPO1DnSensorCUDA.cpp
+        src/micpl/MICPOnDnSensorCUDA.cpp
+    )
+    target_include_directories(rmcl_ros_cuda PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>")
+    target_link_libraries(rmcl_ros_cuda
+        rmcl_ros
+        rmcl-cuda
+        rmagine::cuda
+    )
+
+    ament_target_dependencies(rmcl_ros_cuda
+        rclcpp
+        sensor_msgs
+        rmcl_msgs
+        geometry_msgs
+    )
+
+    install(TARGETS rmcl_ros_cuda
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+endif(RMCL_CUDA)
+
+if(RMCL_OPTIX)
+    # add_library(rmcl_ros_optix SHARED
+    #     src/micpl/correspondences/RCCOptix.cpp
+    # )
+    # target_include_directories(rmcl_ros_optix PUBLIC
+    #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    #     "$<INSTALL_INTERFACE:include>")
+    # target_link_libraries(rmcl_ros_optix
+    #     rmcl_ros
+    #     rmcl-optix
+    #     rmagine::optix
+    # )
+
+    # ament_target_dependencies(rmcl_ros_optix
+    #     rclcpp
+    #     sensor_msgs
+    #     rmcl_msgs
+    #     geometry_msgs
+    # )
+
+    # install(TARGETS rmcl_ros_optix
+    #     ARCHIVE DESTINATION lib
+    #     LIBRARY DESTINATION lib
+    #     RUNTIME DESTINATION bin
+    # )
+endif(RMCL_OPTIX)
+
 ## Nodes
 
-##############
-#### MICP ####
-##############
-add_executable(micp_localization 
+#####################
+#### MICP-L Node ####
+#####################
+add_library(micp_localization SHARED
     src/nodes/micp_localization.cpp
-    # MICP
-    src/correction/MICP.cpp
-    src/correction/MICPRangeSensor.cpp
 )
+
+target_include_directories(micp_localization
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(micp_localization
     rmcl_ros
+    rmagine::core
+    OpenMP::OpenMP_CXX
 )
 
 if(RMCL_EMBREE)
@@ -137,7 +232,7 @@ endif(RMCL_EMBREE)
     
 if(RMCL_CUDA)
     target_link_libraries(micp_localization
-        rmcl-cuda
+        rmcl_ros_cuda
     )
 endif(RMCL_CUDA)
 
@@ -149,6 +244,7 @@ endif(RMCL_OPTIX)
 
 ament_target_dependencies(micp_localization
     rclcpp
+    rclcpp_components
     geometry_msgs
     sensor_msgs
     tf2_ros
@@ -157,10 +253,16 @@ ament_target_dependencies(micp_localization
     visualization_msgs
 )
 
+rclcpp_components_register_node(micp_localization
+    PLUGIN "rmcl::MICPLocalizationNode" 
+    EXECUTABLE micp_localization_node)
+
 install(TARGETS 
     micp_localization
-  DESTINATION lib/${PROJECT_NAME})
-
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
 
 # TODO: PORT TO ROS2!
 # ########################
@@ -168,16 +270,16 @@ install(TARGETS
 # ########################
 if(BUILD_CONV)
 
-    ####### PCL2 to SCAN CONVERTER
-    add_library(conv_pcl2_to_scan SHARED 
-        src/nodes/conversion/pcl2_to_scan.cpp)
+    ####### PC2 to SCAN CONVERTER
+    add_library(conv_pc2_to_scan SHARED 
+        src/nodes/conversion/pc2_to_scan.cpp)
 
     ## Specify libraries to link a library or executable target against
-    target_link_libraries(conv_pcl2_to_scan
+    target_link_libraries(conv_pc2_to_scan
         rmcl_ros
     )
 
-    ament_target_dependencies(conv_pcl2_to_scan
+    ament_target_dependencies(conv_pc2_to_scan
         rclcpp
         rclcpp_components
         geometry_msgs
@@ -189,28 +291,28 @@ if(BUILD_CONV)
         visualization_msgs
     )
 
-    rclcpp_components_register_node(conv_pcl2_to_scan 
-        PLUGIN "rmcl::Pcl2ToScanNode" 
-        EXECUTABLE conv_pcl2_to_scan_node)
+    rclcpp_components_register_node(conv_pc2_to_scan 
+        PLUGIN "rmcl::Pc2ToScanNode" 
+        EXECUTABLE conv_pc2_to_scan_node)
 
     install(TARGETS 
-        conv_pcl2_to_scan
+        conv_pc2_to_scan
       ARCHIVE DESTINATION lib
       LIBRARY DESTINATION lib
       RUNTIME DESTINATION bin
     )
 
 
-    ####### PCL2 to O1DN CONVERTER
-    add_library(conv_pcl2_to_o1dn SHARED 
-        src/nodes/conversion/pcl2_to_o1dn.cpp)
+    ####### PC2 to O1DN CONVERTER
+    add_library(conv_pc2_to_o1dn SHARED 
+        src/nodes/conversion/pc2_to_o1dn.cpp)
 
     ## Specify libraries to link a library or executable target against
-    target_link_libraries(conv_pcl2_to_o1dn
+    target_link_libraries(conv_pc2_to_o1dn
         rmcl_ros
     )
 
-    ament_target_dependencies(conv_pcl2_to_o1dn
+    ament_target_dependencies(conv_pc2_to_o1dn
         rclcpp
         rclcpp_components
         geometry_msgs
@@ -222,27 +324,60 @@ if(BUILD_CONV)
         visualization_msgs
     )
 
-    rclcpp_components_register_node(conv_pcl2_to_o1dn 
-        PLUGIN "rmcl::Pcl2ToO1DnNode" 
-        EXECUTABLE conv_pcl2_to_o1dn_node)
+    rclcpp_components_register_node(conv_pc2_to_o1dn 
+        PLUGIN "rmcl::Pc2ToO1DnNode" 
+        EXECUTABLE conv_pc2_to_o1dn_node)
 
     install(TARGETS 
-        conv_pcl2_to_o1dn
+        conv_pc2_to_o1dn
       ARCHIVE DESTINATION lib
       LIBRARY DESTINATION lib
       RUNTIME DESTINATION bin      
     )
-    
-    ####### PCL2 to DEPTH CONVERTER
-    # add_executable(conv_pcl2_to_depth src/nodes/conv/pcl2_to_depth.cpp)
+
+    ####### SCAN to SCAN CONVERTER
+    add_library(conv_scan_to_scan SHARED 
+        src/nodes/conversion/scan_to_scan.cpp)
 
     ## Specify libraries to link a library or executable target against
-    # target_link_libraries(conv_pcl2_to_depth
+    target_link_libraries(conv_scan_to_scan
+        rmcl_ros
+    )
+
+    ament_target_dependencies(conv_scan_to_scan
+        rclcpp
+        rclcpp_components
+        geometry_msgs
+        sensor_msgs
+        tf2
+        tf2_ros
+        rmcl_msgs
+        image_transport
+        visualization_msgs
+    )
+
+    rclcpp_components_register_node(conv_scan_to_scan 
+        PLUGIN "rmcl::ScanToScanNode" 
+        EXECUTABLE conv_scan_to_scan_node)
+
+    install(TARGETS 
+        conv_scan_to_scan
+      ARCHIVE DESTINATION lib
+      LIBRARY DESTINATION lib
+      RUNTIME DESTINATION bin
+    )
+
+    
+    ####### PC2 to DEPTH CONVERTER
+    # add_executable(conv_pc2_to_depth src/nodes/conv/pc2_to_depth.cpp)
+
+    ## Specify libraries to link a library or executable target against
+    # target_link_libraries(conv_pc2_to_depth
     #     rmagine::core
     #     rmcl_ros
     # )
 
-    # ament_target_dependencies(conv_pcl2_to_depth
+    # ament_target_dependencies(conv_pc2_to_depth
     #     rclcpp
     #     geometry_msgs
     #     sensor_msgs
@@ -253,7 +388,7 @@ if(BUILD_CONV)
     # )
 
     # install(TARGETS 
-    #     conv_pcl2_to_depth
+    #     conv_pc2_to_depth
     #     DESTINATION lib/${PROJECT_NAME})
         
     ####### IMAGE to DEPTH CONVERTER
@@ -272,38 +407,6 @@ if(BUILD_CONV)
 
 endif(BUILD_CONV)
 
-# ################
-# ### EXAMPLES ###
-# ################
-if(BUILD_MICP_EXPERIMENTS)
-
-if(TARGET rmcl-embree)
-
-### EVAL ###
-add_executable(micp_eval src/nodes/micp_eval.cpp)
-
-## Specify libraries to link a library or executable target against
-target_link_libraries(micp_eval
-    rmcl-embree
-)
-
-ament_target_dependencies(micp_eval
-    rclcpp
-    geometry_msgs
-    sensor_msgs
-    tf2_ros
-    rmcl_msgs
-    image_transport
-    visualization_msgs
-)
-
-install(TARGETS 
-    micp_eval
-    DESTINATION lib/${PROJECT_NAME})
-
-endif(TARGET rmcl-embree)
-
-endif(BUILD_MICP_EXPERIMENTS)
 
 # TODO: add more segmentation nodes
 if(TARGET rmcl-embree)
@@ -336,12 +439,35 @@ install(TARGETS
     RUNTIME DESTINATION bin      
 )
 
-endif(TARGET rmcl-embree)
+add_library(scan_map_segmentation_embree SHARED
+    src/nodes/filter/o1dn_map_segmentation_embree_node.cpp)
 
-
-install(DIRECTORY launch config
-  DESTINATION share/${PROJECT_NAME}
+target_link_libraries(scan_map_segmentation_embree
+    rmcl_ros
+    rmcl-embree
 )
+
+ament_target_dependencies(scan_map_segmentation_embree
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+    sensor_msgs
+    tf2_ros
+    rmcl_msgs
+)
+
+rclcpp_components_register_node(scan_map_segmentation_embree 
+    PLUGIN "rmcl::ScanMapSegmentationEmbreeNode" 
+    EXECUTABLE scan_map_segmentation_embree_node)
+
+install(TARGETS 
+    o1dn_map_segmentation_embree
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin      
+)
+
+endif(TARGET rmcl-embree)
 
 ament_export_include_directories(
   include

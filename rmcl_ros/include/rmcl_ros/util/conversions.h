@@ -65,6 +65,8 @@
 
 #include <rmagine/types/sensor_models.h>
 
+#include <rmcl_ros/util/ros_helper.h>
+
 namespace rmcl {
 
 void convert(
@@ -134,6 +136,31 @@ void convert(
 void convert(
     const rmcl_msgs::msg::O1DnStamped& scan, 
     sensor_msgs::msg::PointCloud& cloud);
+
+    
+bool convert(
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
+  rmcl_msgs::msg::ScanInfo& scan_model);
+
+bool convert(
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
+  rmcl_msgs::msg::DepthInfo& depth_model);
+
+bool convert(
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
+  rmcl_msgs::msg::O1DnInfo& o1dn_model);
+
+bool convert(
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
+  rmcl_msgs::msg::OnDnInfo& ondn_model);
+
+
+
+bool convert(
+  const ParamTree<rclcpp::Parameter>::SharedPtr data_params,
+  rmcl_msgs::msg::RangeData& range_data);
+
+
 
 } // namespace rmcl 
 

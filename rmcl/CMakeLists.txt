@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(rmcl
     LANGUAGES CXX C
-	VERSION 2.1.0
+	VERSION 2.2.0
 	)
-
 
 option(BUILD_TESTS "Build tests" ON)
 
@@ -50,20 +49,12 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
 
-
-
-# message(STATUS "CMake Version: ${CMAKE_VERSION}")
-# if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
-#     message(STATUS ">= 3.9 - Enabling Link Time Optimization")
-#     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-# endif()
-
 list(APPEND CMAKE_MODULE_PATH ${rmcl_SOURCE_DIR}/cmake)
 
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
-set(RMAGINE_MAX_VERSION "2.3.0")
+set(RMAGINE_MAX_VERSION "2.4.0")
 
-find_package(rmagine 2.2.8
+find_package(rmagine 2.3.0
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -129,8 +120,9 @@ include_directories(
 # CORE LIB
 add_library(rmcl SHARED
     # Math
-    src/rmcl/math/math.cpp
     src/rmcl/math/math_batched.cpp
+    # Registration
+    src/rmcl/registration/CorrespondencesCPU.cpp
     # # Spatial
     # src/rmcl/spatial/KdTree.cpp # TODO: fix nanoflann
     # # Clustering
@@ -167,10 +159,8 @@ if(TARGET rmagine::embree)
 
     add_library(rmcl-embree SHARED
         # Correction
-        src/rmcl/correction/SphereCorrectorEmbree.cpp
-        src/rmcl/correction/PinholeCorrectorEmbree.cpp
-        src/rmcl/correction/O1DnCorrectorEmbree.cpp
-        src/rmcl/correction/OnDnCorrectorEmbree.cpp
+        src/rmcl/registration/RCCEmbree.cpp
+        src/rmcl/registration/CPCEmbree.cpp
     )
 
     target_link_libraries(rmcl-embree
@@ -202,7 +192,6 @@ if(TARGET rmagine::embree)
     add_definitions(-DRMCL_EMBREE)
     set(RMCL_EMBREE TRUE)
 endif()
-
 
 if(TARGET rmagine::cuda OR TARGET rmagine::optix)
 
@@ -262,7 +251,7 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     add_library(rmcl-cuda SHARED
         # math
         src/rmcl/math/math_batched.cu
-        src/rmcl/math/math.cu
+        src/rmcl/registration/CorrespondencesCUDA.cpp
     )
 
     target_link_libraries(rmcl-cuda
@@ -293,123 +282,23 @@ if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     set(RMCL_CUDA True)
 endif()
 
+
+# CUDA
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
-    # Build optix-related targets
-
-    set(RMCL_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_optix_ptx")
-    set(RMCL_OPTIX_PTX_GLOB_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/rmcl_optix_ptx")
-
-    set(CUDA_GENERATED_OUTPUT_DIR ${RMCL_OPTIX_PTX_DIR})
-
-    # add_definitions( -DRMCL_OPTIX_PTX_DIR="${RMCL_OPTIX_PTX_DIR}" )
-    # add_definitions( -DRMCL_OPTIX_PTX_GLOB_DIR="${RMCL_OPTIX_PTX_GLOB_DIR}")
-
-    message(STATUS "Writing Optix Kernels to ${RMCL_OPTIX_PTX_DIR}")
-
-    set(OPTIX_KERNEL_FILES
-        # Correction
-        ## Spherical
-        src/rmcl/correction/optix/SphereCorrectProgramRW.cu
-        src/rmcl/correction/optix/SphereCorrectProgramSW.cu
-        ## Pinhole
-        src/rmcl/correction/optix/PinholeCorrectProgramRW.cu
-        src/rmcl/correction/optix/PinholeCorrectProgramSW.cu
-        ## O1Dn
-        src/rmcl/correction/optix/O1DnCorrectProgramRW.cu
-        src/rmcl/correction/optix/O1DnCorrectProgramSW.cu
-        ## OnDn
-        src/rmcl/correction/optix/OnDnCorrectProgramRW.cu
-        src/rmcl/correction/optix/OnDnCorrectProgramSW.cu
-    )
-
-    # TODO: move this to rmagine
-    get_target_property(RMAGINE_OPTIX_INCLUDES rmagine::optix INTERFACE_INCLUDE_DIRECTORIES)
-
-    if(CUDAToolkit_FOUND)
-        # NEW VERSION
-
-        add_library(rmcl_optix_cu_to_ptx OBJECT
-            ${OPTIX_KERNEL_FILES}
-        )
-
-        target_include_directories(rmcl_optix_cu_to_ptx PRIVATE
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            ${RMAGINE_OPTIX_INCLUDES} # Can we remove this?
-            ${OptiX_INCLUDE_DIRS}
-        )
-
-        set_target_properties(rmcl_optix_cu_to_ptx 
-            PROPERTIES
-                CUDA_PTX_COMPILATION ON
-                # CUDA_ARCHITECTURES all
-        )
-
-        target_link_libraries(rmcl_optix_cu_to_ptx
-            ${OptiX_LIBRARIES}
-            rmagine::core
-            rmagine::cuda
-        )
-
-        add_custom_target(rmcl_optix_ptx ALL
-            DEPENDS 
-                rmagine::core 
-                rmcl_optix_cu_to_ptx 
-                ${OPTIX_KERNEL_FILES}
-            SOURCES ${OPTIX_KERNEL_FILES}
-            VERBATIM)
-
-        add_custom_command(
-            TARGET rmcl_optix_ptx POST_BUILD
-            COMMAND ${CMAKE_COMMAND} 
-                -DRMCL_SOURCE_DIR=${rmcl_SOURCE_DIR} 
-                -DRMCL_OPTIX_PTX_DIR=${RMCL_OPTIX_PTX_DIR}
-                -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}"
-                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernelsCudaToolkit.cmake"
-        )
-    else(CUDAToolkit_FOUND)
-        # THIS IS GOING TO BE OBSOLETE
-
-        cuda_include_directories(
-            ${RMAGINE_OPTIX_INCLUDES}
-        )
-
-        cuda_compile_ptx(RMCL_OPTIX_PTX_FILES
-            ${OPTIX_KERNEL_FILES}
-        )
-
-        add_custom_target(rmcl_optix_ptx ALL
-            DEPENDS
-                ${RMCL_OPTIX_PTX_FILES}
-                ${OPTIX_KERNEL_FILES}
-            SOURCES ${OPTIX_KERNEL_FILES}
-            VERBATIM)
-
-        message(STATUS "CMAKE_SOURCE_DIR: ${rmcl_SOURCE_DIR}")
-
-        add_custom_command(
-            TARGET rmcl_optix_ptx POST_BUILD
-            COMMAND ${CMAKE_COMMAND} 
-                -DRMCL_SOURCE_DIR=${rmcl_SOURCE_DIR} 
-                -DRMCL_OPTIX_PTX_DIR=${RMCL_OPTIX_PTX_DIR} 
-                -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}" 
-                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernels.cmake"
-        )
-    endif(CUDAToolkit_FOUND)
-
     add_library(rmcl-optix SHARED
-        # Correction
-        src/rmcl/correction/SphereCorrectorOptix.cpp
-        src/rmcl/correction/PinholeCorrectorOptix.cpp
-        src/rmcl/correction/O1DnCorrectorOptix.cpp
-        src/rmcl/correction/OnDnCorrectorOptix.cpp
-        # Correction Programs
-        src/rmcl/correction/optix/corr_modules.cpp
-        src/rmcl/correction/optix/corr_program_groups.cpp
-        src/rmcl/correction/optix/corr_pipelines.cpp
+        # math
+        src/rmcl/registration/RCCOptix.cpp
     )
 
-    add_dependencies(rmcl-optix
-        rmcl_optix_ptx
+    target_link_libraries(rmcl-optix
+        rmagine::optix
+        ${CUDA_LIBRARIES}
+    )
+
+    target_include_directories(rmcl-optix
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
     )
 
     set_target_properties(rmcl-optix
@@ -419,34 +308,21 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
             # CXX_STANDARD 17
     )
 
-    target_include_directories(rmcl-optix PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
-    )
-
-    target_link_libraries(rmcl-optix
-        rmcl
-        rmcl-cuda
-        rmagine::optix
-    )
-
     install(TARGETS rmcl-optix
         EXPORT rmcl-targets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 
     add_definitions(-DRMCL_OPTIX)
     set(RMCL_OPTIX True)
 endif()
 
-
-#### TESTS
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif(BUILD_TESTS)
+#### TESTS: TODO Tests
+# if(BUILD_TESTS)
+#     enable_testing()
+#     add_subdirectory(tests)
+# endif(BUILD_TESTS)
 
 
 ### INSTALL

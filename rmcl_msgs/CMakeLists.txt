@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(rmcl_msgs VERSION 2.0.0)
+project(rmcl_msgs VERSION 2.2.0)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -35,6 +35,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     "msg/OnDnInfo.msg"
     "msg/OnDn.msg"
     "msg/OnDnStamped.msg"
+    # MICP
+    "msg/MICPSensorStats.msg"
+    "msg/MICPStats.msg"
   DEPENDENCIES
     std_msgs
     geometry_msgs

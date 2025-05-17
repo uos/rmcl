@@ -1,500 +1,1008 @@
+#include "rmcl_ros/nodes/micp_localization.hpp"
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
-#include <rmagine/math/math.h>
-#ifdef RMCL_CUDA
-#include <rmagine/math/math.cuh>
-#endif // RMCL_CUDA
 
-#include <rmcl_ros/correction/MICP.hpp>
+#include <rmagine/math/linalg.h>
+
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/ros_helper.h>
+#include <rmcl_ros/util/text_colors.h>
 
 #include <thread>
 #include <mutex>
-
+#include <chrono>
+#include <memory>
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <tf2_ros/transform_broadcaster.h>
-
-using namespace rmcl;
-using namespace rmagine;
-
-MICPPtr micp;
-
-std::string map_frame;
-std::string odom_frame;
-bool has_odom_frame = true;
-std::string base_frame;
-
-// this should be attached to each sensor instead
-bool adaptive_max_dist = false;
-float adaptive_max_dist_min = 0.15;
 
 
-// Estimate this
-geometry_msgs::msg::TransformStamped T_odom_map;
-Transform Tom;
-std::mutex                      T_odom_map_mutex;
+#include <rmcl_ros/micpl/MICPSphericalSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPPinholeSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPOnDnSensorCPU.hpp>
+#include <rmcl_ros/micpl/MICPO1DnSensorCPU.hpp>
 
-// dynamic: ekf
-geometry_msgs::msg::TransformStamped T_base_odom;
-std::mutex                      T_base_odom_mutex;
-Transform Tbo;
+#ifdef RMCL_EMBREE
+#include <rmcl/registration/RCCEmbree.hpp>
+#include <rmcl/registration/CPCEmbree.hpp>
+#endif // RMCL_EMBREE
 
-bool invert_tf = false;
-bool correction_disabled = false;
-bool draw_correspondences = false;
+#ifdef RMCL_CUDA
+#include <rmcl_ros/micpl/MICPSphericalSensorCUDA.hpp>
+#include <rmcl_ros/micpl/MICPPinholeSensorCUDA.hpp>
+#include <rmcl_ros/micpl/MICPO1DnSensorCUDA.hpp>
+#include <rmcl_ros/micpl/MICPOnDnSensorCUDA.hpp>
+#endif // RMCL_CUDA
 
-Transform initial_pose_offset;
-unsigned int combining_unit = 1;
+#ifdef RMCL_OPTIX
+#include <rmcl/registration/RCCOptix.hpp>
+#endif // RMCL_OPTIX
 
+#include <rmcl_msgs/msg/micp_stats.hpp>
+#include <rmcl_msgs/msg/micp_sensor_stats.hpp>
 
-// testing
-size_t Nposes = 1;
+using namespace std::chrono_literals;
 
+namespace rm = rmagine;
 
-std::thread correction_thread;
-bool stop_correction_thread = false;
-
-TFBufferPtr tf_buffer;
-TFListenerPtr tf_listener;
-
-bool pose_received = false;
-
-rclcpp::Node::SharedPtr nh;
-std::unique_ptr<tf2_ros::TransformBroadcaster> br;
-rclcpp::Time last_tf_stamp;
-
-void fetchTF()
+namespace rmcl
 {
-    std::lock_guard<std::mutex> guard(T_base_odom_mutex);
 
-    if(has_odom_frame)
+bool check(const rm::Vector& v)
+{
+  return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
+bool check(const rm::Quaternion& q)
+{
+  return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w) && (fabs(q.l2norm()-1.0) < 0.0001);
+}
+
+bool check(const rm::Transform& T)
+{
+  return check(T.t) && check(T.R);
+}
+
+template<typename T>
+bool is_valid(T a)
+{
+  return a == a;
+}
+
+template<typename DataT>
+void checkStats(rm::CrossStatistics_<DataT> stats)
+{
+  // check for nans
+  if(!is_valid(stats.dataset_mean.x)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.dataset_mean.y)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.dataset_mean.z)){throw std::runtime_error("ERROR: NAN");};
+  
+  if(!is_valid(stats.model_mean.x)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.model_mean.y)){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.model_mean.z)){throw std::runtime_error("ERROR: NAN");};
+
+  if(!is_valid(stats.covariance(0,0))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(0,1))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(0,2))){throw std::runtime_error("ERROR: NAN");};
+
+  if(!is_valid(stats.covariance(1,0))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(1,1))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(1,2))){throw std::runtime_error("ERROR: NAN");};
+
+  if(!is_valid(stats.covariance(2,0))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(2,1))){throw std::runtime_error("ERROR: NAN");};
+  if(!is_valid(stats.covariance(2,2))){throw std::runtime_error("ERROR: NAN");};
+}
+
+MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
+:rclcpp::Node("micp_localization_node", rclcpp::NodeOptions(options)
+    .allow_undeclared_parameters(true)
+    .automatically_declare_parameters_from_overrides(true))
+{
+  Tom_ = rmagine::Transform::Identity();
+  Tbo_latest_ = rmagine::Transform::Identity();
+  
+  std::cout << "MICPLocalizationNode" << std::endl;
+
+  // 1. Load parameters
+  base_frame_ = rmcl::get_parameter(this, "base_frame", "base_link");
+  map_frame_ = rmcl::get_parameter(this, "map_frame", "map");
+  odom_frame_ = rmcl::get_parameter(this, "odom_frame", "");
+
+  map_filename_ = rmcl::get_parameter(this, "map_file", "");
+  if(map_filename_ == "")
+  {
+    RCLCPP_ERROR(get_logger(), "User must provide ~map_file");
+    throw std::runtime_error("User must provide ~map_file");
+  }
+
+  disable_correction_ = rmcl::get_parameter(this, "disable_correction", false);
+  tf_time_source_ = rmcl::get_parameter(this, "tf_time_source", 0);
+  optimization_iterations_ = rmcl::get_parameter(this, "optimization_iterations", 5);
+  correction_rate_max_ = rmcl::get_parameter(this, "correction_rate_max", 1000.0);
+  int max_cpu_threads = rmcl::get_parameter(this, "max_cpu_threads", 4);
+  omp_set_num_threads(max_cpu_threads);
+
+  broadcast_tf_ = rmcl::get_parameter(this, "broadcast_tf", true);
+  tf_rate_ = rmcl::get_parameter(this, "tf_rate", 100.0);
+  publish_pose_ = rmcl::get_parameter(this, "publish_pose", false);
+
+  pose_noise_ = rmcl::get_parameter(this, "pose_noise", 0.01);
+  adaptive_max_dist_ = rmcl::get_parameter(this, "adaptive_max_dist", true);
+
+  std::vector<double> initial_pose_offset = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  initial_pose_offset = rmcl::get_parameter(this, "initial_pose_offset", initial_pose_offset);
+
+  initial_pose_offset_.t.x = initial_pose_offset[0];
+  initial_pose_offset_.t.y = initial_pose_offset[1];
+  initial_pose_offset_.t.z = initial_pose_offset[2];
+
+  if(initial_pose_offset.size() == 6)
+  {
+    rm::EulerAngles euler;
+    euler.roll = initial_pose_offset[3];
+    euler.pitch = initial_pose_offset[4];
+    euler.yaw = initial_pose_offset[5];
+    initial_pose_offset_.R = euler;
+  }
+  else if(initial_pose_offset.size() == 7)
+  {
+    initial_pose_offset_.R.x = initial_pose_offset[3];
+    initial_pose_offset_.R.y = initial_pose_offset[4];
+    initial_pose_offset_.R.z = initial_pose_offset[5];
+    initial_pose_offset_.R.w = initial_pose_offset[6];
+  }
+
+  #ifdef RMCL_EMBREE
+  map_embree_ = rm::import_embree_map(map_filename_);
+  #endif // RMCL_EMBREE
+  #ifdef RMCL_OPTIX
+  map_optix_ = rm::import_optix_map(map_filename_);
+  #endif // RMCL_OPTIX
+  // loading general micp config
+
+  
+
+  const ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree 
+    = get_parameter_tree(this, "sensors");
+  if(sensors_param_tree->size() == 0)
+  {
+    RCLCPP_ERROR(get_logger(), "ERROR: NO SENSORS SPECIFIED!");
+    throw std::runtime_error("ERROR: NO SENSORS SPECIFIED!");
+  }
+
+  for(auto elem : *sensors_param_tree)
+  {
+    auto sensor = loadSensor(elem.second);
+    if(sensor)
     {
-        try {
-            T_base_odom = tf_buffer->lookupTransform(odom_frame, base_frame, tf2::TimePointZero);
-        }
-        catch (tf2::TransformException &ex) {
-            RCLCPP_WARN(nh->get_logger(), "%s", ex.what());
-            RCLCPP_WARN_STREAM(nh->get_logger(), "Source (Base): " << base_frame << ", Target (Odom): " << odom_frame);
-            return;
-        }
+      sensors_[sensor->name] = sensor;
+      sensors_vec_.push_back(sensor);
+      if(!sensor->static_dataset)
+      {
+        num_dynamic_sensors_++;
+      }
     } else {
-        T_base_odom.header.frame_id = odom_frame;
-        T_base_odom.child_frame_id = base_frame;
-        T_base_odom.transform.translation.x = 0.0;
-        T_base_odom.transform.translation.y = 0.0;
-        T_base_odom.transform.translation.z = 0.0;
-        T_base_odom.transform.rotation.x = 0.0;
-        T_base_odom.transform.rotation.y = 0.0;
-        T_base_odom.transform.rotation.z = 0.0;
-        T_base_odom.transform.rotation.w = 1.0;
+      std::string sensor_name = elem.second->name;
+      std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;
     }
+  }
+  
+  printSetup();
 
-    convert(T_base_odom.transform, Tbo);
-}
+  std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
 
-void updateTF()
-{   
-    geometry_msgs::msg::TransformStamped T;
+  // SETUP ROS CONNECTIONS
 
-    // What is the source frame?
-    if(has_odom_frame)
+
+  { // set up tf
+    tf_buffer_ =
+      std::make_shared<tf2_ros::Buffer>(this->get_clock());
+
+    auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+      this->get_node_base_interface(),
+      this->get_node_timers_interface());
+    tf_buffer_->setCreateTimerInterface(timer_interface);
+
+    tf_listener_ =
+      std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    tf_broadcaster_ =
+      std::make_shared<tf2_ros::TransformBroadcaster>(*this);
+
+    // odom and base frames have to be available!
+    while(!tf_buffer_->_frameExists(base_frame_))
     {
-        // With EKF and base_frame: Send odom to map
-        if(!invert_tf)
-        {
-            convert(Tom, T.transform);
-            T.header.frame_id = map_frame;
-            T.child_frame_id = odom_frame;
-        } else {
-            convert(~Tom, T.transform);
-            T.header.frame_id = odom_frame;
-            T.child_frame_id = map_frame;
-        }
-    } else {
-        // With base but no EKF: send base to map
-        auto Tbm = Tom * Tbo;
-        if(!invert_tf)
-        {
-            convert(Tbm, T.transform);
-            T.header.frame_id = map_frame;
-            T.child_frame_id = base_frame;
-        } else {
-            convert(~Tbm, T.transform);
-            T.header.frame_id = base_frame;
-            T.child_frame_id = map_frame;
-        }
+      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << base_frame_ << "' frame to become available ...");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
     }
 
-    T.header.stamp = nh->now();
-    br->sendTransform(T);
+    while(!tf_buffer_->_frameExists(odom_frame_))
+    {
+      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << odom_frame_ << "' frame to become available ...");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+    }
+  }
+
+  // incoming pose this needs to be synced with tf
+  stats_publisher_ = this->create_publisher<rmcl_msgs::msg::MICPSensorStats>("~/micpl_stats", 10);
+
+  pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+    "/initialpose", 10, std::bind(&MICPLocalizationNode::poseCB, this, std::placeholders::_1));
+
+  if(publish_pose_)
+  {
+    Tbm_publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("~/micpl_pose", 10);
+  }
+
+  std::cout << "Waiting for pose..." << std::endl;
+
+  // timer. get latest tf
+  stop_correction_thread_ = false;
+  correction_thread_ = std::thread([&](){
+    correctionLoop();
+  });
+  // correction_thread_.detach();
+  
+  stop_tf_broadcaster_thread_ = false;
+  tf_broadcaster_thread_ = std::thread([&](){
+    tfBroadcastLoop();
+  });
+
+  // last_correction_stamp = this->now();
 }
 
-void correctOnce()
+void MICPLocalizationNode::printSetup()
 {
-    std::lock_guard<std::mutex> guard1(T_base_odom_mutex);
-    std::lock_guard<std::mutex> guard2(T_odom_map_mutex);
+  std::cout << std::endl;
+  std::cout << "-------------------------" << std::endl;
+  std::cout << "       --- MAP ---       " << std::endl;
+  std::cout << "-------------------------" << std::endl;
 
-    // 1. Get Base in Map
-    Transform Tbm = Tom * Tbo;
+  rm::AssimpIO io;
+  const aiScene* ascene = io.ReadFile(map_filename_, 0);
 
-    Memory<Transform, RAM> poses(Nposes);
-    for(size_t i=0; i<Nposes; i++)
+  std::cout << "- file: " << map_filename_ << std::endl;
+  std::cout << "- meshes: " << ascene->mNumMeshes << std::endl;
+  for(size_t i=0; i<ascene->mNumMeshes; i++)
+  {
+    const aiMesh* amesh = ascene->mMeshes[i];
+    std::cout << TC_SENSOR << amesh->mName.C_Str() << TC_END << std::endl;
+    std::cout << "  - vertices, faces: " << amesh->mNumVertices << ", " << amesh->mNumFaces << std::endl;
+  }
+  std::cout << "For more infos enter in terminal: " << std::endl;
+  std::cout << "$ rmagine_map_info " << map_filename_ << std::endl;
+  
+
+  std::cout << std::endl;
+  std::cout << "--------------------------" << std::endl;
+  std::cout << "     --- BACKENDS ---     " << std::endl;
+  std::cout << "--------------------------" << std::endl;
+
+  std::cout << "Available combining units:" << std::endl;
+  std::cout << "- " << TC_BACKENDS << "CPU" << TC_END << std::endl;
+  #ifdef RMCL_CUDA
+  std::cout << "- " << TC_BACKENDS << "GPU" << TC_END << std::endl; 
+  #endif // RMCL_CUDA
+
+  std::cout << "Available raytracing backends:" << std::endl;
+  #ifdef RMCL_EMBREE
+  std::cout << "- " << TC_BACKENDS << "Embree (CPU)" << TC_END << std::endl;
+  #endif // RMCL_EMBREE
+
+  #ifdef RMCL_OPTIX
+  std::cout << "- " << TC_BACKENDS << "Optix (GPU)" << TC_END << std::endl;
+  #endif // RMCL_OPTIX
+
+  std::cout << std::endl;
+  std::cout << "-------------------------" << std::endl;
+  std::cout << "     --- FRAMES ---      " << std::endl;
+  std::cout << "-------------------------" << std::endl;
+
+  std::cout << "- base:\t" << TC_FRAME << base_frame_ << TC_END << std::endl;
+  std::cout << "- odom:\t" << TC_FRAME << odom_frame_ << TC_END << std::endl;
+  std::cout << "- map:\t" << TC_FRAME << map_frame_ << TC_END << std::endl;
+  std::cout << "Estimating: " << TC_FRAME << base_frame_ << TC_END << " -> " << TC_FRAME << map_frame_ << TC_END << std::endl;
+  std::cout << "Providing:  " << TC_FRAME << odom_frame_ << TC_END << " -> " << TC_FRAME << map_frame_ << TC_END << std::endl;
+
+
+  std::cout << std::endl;
+  std::cout << "-------------------------" << std::endl;
+  std::cout << "     --- SENSORS ---     " << std::endl;
+  std::cout << "-------------------------" << std::endl;
+
+  for(const auto& sensor : sensors_vec_)
+  {
+    const ParamTree<rclcpp::Parameter>::SharedPtr sensor_params 
+      = get_parameter_tree(this, "sensors." + sensor->name);
+
+    std::cout << "- " << TC_SENSOR << sensor->name << TC_END << std::endl;
+
+    std::string data_source = sensor_params->at("data_source")->data->as_string();
+    std::cout << "  - data:\t" << data_source << std::endl;
+    if(data_source == "topic")
     {
-        poses[i] = Tbm;
+      std::cout << "    - topic:\t" << TC_TOPIC << sensor_params->at("topic_name")->data->as_string() << TC_END << std::endl;
+      // while(!sensor->first_message_received)
+      // {
+      //   // Wait
+      //   this->get_clock()->sleep_for(std::chrono::duration<float>(0.1));
+      // }
+    } else if(data_source == "parameters") {
+      // TODO: 
     }
 
-    Transform dT0;
-    unsigned int ncorr0 = 0;
-
-    #ifdef RMCL_CUDA
-        // exact copy of poses
-        Memory<Transform, VRAM_CUDA> poses_ = poses;
-
-        // 0: use CPU to combine sensor corrections
-        // 1: use GPU to combine sensor corrections
-        if(combining_unit == 0)
-        { // CPU version
-
-            Memory<Transform, RAM> dT(poses.size());
-            CorrectionPreResults<RAM> covs;
-
-            micp->correct(poses, poses_, covs, dT);
-            poses = multNxN(poses, dT);
-            dT0 = dT[0];
-        }
-        else if(combining_unit == 1)
-        { // GPU version
-
-            Memory<Transform, VRAM_CUDA> dT_(poses.size());
-            CorrectionPreResults<VRAM_CUDA> covs_;
-
-            micp->correct(poses, poses_, covs_, dT_);
-            poses_ = multNxN(poses_, dT_);
-            // download
-            poses = poses_;
-            Memory<Transform, RAM> dT = dT_(0,1);
-            Memory<unsigned int, RAM> Ncorr = covs_.Ncorr(0,1);
-            dT0 = dT[0];
-            ncorr0 = Ncorr[0];
-        }
-    #else // RMCL_CUDA
-        
-        // 0: use CPU to combine sensor corrections
-        // 1: use GPU to combine sensor corrections
-        if(combining_unit == 0)
-        { // CPU version
-
-            Memory<Transform, RAM> dT(poses.size());
-            CorrectionPreResults<RAM> covs;
-
-            micp->correct(poses, covs, dT);
-            poses = multNxN(poses, dT);
-            dT0 = dT[0];
-        }
-        else if(combining_unit == 1)
-        { // GPU version
-
-            std::cout << "ERROR: combining unit " << combining_unit << " not available" << std::endl;
-        }
-    #endif // RMCL_CUDA
-
-    if(adaptive_max_dist)
-    {
-        float trans_force = dT0.t.l2norm();
-        float trans_progress = 1.0 / exp(10.0 * trans_force);
-
-        Quaternion qunit;
-        qunit.setIdentity();
-        float qscalar = dT0.R.dot(qunit);
-        float rot_progress = qscalar * qscalar;
-
-        
-        unsigned int n_valid_ranges = 0;
-        unsigned int n_total_ranges = 0;
-        for(auto elem : micp->sensors())
-        {
-            n_valid_ranges += elem.second->n_ranges_valid;
-            n_total_ranges += elem.second->ranges.size();
-        }
-
-        float match_ratio = static_cast<float>(ncorr0) / static_cast<float>(n_valid_ranges);
-        float adaption_rate = trans_progress * rot_progress * match_ratio;
-        
-        
-        // std::cout << "match ratio = " << match_ratio << ", adaption rate = " << adaption_rate << std::endl;
-        for(auto elem : micp->sensors())
-        {
-            elem.second->adaptCorrectionParams(match_ratio, adaption_rate);
-            // std::cout << "- " << elem.first << " - adapt correction params to max_distance = " << elem.second->corr_params.max_distance << std::endl;
-        }
-    }
-
-    // Update T_odom_map
-
-    // pose == Tbm
-    // Tom = Tbm * Tob
-    // 
-
-    // apply actual correction as Tom
-    if(!correction_disabled)
-    {
-        Tom = poses[0] * ~Tbo;
-    }
-}
-
-// Storing Pose information globally
-// Calculate transformation from map to odom from pose in map frame
-void poseCB(geometry_msgs::msg::PoseStamped msg)
-{
-    std::lock_guard<std::mutex> guard(T_odom_map_mutex);
-
-    RCLCPP_INFO_STREAM(nh->get_logger(), " Received new pose guess");
-
-    // rest max distance
-    // corr_params.max_distance = max_distance;
-    // scan_correct->setParams(corr_params);
-
-    // std::cout << "poseCB" << std::endl;
-    map_frame = msg.header.frame_id;
-    pose_received = true;
-
+    std::cout << "    - frame:\t" << TC_FRAME << sensor->sensor_frame << TC_END << std::endl;
     
-    Transform Tpm;
-    convert(msg.pose, Tpm);
+    std::cout << "  - model:\t" << TC_MSG << sensor_params->at("model_type")->data->as_string() << TC_END << std::endl;
 
-    // total transform: offsert -> pose -> map
-    Transform Tbm = Tpm * initial_pose_offset;
+    const ParamTree<rclcpp::Parameter>::SharedPtr corr_params
+      = sensor_params->at("correspondences"); 
 
-    // set T_base_map
-    // geometry_msgs::msg::TransformStamped T_base_map;
-    // T_base_map.header.frame_id = map_frame;
-    // T_base_map.child_frame_id = base_frame;
-    // convert(Tbm, T_base_map.transform);
-
-    Tom = Tbm * ~Tbo;
+    std::cout << "  - correspondences: " << std::endl;
+    std::cout << "     - backend: " << TC_BLUE << corr_params->at("backend")->data->as_string() << TC_END << std::endl;
+    std::cout << "     - type:    " << TC_MAGENTA << corr_params->at("type")->data->as_string() << TC_END << std::endl;
+    std::cout << "     - metric:  " << TC_GREEN << corr_params->at("metric")->data->as_string() << TC_END << std::endl;
 
 
-    // fetchTF();
-    // T_odom_map = T_base_map * ~T_base_odom;
+  }
 }
 
-void poseWcCB(geometry_msgs::msg::PoseWithCovarianceStamped msg)
+void MICPLocalizationNode::poseCB(
+  const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
-    geometry_msgs::msg::PoseStamped pose;
-    pose.header = msg.header;
-    pose.pose = msg.pose.pose;
+  RCLCPP_INFO_STREAM(get_logger(), "Initial pose guess received.");
+  
+  // wait for correction loop to finish
+  
+  // normally the pose is set in map coords
+  rm::Transform T_pc_m = rm::Transform::Identity();
+  if(msg->header.frame_id != map_frame_)
+  {
+    try {
+      if(tf_buffer_->canTransform(
+        map_frame_, msg->header.frame_id, msg->header.stamp, rclcpp::Duration::from_seconds(1.0)))
+      {
+        // search for transform from pose to map
+        const geometry_msgs::msg::TransformStamped T_pose_map 
+          = tf_buffer_->lookupTransform(map_frame_, msg->header.frame_id, msg->header.stamp);
+        convert(T_pose_map.transform, T_pc_m);
+      }
+      else
+      {
+        RCLCPP_WARN_STREAM(this->get_logger(), "[MICPLocalizationNode::poseCB] Timeout. Transform from '" << msg->header.frame_id << "' to '" << map_frame_ << "' not available yet.");
+        return;
+      }
+    } catch (tf2::TransformException& ex) {
+      // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
+      RCLCPP_WARN(this->get_logger(), "%s", ex.what());
+      RCLCPP_WARN_STREAM(this->get_logger(), "Source (Pose): " << msg->header.frame_id << ", Target (Map): " << map_frame_);
+      return;
+    }
+  }
 
-    poseCB(pose);
+  rm::Transform Tbo;
+
+  try {
+    if(tf_buffer_->canTransform(
+      odom_frame_, base_frame_, msg->header.stamp, rclcpp::Duration::from_seconds(1.0)))
+    {
+      // search for transform from pose to map
+      const geometry_msgs::msg::TransformStamped T_base_odom 
+        = tf_buffer_->lookupTransform(odom_frame_, base_frame_, msg->header.stamp);
+      convert(T_base_odom.transform, Tbo);
+    }
+    else
+    {
+      RCLCPP_WARN_STREAM(this->get_logger(), "[MICPLocalizationNode::poseCB] Timeout. Transform from '" << base_frame_ << "' to '" << odom_frame_ << "' not available yet.");
+      return;
+    }
+  } catch (tf2::TransformException& ex) {
+    // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
+    RCLCPP_WARN(this->get_logger(), "%s", ex.what());
+    RCLCPP_WARN_STREAM(this->get_logger(), "Source (Base): " << base_frame_ << ", Target (Odom): " << odom_frame_);
+    return;
+  }
+
+  // transform from actual pose (base) to the pose coordinate system
+  rm::Transform T_b_pc;
+  convert(msg->pose.pose, T_b_pc);
+  // figure out what transform from odom to map is
+
+  // transform b -> m == transform b -> pc -> m
+  const rm::Transform Tbm = T_pc_m * T_b_pc * initial_pose_offset_;
+
+  mutex_.lock();
+  Tom_ = Tbm * ~Tbo;
+  mutex_.unlock();
+  std::cout << "Initial pose guess processed. Tom: " << Tom_ << std::endl;
 }
 
-
-void correct()
+MICPSensorPtr MICPLocalizationNode::loadSensor(
+  ParamTree<rclcpp::Parameter>::SharedPtr sensor_params)
 {
-    if(pose_received)
+  MICPSensorPtr sensor;
+  std::string sensor_name = sensor_params->name;
+
+  rclcpp::Node::SharedPtr nh_sensor = this->create_sub_node("sensors/" + sensor_name);
+  
+  ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
+    = get_parameter_tree(nh_sensor, "~");
+  
+  const std::string data_source = sensor_param_tree->at("data_source")->data->as_string();
+  const std::string model_type = sensor_param_tree->at("model_type")->data->as_string();
+
+  auto corr_params = sensor_param_tree->at("correspondences");
+  const std::string corr_backend = corr_params->at("backend")->data->as_string();
+  const std::string corr_type = corr_params->at("type")->data->as_string();
+
+  rm::UmeyamaReductionConstraints umeyama_params;
+  umeyama_params.max_dist = corr_params->at("max_dist")->data->as_double(); // TODO: adaptive
+
+  float adaptive_max_dist_min = umeyama_params.max_dist;
+  if(corr_params->exists("adaptive_max_dist_min"))
+  {
+    adaptive_max_dist_min = corr_params->at("adaptive_max_dist_min")->data->as_double();
+  }
+
+  if(corr_backend == "embree")
+  {
+    #ifdef RMCL_EMBREE
+
+    std::shared_ptr<MICPSensorCPU> sensor_cpu;
+
+    if(model_type == "spherical")
     {
-        fetchTF();
-        correctOnce();
-    }
-}
-
-void init()
-{
-    T_odom_map.header.frame_id = map_frame;
-    T_odom_map.child_frame_id = odom_frame;
-    T_odom_map.transform.translation.x = 0.0;
-    T_odom_map.transform.translation.y = 0.0;
-    T_odom_map.transform.translation.z = 0.0;
-    T_odom_map.transform.rotation.x = 0.0;
-    T_odom_map.transform.rotation.y = 0.0;
-    T_odom_map.transform.rotation.z = 0.0;
-    T_odom_map.transform.rotation.w = 1.0;
-    Tom = Transform::Identity();
-
-    
-    T_base_odom.header.frame_id = odom_frame;
-    T_base_odom.child_frame_id = base_frame;
-    T_base_odom.transform.translation.x = 0.0;
-    T_base_odom.transform.translation.y = 0.0;
-    T_base_odom.transform.translation.z = 0.0;
-    T_base_odom.transform.rotation.x = 0.0;
-    T_base_odom.transform.rotation.y = 0.0;
-    T_base_odom.transform.rotation.z = 0.0;
-    T_base_odom.transform.rotation.w = 1.0;
-    Tbo = Transform::Identity();
-}
-
-void tf_loop()
-{
-    if(pose_received)
-    {   
-        rclcpp::Time new_stamp = nh->now();
-        // std::cout << new_stamp. << std::endl;
-        if(new_stamp > last_tf_stamp)
-        {
-            updateTF();
-            last_tf_stamp = new_stamp;
-        }
-    }
-}
-
-int main(int argc, char** argv)
-{
-    rclcpp::init(argc, argv);
-
-    rclcpp::NodeOptions options = rclcpp::NodeOptions()
-        .allow_undeclared_parameters(true)
-        .automatically_declare_parameters_from_overrides(true);
-
-    nh = rclcpp::Node::make_shared("micp_localization", options);
-
-    double tf_rate = 50.0;
-    double corr_rate_max = 200.0;
-    bool print_corr_rate = false;
-    base_frame = "base_footprint";
-    odom_frame = "odom";
-    map_frame = "map";
-
-    adaptive_max_dist = true;
-
-    base_frame = get_parameter(nh, "base_frame", "base_link");
-    odom_frame = get_parameter(nh, "odom_frame", "odom");
-    map_frame = get_parameter(nh, "map_frame", "map");
-
-    has_odom_frame = (odom_frame != "");
-
-    if(!has_odom_frame)
-    {
-      std::cout << "WARNING! Odom frame not specified -> you are entering untested terrain" << std::endl;
-    }
-
-    tf_rate = get_parameter(nh, "tf_rate", 50.0);
-    invert_tf = get_parameter(nh, "invert_tf", false);
-
-    corr_rate_max = get_parameter(nh, "micp.corr_rate_max", 10000.0);
-    print_corr_rate = get_parameter(nh, "micp.print_corr_rate", false);
-
-    adaptive_max_dist = get_parameter(nh, "micp.adaptive_max_dist", true);
-
-    draw_correspondences = get_parameter(nh, "micp.viz_corr", false);
-    correction_disabled = get_parameter(nh, "micp.disable_corr", false);
-
-    initial_pose_offset = Transform::Identity();
-    std::vector<double> trans, rot;
-    
-    // rclcpp::Parameter trans_param;
-    if(nh->get_parameter("micp.trans", trans))
-    {
-        if(trans.size() != 3)
-        {
-            // error?
-        }
-        initial_pose_offset.t.x = trans[0];
-        initial_pose_offset.t.y = trans[1];
-        initial_pose_offset.t.z = trans[2];
-    }
-
-    if(nh->get_parameter("micp.rot", rot))
-    {
-        if(rot.size() == 3)
-        {
-            EulerAngles e;
-            e.roll = rot[0];
-            e.pitch = rot[1];
-            e.yaw = rot[2];
-            initial_pose_offset.R.set(e);
-        } else if(rot.size() == 4) {
-            initial_pose_offset.R.x = rot[0];
-            initial_pose_offset.R.y = rot[1];
-            initial_pose_offset.R.z = rot[2];
-            initial_pose_offset.R.w = rot[3];
-        }
-    }
-
-    init();
-
-    tf_buffer = std::make_shared<tf2_ros::Buffer>(nh->get_clock());
-    tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
-    br = std::make_unique<tf2_ros::TransformBroadcaster>(nh);
-
-    micp = std::make_shared<MICP>(nh);
-    micp->loadParams();
-
-    std::string combining_unit_str = get_parameter(nh, "micp.combining_unit", "cpu");
-    
-    if(combining_unit_str == "cpu")
-    {
-        // std::cout << "Combining Unit: CPU" << std::endl; 
-        combining_unit = 0;
-    } else if(combining_unit_str == "gpu") {
-        // std::cout << "Combining Unit: GPU" << std::endl;
-        combining_unit = 1;
-    } else {
+      sensor_cpu = std::make_shared<MICPSphericalSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeSpherical>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
         // ERROR
-        std::cout << "Combining Unit: " << combining_unit_str << " unknown!" << std::endl;
-        return 0;
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "pinhole")
+    {
+      sensor_cpu = std::make_shared<MICPPinholeSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreePinhole>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    } 
+    else if(model_type == "o1dn")
+    {
+      sensor_cpu = std::make_shared<MICPO1DnSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeO1Dn>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "ondn")
+    {
+      sensor_cpu = std::make_shared<MICPOnDnSensorCPU>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_cpu->correspondences_ = std::make_shared<RCCEmbreeOnDn>(map_embree_);
+      } else if(corr_type == "CP") {
+        sensor_cpu->correspondences_ = std::make_shared<CPCEmbree>(map_embree_);
+      } else {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else 
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor model (embree) '" << model_type << "'.");
+      return sensor;
+    }
+    
+    if(!sensor_cpu)
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization (embree) '" << sensor_name << "'.");
+      return sensor;
     }
 
-    auto pose_sub = nh->create_subscription<geometry_msgs::msg::PoseStamped>("pose", 1, poseCB);
-    auto pose_wc_sub = nh->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_wc", 1, poseWcCB);
+    sensor_cpu->correspondences_->params = umeyama_params;
+    sensor_cpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
+    sensor = sensor_cpu;
+    
+    #else
+    throw std::runtime_error("backend 'embree' not compiled / not found");
+    #endif // RMCL_EMBREE
+  }
+  else if(corr_backend == "optix")
+  {
+    #ifdef RMCL_OPTIX
 
-    // CORRECTION THREAD
-    stop_correction_thread = false;
-    correction_thread = std::thread([corr_rate_max, print_corr_rate]()
+    std::shared_ptr<MICPSensorCUDA> sensor_gpu;
+    
+    if(model_type == "spherical")
     {
-        StopWatch sw;
-        double el;
+      sensor_gpu = std::make_shared<MICPSphericalSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixSpherical>(map_optix_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "pinhole")
+    {
+      sensor_gpu = std::make_shared<MICPPinholeSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixPinhole>(map_optix_);
+      }
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "o1dn")
+    {
+      sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixO1Dn>(map_optix_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "ondn")
+    {
+      sensor_gpu = std::make_shared<MICPOnDnSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCOptixOnDn>(map_optix_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else 
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor model (optix) '" << model_type << "'.");
+      return sensor;
+    }
 
-        // minimum duration for one loop
-        double el_min = 1.0 / corr_rate_max;
+    if(!sensor_gpu)
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization (optix) '" << sensor_name << "'.");
+      return sensor;
+    }
 
-        // reactivate cuda context if required
-        micp->useInThisThread();
+    sensor_gpu->correspondences_->params = umeyama_params;
+    sensor_gpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
+    sensor = sensor_gpu;
 
-        while(!stop_correction_thread)
-        {
-            sw();
-            correct();
-            el = sw();
-            double el_left = el_min - el;
-            if(el_left > 0.0)
-            {
-                std::this_thread::sleep_for(std::chrono::duration<double>(el_left));
-            }
+    #else
+    throw std::runtime_error("backend 'optix' not compiled / not found");
+    #endif // RMCL_OPTIX
+  } 
+  else 
+  {
+    RCLCPP_ERROR_STREAM(get_logger(), "Backend '" << corr_backend << "' not implemented.");
+    throw std::runtime_error("Backend not known");
+  }
+  
+  // at this point a sensor must be initialized
+  if(!sensor)
+  {
+    RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization '" << sensor_name << "'.");
+    return sensor;
+  }
 
-            if(print_corr_rate)
-            {
-                double total_dur = el;
-                if(el_left > 0.0)
-                {
-                    total_dur += el_left;
-                }
-                std::cout << "- Current Correction Rate:  " << total_dur << " s" << ", " << 1.0/total_dur << " hz" << std::endl; 
-                std::cout << "- Possible Correction Rate: " << el << " s" << ", " << 1.0/el << " hz" << std::endl;
-            }
-        }
+  if(data_source == "topic")
+  {
+    const std::string topic_name = sensor_param_tree->at("topic_name")->data->as_string();
+    sensor->connectToTopic(topic_name);
+    sensor->on_data_received = std::bind(&MICPLocalizationNode::sensorDataReceived, this, std::placeholders::_1);
+  }
+  else if(data_source == "parameters") 
+  {
+    sensor->getDataFromParameters();
+  } else {
+    RCLCPP_ERROR_STREAM(get_logger(), "Data Source '" << data_source << "' not implemented.");
+    throw std::runtime_error("Data source not known");
+  }
 
-        stop_correction_thread = false;
-    });
-
-    // MAIN LOOP TF
-    last_tf_stamp = nh->now();
-    auto tf_timer = nh->create_wall_timer(std::chrono::duration<double>(1.0 / tf_rate), tf_loop);
-
-    std::cout << "TF Rate: " << tf_rate << std::endl;
-    std::cout << "Waiting for pose guess..." << std::endl;
-
-    rclcpp::ExecutorOptions opts;
-    rclcpp::executors::MultiThreadedExecutor executor(opts, 4);
-    executor.add_node(nh);    
-    executor.spin();
-
-    stop_correction_thread = true;
-    correction_thread.join();
-
-    return 0;
+  return sensor;
 }
+
+void MICPLocalizationNode::sensorDataReceived(
+  const MICPSensorBase* sensor)
+{
+  data_stamp_latest_ = sensor->dataset_stamp_;
+  Tbo_latest_ = sensor->Tbo;
+  Tbo_stamp_latest_ = sensor->Tbo_stamp;
+}
+
+bool MICPLocalizationNode::fetchTF(
+  const rclcpp::Time stamp)
+{
+  try {
+    if(tf_buffer_->canTransform(
+      odom_frame_, base_frame_, stamp, rclcpp::Duration::from_seconds(1.0)))
+    {
+      geometry_msgs::msg::TransformStamped T_base_odom 
+        = tf_buffer_->lookupTransform(
+            odom_frame_, base_frame_, stamp);
+      Tbo_stamp_latest_ = T_base_odom.header.stamp;
+      convert(T_base_odom.transform, Tbo_latest_);
+    }
+    else
+    {
+      std::cout << "micp_localization fetchTF ELSE" << std::endl;
+      RCLCPP_WARN(this->get_logger(), "Transform not available yet.");
+      return false;
+    }
+  } catch (tf2::TransformException& ex) {
+    // std::cout << "Range sensor data is newer than odom! This not too bad. Try to get latest stamp" << std::endl;
+    RCLCPP_WARN(get_logger(), "%s", ex.what());
+    RCLCPP_WARN_STREAM(get_logger(), "Source (Base): " 
+      << base_frame_ << ", Target (Odom): " << odom_frame_);
+    return false;
+  }
+  return true;
+}
+
+void MICPLocalizationNode::correct()
+{
+  size_t outer_iter = 3;
+  for(size_t i=0; i<outer_iter; i++)
+  {
+    correctOnce();
+  }
+}
+
+void MICPLocalizationNode::correctOnce()
+{
+  mutex_.lock();
+  const rm::Transform Tom = Tom_;
+  
+  rmcl_msgs::msg::MICPSensorStats stats;
+  stats.total_measurements = 0;
+  stats.valid_measurements = 0;
+
+  // #pragma omp parallel for
+  for(auto sensor : sensors_vec_)
+  {
+    // dont change the state of this sensor
+    sensor->mutex().lock();
+    stats.total_measurements += sensor->total_dataset_measurements;
+    stats.valid_measurements += sensor->valid_dataset_measurements;
+  }
+
+  stats.measurement_stamp = data_stamp_latest_;
+
+  if(num_dynamic_sensors_ == 0)
+  {
+    for(auto sensor : sensors_vec_)
+    {
+      if(!sensor->fetchTF(now()))
+      {
+        std::cout << "Couldn't fetch tf from " << sensor->name << std::endl;
+        return;
+      }
+    }
+  } else {
+    for(auto sensor : sensors_vec_)
+    {
+      if(sensor->static_dataset)
+      {
+        if(!sensor->fetchTF(data_stamp_latest_))
+        {
+          std::cout << "Couldn't fetch tf from " << sensor->name << std::endl;
+          return;
+        }
+      }
+    }
+  }
+
+  // collect infos
+  for(auto sensor : sensors_vec_)
+  {
+    sensor->setTom(Tom);
+    sensor->findCorrespondences();
+    if(sensor->enable_visualizations)
+    {
+      sensor->drawCorrespondences();
+    }
+  }
+
+  rm::Transform T_onew_oold = rm::Transform::Identity();
+
+  rm::CrossStatistics Cmerged_o;
+  rm::CrossStatistics Cmerged_weighted_o;
+  
+  for(size_t i=0; i<optimization_iterations_; i++)
+  {
+    // std::cout << "Correct! " << i << std::endl;
+    Cmerged_o = rm::CrossStatistics::Identity();
+    Cmerged_weighted_o = rm::CrossStatistics::Identity();
+
+    bool outdated = false;
+
+    for(const auto& sensor : sensors_vec_)
+    { 
+      // transform delta from odom frame to base frame, at time of respective sensor
+      const rm::Transform T_bnew_bold = ~sensor->Tbo * T_onew_oold * sensor->Tbo;
+
+      const rm::CrossStatistics Cs_b 
+        = sensor->computeCrossStatistics(T_bnew_bold, convergence_progress_);
+
+      const rm::CrossStatistics Cs_o = sensor->Tbo * Cs_b;
+
+      rm::CrossStatistics Cs_weighted_o = Cs_o;
+      Cs_weighted_o.n_meas *= sensor->merge_weight_multiplier;
+
+      Cmerged_o += Cs_o; // optimal merge in odom frame
+      Cmerged_weighted_o += Cs_weighted_o;
+    }
+
+    // checkStats(Cmerged_o);
+    if(outdated)
+    {
+      break;
+    }
+
+    if(disable_correction_)
+    {
+      break;
+    }
+    
+    // Cmerged_o -> T_onew_oold
+    rm::Transform T_onew_oold_inner 
+      = rm::umeyama_transform(Cmerged_o);
+
+    if(!check(T_onew_oold_inner))
+    {
+      std::cout << "Malformed T_onew_oold_inner! " << T_onew_oold_inner.t << ", " << T_onew_oold_inner.R << std::endl;
+    }
+
+    // update T_onew_oold: 
+    // transform from new odom frame to old odom frame
+    // this is only virtual (a trick). we dont't want to change the odom frame in the end (instead the odom to map transform)
+    T_onew_oold = T_onew_oold * T_onew_oold_inner;
+  }
+
+  for(auto sensor : sensors_vec_)
+  {
+    sensor->mutex().unlock();
+  }
+
+  // we want T_onew_map, we have Tom which is T_oold_map
+  const rm::Transform T_onew_map = Tom * T_onew_oold;
+
+  if(!disable_correction_ && Cmerged_o.n_meas > 0)
+  {
+    if(!check(T_onew_map))
+    {
+      std::cerr << "Malformed T_onew_map!" << std::endl;
+    } 
+
+    // store/update Tom, if allowed
+    Tom_ = T_onew_map;
+  }
+
+  mutex_.unlock();
+
+  if(Cmerged_o.n_meas == 0 || !adaptive_max_dist_)
+  {
+    convergence_progress_ = 0.0;
+  } 
+  else 
+  {
+    const float trans_force = T_onew_map.t.l2norm();
+    const float trans_progress = 1.0 / exp(10.0 * trans_force);
+
+    const rm::Quaternion qunit = rm::Quaternion::Identity();
+    float qscalar = T_onew_map.R.dot(qunit);
+    float rot_progress = qscalar * qscalar;
+
+    const double match_ratio = static_cast<double>(Cmerged_o.n_meas) / static_cast<double>(stats.valid_measurements);
+    float adaption_rate = trans_progress * rot_progress * match_ratio;
+
+    // Certainty
+    // the certainty about this can be infered by the total number of measurements taken
+    convergence_progress_ = adaption_rate;
+  }
+
+  { // publish stats
+    stats.valid_matches = Cmerged_o.n_meas;
+    stats.cov_trace = Cmerged_o.covariance.trace();
+    stats.header.stamp = this->now();
+    correction_stats_latest_ = stats;
+    stats_publisher_->publish(stats);
+  }
+}
+
+void MICPLocalizationNode::broadcastTransform()
+{
+  geometry_msgs::msg::TransformStamped T_odom_map;
+  
+  if(tf_time_source_ == 0)
+  {
+    T_odom_map.header.stamp = data_stamp_latest_;
+  }
+  else if(tf_time_source_ == 1)
+  {
+    T_odom_map.header.stamp = this->now();
+  }
+  else
+  {
+    // ERROR
+    std::cerr << "ERROR UNKNOWN TF TIME SOURCE: " << tf_time_source_ << std::endl;
+    return;
+  }
+  
+  T_odom_map.header.frame_id = map_frame_;
+  T_odom_map.child_frame_id = odom_frame_;
+
+  // check Tom
+  if(!check(Tom_))
+  {
+    std::cout << "Tom is malformed! : " << Tom_.t << ", " << Tom_.R << std::endl;
+    throw std::runtime_error("Tom malformed");
+  }
+  convert(Tom_, T_odom_map.transform);
+  mutex_.unlock();
+  
+
+  tf_broadcaster_->sendTransform(T_odom_map);
+}
+
+void MICPLocalizationNode::publishPose()
+{
+  // mutex_.lock();
+
+  geometry_msgs::msg::PoseWithCovarianceStamped pose;
+
+  pose.header.stamp = data_stamp_latest_;
+  pose.header.frame_id = map_frame_;
+
+  // just some bad guess of the covariance
+  // const double matched_ratio = static_cast<double>(correction_stats_latest_.valid_matches) / static_cast<double>(correction_stats_latest_.valid_measurements);
+  // const double mean_error = correction_stats_latest_.cov_trace;
+  // const double matched_ratio = 
+
+  const double XX = (1.0 - convergence_progress_) + pose_noise_;
+
+  pose.pose.covariance = {
+    XX, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, XX, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, XX, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, XX/4.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, XX/4.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, XX/4.0
+  };
+  
+  const rm::Transform Tbm = Tom_ * Tbo_latest_;
+  rmcl::convert(Tbm, pose.pose.pose);
+
+  // mutex_.unlock();
+
+  Tbm_publisher_->publish(pose);
+}
+
+void MICPLocalizationNode::correctionLoop()
+{
+  bool all_first_message_received = false;
+  while(rclcpp::ok() && !stop_correction_thread_ && !all_first_message_received)
+  {
+    all_first_message_received = true;
+    for(auto sensor : sensors_vec_)
+    {
+      all_first_message_received &= sensor->first_message_received;
+    }
+    if(!all_first_message_received)
+    {
+      std::cout << "Waiting for first messages to appear..." << std::endl;
+      this->get_clock()->sleep_for(std::chrono::duration<double>(0.1));
+    }
+  }
+
+  std::cout << "Every sensor recevied first message! Starting correction" << std::endl;
+
+  rm::StopWatch sw;
+  // double el = sw();
+  
+  double runtime_avg = 0.001;
+  double new_factor = 0.1;
+
+  const double desired_correction_time = 1.0 / correction_rate_max_;
+
+  while(rclcpp::ok() && !stop_correction_thread_)
+  {
+    // RCLCPP_INFO_STREAM(this->get_logger(), "Latest data received vs now: " << data_stamp_latest_.seconds() << " vs " << this->get_clock()->now().seconds());
+    
+    // TODO: what if we have different computing units?
+    // RTX have a smaller bottleneck vs Embree
+    // We could do this in parallel
+
+    sw();
+    correctOnce();
+
+    // if(broadcast_tf_)
+    // {
+    //   broadcastTransform();
+    // }
+
+    // if(publish_pose_)
+    // {
+    //   publishPose();
+    // }
+
+    const double el = sw();
+    runtime_avg += (el - runtime_avg) * new_factor;
+    const double wait_delay = desired_correction_time - runtime_avg;
+
+    if(wait_delay > 0.0)
+    {
+      // wait
+      this->get_clock()->sleep_for(std::chrono::duration<double>(wait_delay));
+    }
+  }
+}
+
+void MICPLocalizationNode::tfBroadcastLoop()
+{
+  
+
+  double runtime_avg = 0.001;
+  double new_factor = 0.1;
+
+  rm::StopWatch sw;
+  while(rclcpp::ok() && !stop_correction_thread_)
+  {
+    sw();
+    broadcastTransform(); // this is the only important line
+    const double el = sw();
+    runtime_avg += (el - runtime_avg) * new_factor;
+    const double desired_tf_time = 1.0 / tf_rate_;
+    const double wait_delay = desired_tf_time - runtime_avg;
+    if(wait_delay > 0.0)
+    {
+      // wait
+      this->get_clock()->sleep_for(std::chrono::duration<double>(wait_delay));
+    }
+  }
+}
+
+} // namespace rmcl
+
+#include "rclcpp_components/register_node_macro.hpp"
+RCLCPP_COMPONENTS_REGISTER_NODE(rmcl::MICPLocalizationNode)
