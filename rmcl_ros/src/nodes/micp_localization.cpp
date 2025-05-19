@@ -58,7 +58,7 @@ bool check(const rm::Vector& v)
 
 bool check(const rm::Quaternion& q)
 {
-  return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w) && (fabs(q.l2norm()-1.0) < 0.0001);
+  return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w);
 }
 
 bool check(const rm::Transform& T)
@@ -197,7 +197,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
 
   // SETUP ROS CONNECTIONS
 
-
   { // set up tf
     tf_buffer_ =
       std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -213,17 +212,21 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     tf_broadcaster_ =
       std::make_shared<tf2_ros::TransformBroadcaster>(*this);
 
+    int num_tries = 0;
     // odom and base frames have to be available!
     while(!tf_buffer_->_frameExists(base_frame_))
     {
-      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << base_frame_ << "' frame to become available ...");
-      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+      num_tries++;
+      RCLCPP_INFO_STREAM(this->get_logger(), "Waiting for '" << base_frame_ << "' frame to become available ... (" << num_tries << ")");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
     }
 
+    num_tries = 0;
     while(!tf_buffer_->_frameExists(odom_frame_))
     {
-      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << odom_frame_ << "' frame to become available ...");
-      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+      num_tries++;
+      RCLCPP_INFO_STREAM(this->get_logger(), "Waiting for '" << odom_frame_ << "' frame to become available ... (" << num_tries << ")");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
     }
   }
 
@@ -816,6 +819,7 @@ void MICPLocalizationNode::correctOnce()
 
     // store/update Tom, if allowed
     Tom_ = T_onew_map;
+    Tom_.R.normalizeInplace();
   }
 
   mutex_.unlock();
@@ -875,8 +879,8 @@ void MICPLocalizationNode::broadcastTransform()
   // check Tom
   if(!check(Tom_))
   {
-    std::cout << "Tom is malformed! : " << Tom_.t << ", " << Tom_.R << std::endl;
-    throw std::runtime_error("Tom malformed");
+    std::cout << "[WARNING] Tom is malformed! : " << Tom_.t << ", " << Tom_.R << std::endl;
+    // throw std::runtime_error("Tom malformed");
   }
   convert(Tom_, T_odom_map.transform);
   mutex_.unlock();
