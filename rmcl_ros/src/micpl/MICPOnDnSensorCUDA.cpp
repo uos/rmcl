@@ -97,7 +97,7 @@ void MICPOnDnSensorCUDA::updateMsg(
 
   if(fabs(diff_now_msg) > 0.1)
   {
-    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING: (now - input msg's stamp) is more than 100 ms apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
+    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING - NETWORK DELAY: (now - input msg's stamp) is far apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
   }
 
   sw();

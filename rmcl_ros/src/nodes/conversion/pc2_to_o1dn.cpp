@@ -2,6 +2,7 @@
 
 #include <rmagine/math/types.h>
 #include <rmagine/util/prints.h>
+#include <rmagine/util/StopWatch.hpp>
 
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/scan_operations.h>
@@ -253,6 +254,19 @@ bool Pc2ToO1DnNode::convert(
 
 void Pc2ToO1DnNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
 {
+  const rclcpp::Time msg_time = msg->header.stamp;
+  const rclcpp::Time ros_now = this->get_clock()->now();
+
+  const double diff_now_msg = (ros_now - msg_time).seconds();
+  if(fabs(diff_now_msg) > 0.1)
+  {
+    RCLCPP_WARN_STREAM(this->get_logger(), "[Pc2ToO1DnNode::cloudCB] WARNING - NETWORK DELAY: (now - input msg's stamp) is far apart (" << diff_now_msg * 1000.0 << " ms).");
+  }
+
+
+  rm::StopWatch sw;
+  sw();
+
   if(sensor_frame_ == "")
   {
     sensor_frame_ = msg->header.frame_id;
@@ -265,7 +279,17 @@ void Pc2ToO1DnNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
     return;
   }
 
+  const double el = sw();
+  // const rclcpp::Time phsical_time_2 = this->get_clock()->now();
+  // const double diff_now_msg_2 = (phsical_time_2 - phsical_time_1).seconds();
+  if(fabs(el) > 0.1)
+  {
+    RCLCPP_WARN_STREAM(this->get_logger(), "[Pc2ToO1DnNode::cloudCB] WARNING: Conversion takes too long (" << el * 1000.0 << " ms).");
+  }
+
+  // this is send directly to RMCL sensors
   pub_scan_->publish(scan_);
+
 
   if(debug_cloud_)
   {

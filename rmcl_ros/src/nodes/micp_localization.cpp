@@ -218,8 +218,11 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     {
       num_tries++;
       RCLCPP_INFO_STREAM(this->get_logger(), "Waiting for '" << base_frame_ << "' frame to become available ... (" << num_tries << ")");
-      this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
+      // this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
+      std::this_thread::sleep_for(std::chrono::duration<double>(1.0));
     }
+    RCLCPP_INFO_STREAM(this->get_logger(), "'" << base_frame_ << "' found.");
+    std::cout << "Done." << std::endl;
 
     num_tries = 0;
     while(!tf_buffer_->_frameExists(odom_frame_))
