@@ -2,11 +2,8 @@ cmake_minimum_required(VERSION 3.18)
 project(rmcl_ros
 	VERSION 2.2.0)
 
-option(BUILD_EXAMPLES "Build Examples" OFF)
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
-option(BUILD_CONV "Build Conversion Nodes" ON)
-option(BUILD_MICP_EXPERIMENTS "Build Experiments" ON)
-
+option(BUILD_MICP_EXPERIMENTS "Build Experiments" OFF)
 
 include(GNUInstallDirs)
 
@@ -264,159 +261,182 @@ install(TARGETS
     RUNTIME DESTINATION bin
 )
 
-# TODO: PORT TO ROS2!
-# ########################
-# ### CONVERSION NODES ###
-# ########################
-if(BUILD_CONV)
+####### PC2 to SCAN CONVERTER
+add_library(conv_pc2_to_scan SHARED 
+    src/nodes/conversion/pc2_to_scan.cpp)
 
-    ####### PC2 to SCAN CONVERTER
-    add_library(conv_pc2_to_scan SHARED 
-        src/nodes/conversion/pc2_to_scan.cpp)
+## Specify libraries to link a library or executable target against
+target_link_libraries(conv_pc2_to_scan
+    rmcl_ros
+)
 
-    ## Specify libraries to link a library or executable target against
-    target_link_libraries(conv_pc2_to_scan
-        rmcl_ros
-    )
+ament_target_dependencies(conv_pc2_to_scan
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+    sensor_msgs
+    tf2
+    tf2_ros
+    rmcl_msgs
+    image_transport
+    visualization_msgs
+)
 
-    ament_target_dependencies(conv_pc2_to_scan
-        rclcpp
-        rclcpp_components
-        geometry_msgs
-        sensor_msgs
-        tf2
-        tf2_ros
-        rmcl_msgs
-        image_transport
-        visualization_msgs
-    )
+rclcpp_components_register_node(conv_pc2_to_scan 
+    PLUGIN "rmcl::Pc2ToScanNode" 
+    EXECUTABLE conv_pc2_to_scan_node)
 
-    rclcpp_components_register_node(conv_pc2_to_scan 
-        PLUGIN "rmcl::Pc2ToScanNode" 
-        EXECUTABLE conv_pc2_to_scan_node)
-
-    install(TARGETS 
-        conv_pc2_to_scan
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
-      RUNTIME DESTINATION bin
-    )
+install(TARGETS 
+    conv_pc2_to_scan
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
 
 
-    ####### PC2 to O1DN CONVERTER
-    add_library(conv_pc2_to_o1dn SHARED 
-        src/nodes/conversion/pc2_to_o1dn.cpp)
+####### PC2 to O1DN CONVERTER
+add_library(conv_pc2_to_o1dn SHARED 
+    src/nodes/conversion/pc2_to_o1dn.cpp)
 
-    ## Specify libraries to link a library or executable target against
-    target_link_libraries(conv_pc2_to_o1dn
-        rmcl_ros
-    )
+## Specify libraries to link a library or executable target against
+target_link_libraries(conv_pc2_to_o1dn
+    rmcl_ros
+)
 
-    ament_target_dependencies(conv_pc2_to_o1dn
-        rclcpp
-        rclcpp_components
-        geometry_msgs
-        sensor_msgs
-        tf2
-        tf2_ros
-        rmcl_msgs
-        image_transport
-        visualization_msgs
-    )
+ament_target_dependencies(conv_pc2_to_o1dn
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+    sensor_msgs
+    tf2
+    tf2_ros
+    rmcl_msgs
+    image_transport
+    visualization_msgs
+)
 
-    rclcpp_components_register_node(conv_pc2_to_o1dn 
-        PLUGIN "rmcl::Pc2ToO1DnNode" 
-        EXECUTABLE conv_pc2_to_o1dn_node)
+rclcpp_components_register_node(conv_pc2_to_o1dn 
+    PLUGIN "rmcl::Pc2ToO1DnNode" 
+    EXECUTABLE conv_pc2_to_o1dn_node)
 
-    install(TARGETS 
-        conv_pc2_to_o1dn
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
-      RUNTIME DESTINATION bin      
-    )
+install(TARGETS 
+    conv_pc2_to_o1dn
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin      
+)
 
-    ####### SCAN to SCAN CONVERTER
-    add_library(conv_scan_to_scan SHARED 
-        src/nodes/conversion/scan_to_scan.cpp)
+####### SCAN to SCAN CONVERTER
+add_library(conv_scan_to_scan SHARED 
+    src/nodes/conversion/scan_to_scan.cpp)
 
-    ## Specify libraries to link a library or executable target against
-    target_link_libraries(conv_scan_to_scan
-        rmcl_ros
-    )
+## Specify libraries to link a library or executable target against
+target_link_libraries(conv_scan_to_scan
+    rmcl_ros
+)
 
-    ament_target_dependencies(conv_scan_to_scan
-        rclcpp
-        rclcpp_components
-        geometry_msgs
-        sensor_msgs
-        tf2
-        tf2_ros
-        rmcl_msgs
-        image_transport
-        visualization_msgs
-    )
+ament_target_dependencies(conv_scan_to_scan
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+    sensor_msgs
+    tf2
+    tf2_ros
+    rmcl_msgs
+    image_transport
+    visualization_msgs
+)
 
-    rclcpp_components_register_node(conv_scan_to_scan 
-        PLUGIN "rmcl::ScanToScanNode" 
-        EXECUTABLE conv_scan_to_scan_node)
+rclcpp_components_register_node(conv_scan_to_scan 
+    PLUGIN "rmcl::ScanToScanNode" 
+    EXECUTABLE conv_scan_to_scan_node)
 
-    install(TARGETS 
-        conv_scan_to_scan
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
-      RUNTIME DESTINATION bin
-    )
+install(TARGETS 
+    conv_scan_to_scan
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
 
+####### PC2 to DEPTH CONVERTER
+# add_executable(conv_pc2_to_depth src/nodes/conv/pc2_to_depth.cpp)
+
+## Specify libraries to link a library or executable target against
+# target_link_libraries(conv_pc2_to_depth
+#     rmagine::core
+#     rmcl_ros
+# )
+
+# ament_target_dependencies(conv_pc2_to_depth
+#     rclcpp
+#     geometry_msgs
+#     sensor_msgs
+#     tf2_ros
+#     rmcl_msgs
+#     image_transport
+#     visualization_msgs
+# )
+
+# install(TARGETS 
+#     conv_pc2_to_depth
+#     DESTINATION lib/${PROJECT_NAME})
     
-    ####### PC2 to DEPTH CONVERTER
-    # add_executable(conv_pc2_to_depth src/nodes/conv/pc2_to_depth.cpp)
+####### IMAGE to DEPTH CONVERTER
+# add_executable(conv_image_to_depth src/nodes/conv/image_to_depth.cpp)
 
-    ## Specify libraries to link a library or executable target against
-    # target_link_libraries(conv_pc2_to_depth
-    #     rmagine::core
-    #     rmcl_ros
-    # )
+# add_dependencies(conv_image_to_depth 
+#     ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#     ${catkin_EXPORTED_TARGETS}
+# )
 
-    # ament_target_dependencies(conv_pc2_to_depth
-    #     rclcpp
-    #     geometry_msgs
-    #     sensor_msgs
-    #     tf2_ros
-    #     rmcl_msgs
-    #     image_transport
-    #     visualization_msgs
-    # )
+# ## Specify libraries to link a library or executable target against
+# target_link_libraries(conv_image_to_depth
+#     ${catkin_LIBRARIES}
+#     rmcl_ros
+# )
 
-    # install(TARGETS 
-    #     conv_pc2_to_depth
-    #     DESTINATION lib/${PROJECT_NAME})
-        
-    ####### IMAGE to DEPTH CONVERTER
-    # add_executable(conv_image_to_depth src/nodes/conv/image_to_depth.cpp)
 
-    # add_dependencies(conv_image_to_depth 
-    #     ${${PROJECT_NAME}_EXPORTED_TARGETS}
-    #     ${catkin_EXPORTED_TARGETS}
-    # )
 
-    # ## Specify libraries to link a library or executable target against
-    # target_link_libraries(conv_image_to_depth
-    #     ${catkin_LIBRARIES}
-    #     rmcl_ros
-    # )
 
-endif(BUILD_CONV)
 
+
+
+#########
+# FILTER / SEGMENTATION
+#####
+add_library(map_segmentation SHARED
+    src/nodes/filter/map_segmentation.cpp
+)
+
+ament_target_dependencies(map_segmentation
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+    sensor_msgs
+    tf2
+    tf2_ros
+    rmcl_msgs
+    image_transport
+    visualization_msgs
+)
+
+install(TARGETS 
+    map_segmentation
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
 
 # TODO: add more segmentation nodes
 if(TARGET rmcl-embree)
 
 add_library(o1dn_map_segmentation_embree SHARED
-    src/nodes/filter/o1dn_map_segmentation_embree_node.cpp)
+    src/nodes/filter/o1dn_map_segmentation_embree.cpp)
 
 target_link_libraries(o1dn_map_segmentation_embree
     rmcl_ros
     rmcl-embree
+    map_segmentation
 )
 
 ament_target_dependencies(o1dn_map_segmentation_embree
@@ -440,11 +460,12 @@ install(TARGETS
 )
 
 add_library(scan_map_segmentation_embree SHARED
-    src/nodes/filter/o1dn_map_segmentation_embree_node.cpp)
+    src/nodes/filter/o1dn_map_segmentation_embree.cpp)
 
 target_link_libraries(scan_map_segmentation_embree
     rmcl_ros
     rmcl-embree
+    map_segmentation
 )
 
 ament_target_dependencies(scan_map_segmentation_embree
@@ -461,7 +482,7 @@ rclcpp_components_register_node(scan_map_segmentation_embree
     EXECUTABLE scan_map_segmentation_embree_node)
 
 install(TARGETS 
-    o1dn_map_segmentation_embree
+    scan_map_segmentation_embree
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin      
