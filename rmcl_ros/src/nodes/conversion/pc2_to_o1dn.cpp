@@ -175,23 +175,59 @@ bool Pc2ToO1DnNode::convert(
   scan.o1dn.info.orig.y = 0.0;
   scan.o1dn.info.orig.z = 0.0;
 
-  sensor_msgs::msg::PointField field_x;
-  sensor_msgs::msg::PointField field_y;
-  sensor_msgs::msg::PointField field_z;
+  const sensor_msgs::msg::PointField* field_x = NULL;
+  const sensor_msgs::msg::PointField* field_y = NULL;
+  const sensor_msgs::msg::PointField* field_z = NULL;
+  const sensor_msgs::msg::PointField* field_range = NULL;
+  const sensor_msgs::msg::PointField* field_mask = NULL;
+  const sensor_msgs::msg::PointField* field_normal_x = NULL;
+  const sensor_msgs::msg::PointField* field_normal_y = NULL;
+  const sensor_msgs::msg::PointField* field_normal_z = NULL;
+  const sensor_msgs::msg::PointField* field_color = NULL;
+  bool is_rgba = false;
 
-  for (size_t i = 0; i < pcd->fields.size(); i++)
+  for(const sensor_msgs::msg::PointField& field : pcd->fields)
   {
-    if (pcd->fields[i].name == "x")
+    if(field.name == "x")
     {
-      field_x = pcd->fields[i];
+      field_x = &field;
     }
-    if (pcd->fields[i].name == "y")
+    else if(field.name == "y")
     {
-      field_y = pcd->fields[i];
+      field_y = &field;
     }
-    if (pcd->fields[i].name == "z")
+    else if(field.name == "z")
     {
-      field_z = pcd->fields[i];
+      field_z = &field;
+    }
+    else if(field.name == "range")
+    {
+      field_range = &field;
+    }
+    else if(field.name == "mask")
+    {
+      field_mask = &field;
+    }
+    else if(field.name == "normal_x")
+    {
+      field_normal_x = &field;
+    }
+    else if(field.name == "normal_y")
+    {
+      field_normal_y = &field;
+    }
+    else if(field.name == "normal_z")
+    {
+      field_normal_z = &field;
+    }
+    else if(field.name == "rgb")
+    {
+      field_color = &field;
+    }
+    else if(field.name == "rgba")
+    {
+      field_color = &field;
+      is_rgba = true;
     }
   }
 
@@ -208,23 +244,23 @@ bool Pc2ToO1DnNode::convert(
 
       // rmagine::Vector point;
       float x, y, z;
-      if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT32)
+      if (field_x->datatype == sensor_msgs::msg::PointField::FLOAT32)
       {
         // Float
-        x = *reinterpret_cast<const float*>(data_ptr + field_x.offset);
-        y = *reinterpret_cast<const float*>(data_ptr + field_y.offset);
-        z = *reinterpret_cast<const float*>(data_ptr + field_z.offset);
+        x = *reinterpret_cast<const float*>(data_ptr + field_x->offset);
+        y = *reinterpret_cast<const float*>(data_ptr + field_y->offset);
+        z = *reinterpret_cast<const float*>(data_ptr + field_z->offset);
       }
-      else if (field_x.datatype == sensor_msgs::msg::PointField::FLOAT64)
+      else if (field_x->datatype == sensor_msgs::msg::PointField::FLOAT64)
       {
         // Double
-        x = *reinterpret_cast<const double*>(data_ptr + field_x.offset);
-        y = *reinterpret_cast<const double*>(data_ptr + field_y.offset);
-        z = *reinterpret_cast<const double*>(data_ptr + field_z.offset);
+        x = *reinterpret_cast<const double*>(data_ptr + field_x->offset);
+        y = *reinterpret_cast<const double*>(data_ptr + field_y->offset);
+        z = *reinterpret_cast<const double*>(data_ptr + field_z->offset);
       }
       else
       {
-        throw std::runtime_error("Field X has unknown DataType. Check Topic of pcl");
+        throw std::runtime_error("Field X has unknown DataType. Check Topic of PC");
       }
       
       if(std::isfinite(x) && std::isfinite(y) && std::isfinite(z))
@@ -237,7 +273,7 @@ bool Pc2ToO1DnNode::convert(
         scan.o1dn.info.dirs[buffer_id].x = ps.x;
         scan.o1dn.info.dirs[buffer_id].y = ps.y;
         scan.o1dn.info.dirs[buffer_id].z = ps.z;
-      } 
+      }
       else 
       {
         scan.o1dn.data.ranges[buffer_id] = scan.o1dn.info.range_max + 1;
@@ -262,7 +298,6 @@ void Pc2ToO1DnNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
   {
     RCLCPP_WARN_STREAM(this->get_logger(), "[Pc2ToO1DnNode::cloudCB] WARNING - NETWORK DELAY: (now - input msg's stamp) is far apart (" << diff_now_msg * 1000.0 << " ms).");
   }
-
 
   rm::StopWatch sw;
   sw();
@@ -289,7 +324,6 @@ void Pc2ToO1DnNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 
   // this is send directly to RMCL sensors
   pub_scan_->publish(scan_);
-
 
   if(debug_cloud_)
   {

@@ -1,6 +1,8 @@
 #include "rmcl_ros/util/conversions.h"
 #include <rmcl_ros/util/scan_operations.h>
 
+namespace rm = rmagine;
+
 namespace rmcl {
 
 void convert(
@@ -282,6 +284,403 @@ void convert(
   convert(scan.o1dn, cloud.points);
 }
 
+template<typename ModelT>
+void convert(
+  sensor_msgs::msg::PointCloud2& cloud,
+  const std_msgs::msg::Header& header,
+  const ModelT& model,
+  const rmcl_msgs::msg::RangeData& data,
+  bool dense
+)
+{
+  // Create pointfields
+  sensor_msgs::msg::PointField field_point_x;
+  sensor_msgs::msg::PointField field_point_y;
+  sensor_msgs::msg::PointField field_point_z;
+  sensor_msgs::msg::PointField field_range;
+  sensor_msgs::msg::PointField field_mask;
+  sensor_msgs::msg::PointField field_normal_x;
+  sensor_msgs::msg::PointField field_normal_y;
+  sensor_msgs::msg::PointField field_normal_z;
+  sensor_msgs::msg::PointField field_color;
+  sensor_msgs::msg::PointField field_stamp;
+  sensor_msgs::msg::PointField field_intensity;
+  sensor_msgs::msg::PointField field_label;
+
+  const bool has_mask = data.mask.size() > 0;
+  const bool has_normals = data.normals.size() > 0;
+  const bool has_colors = data.colors.size() > 0;
+  const bool has_stamps = data.stamps.size() > 0;
+  const bool has_intensities = data.intensities.size() > 0;
+  const bool has_labels = data.labels.size() > 0;
+
+  cloud.fields.resize(0);
+  size_t current_offset = 0;
+
+  // add point field
+  { 
+    field_point_x.name = "x";
+    field_point_x.offset = current_offset;
+    field_point_x.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field_point_x.count = 1;
+    cloud.fields.push_back(field_point_x);
+    current_offset += 4;
+  }
+
+  {
+    field_point_y.name = "y";
+    field_point_y.offset = current_offset;
+    field_point_y.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field_point_y.count = 1;
+    cloud.fields.push_back(field_point_y);
+    current_offset += 4;
+  }
+
+  {
+    field_point_z.name = "z";
+    field_point_z.offset = current_offset;
+    field_point_z.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field_point_z.count = 1;
+    cloud.fields.push_back(field_point_z);
+    current_offset += 4;
+  }
+
+  {
+    field_range.name = "range";
+    field_range.offset = current_offset;
+    field_range.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    field_range.count = 1;
+    cloud.fields.push_back(field_range);
+    current_offset += 4;
+  }
+
+  if(has_mask && !dense)
+  {
+    {
+      field_mask.name = "mask";
+      field_mask.offset = current_offset;
+      field_mask.datatype = sensor_msgs::msg::PointField::INT8;
+      field_mask.count = 1;
+      cloud.fields.push_back(field_mask);
+      current_offset += 1;
+    }
+  }
+
+  if(has_normals)
+  {
+    {
+      field_normal_x.name = "normal_x";
+      field_normal_x.offset = current_offset;
+      field_normal_x.datatype = sensor_msgs::msg::PointField::FLOAT32;
+      field_normal_x.count = 1;
+      cloud.fields.push_back(field_normal_x);
+      current_offset += 4;
+    }
+
+    {
+      field_normal_y.name = "normal_y";
+      field_normal_y.offset = current_offset;
+      field_normal_y.datatype = sensor_msgs::msg::PointField::FLOAT32;
+      field_normal_y.count = 1;
+      cloud.fields.push_back(field_normal_y);
+      current_offset += 4;
+    }
+
+    {
+      field_normal_z.name = "normal_z";
+      field_normal_z.offset = current_offset;
+      field_normal_z.datatype = sensor_msgs::msg::PointField::FLOAT32;
+      field_normal_z.count = 1;
+      cloud.fields.push_back(field_normal_z);
+      current_offset += 4;
+    }
+  }
+
+  if(has_colors)
+  {
+    {
+      field_color.name = "rgba";
+      field_color.offset = current_offset;
+      field_color.datatype = sensor_msgs::msg::PointField::FLOAT32;
+      field_color.count = 4;
+      cloud.fields.push_back(field_color);
+      current_offset += 16;
+    }
+  }
+
+  if(has_stamps)
+  {
+    {
+      field_stamp.name = "time";
+      field_stamp.offset = current_offset;
+      field_stamp.datatype = sensor_msgs::msg::PointField::FLOAT32;
+      field_stamp.count = 1;
+      cloud.fields.push_back(field_stamp);
+      current_offset += 4;
+    }
+  }
+
+  if(has_intensities)
+  {
+    {
+      field_intensity.name = "intensity";
+      field_intensity.offset = current_offset;
+      field_intensity.datatype = sensor_msgs::msg::PointField::FLOAT32;
+      field_intensity.count = 1;
+      cloud.fields.push_back(field_intensity);
+      current_offset += 4;
+    }
+  }
+
+  if(has_labels)
+  {
+    {
+      field_label.name = "label";
+      field_label.offset = current_offset;
+      field_label.datatype = sensor_msgs::msg::PointField::UINT32;
+      field_label.count = 1;
+      cloud.fields.push_back(field_label);
+      current_offset += 4;
+    }
+  }
+
+  cloud.header = header;
+  cloud.is_dense = dense;
+  cloud.point_step = current_offset;
+
+  if(dense)
+  {
+    cloud.width = model.getWidth();
+    cloud.height = model.getHeight();
+  } else {
+    cloud.width = 0; // this is determined at runtime
+    cloud.height = 1;
+  }
+
+  cloud.row_step = cloud.point_step * model.getWidth();
+  cloud.data.reserve(cloud.height * cloud.row_step);
+
+  for(size_t vid = 0; vid < model.getHeight(); vid++)
+  {
+    for(size_t hid = 0; hid < model.getWidth(); hid++)
+    {
+      const unsigned int pid = model.getBufferId(vid, hid);
+
+      if(has_mask && dense)
+      {
+        if(!data.mask[pid])
+        {
+          continue;
+        }
+      }
+
+      const float range = data.ranges[pid];
+      rm::Vector point;
+
+      if(model.range.inside(range))
+      {
+        point = model.getDirection(vid, hid) * range + model.getOrigin(vid, hid); 
+      } else {
+        if(dense)
+        {
+          continue;
+        }
+
+        if(range > model.range.max)
+        {
+          point.x = std::numeric_limits<float>::infinity();
+          point.y = std::numeric_limits<float>::infinity();
+          point.z = std::numeric_limits<float>::infinity();
+        } else if(range < model.range.min) {
+          point.x = 0.0;
+          point.y = 0.0;
+          point.z = 0.0;
+        }
+      }
+
+      { // PX
+        const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&point.x);
+        cloud.data.push_back(tmp_data[0]);
+        cloud.data.push_back(tmp_data[1]);
+        cloud.data.push_back(tmp_data[2]);
+        cloud.data.push_back(tmp_data[3]);
+      }
+
+      {
+        const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&point.y);
+        cloud.data.push_back(tmp_data[0]);
+        cloud.data.push_back(tmp_data[1]);
+        cloud.data.push_back(tmp_data[2]);
+        cloud.data.push_back(tmp_data[3]);
+      }
+
+      {
+        const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&point.z);
+        cloud.data.push_back(tmp_data[0]);
+        cloud.data.push_back(tmp_data[1]);
+        cloud.data.push_back(tmp_data[2]);
+        cloud.data.push_back(tmp_data[3]);
+      }
+
+      {
+        const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&range);
+        cloud.data.push_back(tmp_data[0]);
+        cloud.data.push_back(tmp_data[1]);
+        cloud.data.push_back(tmp_data[2]);
+        cloud.data.push_back(tmp_data[3]);
+      }
+      
+      if(has_mask)
+      {
+        const uint8_t mask_val = (data.mask[pid] ? 1 : 0);
+        cloud.data.push_back(mask_val);
+      }
+
+      if(has_normals)
+      {
+        { // NX
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.normals[pid].x);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+
+        { // NY
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.normals[pid].y);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+
+        { // NY
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.normals[pid].z);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+      }
+
+      if(has_colors)
+      {
+        { // CR
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.colors[pid].r);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+
+        { // CG
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.colors[pid].g);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+
+        { // CB
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.colors[pid].b);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+
+        { // CA
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.colors[pid].a);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+      }
+
+      if(has_stamps)
+      {
+        { // stamp
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.stamps[pid]);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+      }
+
+      if(has_intensities)
+      {
+        { // intensity
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.intensities[pid]);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+      }
+
+      if(has_labels)
+      {
+        { // intensity
+          const uint8_t* tmp_data = reinterpret_cast<const uint8_t*>(&data.labels[pid]);
+          cloud.data.push_back(tmp_data[0]);
+          cloud.data.push_back(tmp_data[1]);
+          cloud.data.push_back(tmp_data[2]);
+          cloud.data.push_back(tmp_data[3]);
+        }
+      }
+    }
+  }
+}
+
+void convert(
+  sensor_msgs::msg::PointCloud2& cloud,
+  const std_msgs::msg::Header& header,
+  const rmcl_msgs::msg::ScanInfo& info,
+  const rmcl_msgs::msg::RangeData& data,
+  bool dense)
+{
+  rm::SphericalModel model;
+  convert(info, model);
+  convert(cloud, header, model, data, dense);
+}
+
+void convert(
+  sensor_msgs::msg::PointCloud2& cloud,
+  const std_msgs::msg::Header& header,
+  const rmcl_msgs::msg::DepthInfo& info,
+  const rmcl_msgs::msg::RangeData& data,
+  bool dense)
+{
+  rm::PinholeModel model;
+  convert(info, model);
+  convert(cloud, header, model, data, dense);
+}
+
+void convert(
+    sensor_msgs::msg::PointCloud2& cloud,
+    const std_msgs::msg::Header& header,
+    const rmcl_msgs::msg::O1DnInfo& info,
+    const rmcl_msgs::msg::RangeData& data,
+    bool dense)
+{
+  rm::O1DnModel model;
+  convert(info, model);
+  convert(cloud, header, model, data, dense);
+}
+
+void convert(
+    sensor_msgs::msg::PointCloud2& cloud,
+    const std_msgs::msg::Header& header,
+    const rmcl_msgs::msg::OnDnInfo& info,
+    const rmcl_msgs::msg::RangeData& data,
+    bool dense)
+{
+  rm::OnDnModel model;
+  convert(info, model);
+  convert(cloud, header, model, data, dense);
+}
 
 bool convert(
   const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
@@ -460,5 +859,38 @@ bool convert(
 
   return true;
 }
+
+// bool estimateModel(
+//   rmcl_msgs::msg::O1DnInfo& info,
+//   const sensor_msgs::msg::PointCloud2& cloud)
+// {
+//   const size_t pc_width = cloud.width;
+//   const size_t pc_height = cloud.height;
+
+//   scan.o1dn.info.width  = (pcd_width - width_skip_begin - width_skip_end) / width_increment;
+//   scan.o1dn.info.height = (pcd_height - height_skip_begin - height_skip_end) / height_increment;
+//   scan.o1dn.info.dirs.resize(scan.o1dn.info.width * scan.o1dn.info.height);
+//   scan.o1dn.data.ranges.resize(scan.o1dn.info.width * scan.o1dn.info.height);
+
+//   const sensor_msgs::msg::PointField* field_x = NULL;
+//   const sensor_msgs::msg::PointField* field_y = NULL;
+//   const sensor_msgs::msg::PointField* field_z = NULL;
+  
+//   for(const sensor_msgs::msg::PointField& field : pcd->fields)
+//   {
+//     if(field.name == "x")
+//     {
+//       field_x = &field;
+//     }
+//     else if(field.name == "y")
+//     {
+//       field_y = &field;
+//     }
+//     else if(field.name == "z")
+//     {
+//       field_z = &field;
+//     }
+//   }
+// }
 
 } // namespace rmcl 
