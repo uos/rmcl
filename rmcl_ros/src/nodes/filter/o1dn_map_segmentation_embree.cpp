@@ -14,6 +14,8 @@
 #include <rmcl_ros/util/scan_operations.h>
 #include <rmcl_ros/util/ros_helper.h>
 
+#include <sensor_msgs/point_cloud_conversion.hpp>
+
 #include <chrono>
 #include <memory>
 #include <omp.h>
@@ -82,9 +84,6 @@ void O1DnMapSegmentationEmbreeNode::scanCB(const rmcl_msgs::msg::O1DnStamped::Co
 
   rm::MemoryView<float, rm::RAM> ranges = res.ranges;
   rm::MemoryView<rm::Vector, rm::RAM> normals = res.normals;
-
-  // float total_error = 0.0;
-  // float dev = 0.0;
 
   sensor_msgs::msg::PointCloud cloud_outlier_scan;
   cloud_outlier_scan.header.stamp = msg->header.stamp;
@@ -170,8 +169,14 @@ void O1DnMapSegmentationEmbreeNode::scanCB(const rmcl_msgs::msg::O1DnStamped::Co
     }
   }
 
-  pub_outlier_scan_->publish(cloud_outlier_scan);
-  pub_outlier_map_->publish(cloud_outlier_map);
+  // TODO: make just a PC2, since PC1 is deprecated
+  sensor_msgs::msg::PointCloud2 cloud_outlier_scan2;
+  sensor_msgs::msg::PointCloud2 cloud_outlier_map2;
+  sensor_msgs::convertPointCloudToPointCloud2(cloud_outlier_scan, cloud_outlier_scan2);
+  sensor_msgs::convertPointCloudToPointCloud2(cloud_outlier_map, cloud_outlier_map2);
+
+  pub_outlier_scan_->publish(cloud_outlier_scan2);
+  pub_outlier_map_->publish(cloud_outlier_map2);
 }
 
 } // namespace rmcl

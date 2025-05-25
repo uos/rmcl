@@ -6,6 +6,7 @@
 #include <rmcl_ros/nodes/filter/map_segmentation.hpp>
 
 #include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 // Rmagine deps
 #include <rmagine/simulation/O1DnSimulatorEmbree.hpp>

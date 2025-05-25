@@ -4,6 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <sensor_msgs/msg/point_cloud.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 
@@ -36,8 +37,8 @@ protected:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_outlier_scan_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_outlier_map_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_outlier_scan_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_outlier_map_;
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler_;
 };
 

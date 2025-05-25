@@ -50,9 +50,9 @@ MapSegmentationNode::MapSegmentationNode(
   tf_listener_ =
     std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  pub_outlier_scan_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
+  pub_outlier_scan_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "outlier_scan", 10);
-  pub_outlier_map_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
+  pub_outlier_map_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "outlier_map", 10);
 }
 
