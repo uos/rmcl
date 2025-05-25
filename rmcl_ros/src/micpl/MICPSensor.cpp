@@ -5,7 +5,7 @@
 
 #include <rmcl_ros/util/ros_helper.h>
 
-
+#include <tf2_ros/qos.hpp>
 
 
 namespace rm = rmagine;
@@ -17,6 +17,8 @@ MICPSensorBase::MICPSensorBase(
   rclcpp::Node::SharedPtr nh)
 :nh_(nh)
 {
+  cb_group_ = nh_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
   tf_buffer_ =
     std::make_shared<tf2_ros::Buffer>(nh_->get_clock());
 
@@ -25,8 +27,17 @@ MICPSensorBase::MICPSensorBase(
     nh_->get_node_timers_interface());
   tf_buffer_->setCreateTimerInterface(timer_interface);
 
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.callback_group = cb_group_;
+
   tf_listener_ =
-    std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, 
+    nh_, 
+    true, 
+    tf2_ros::DynamicListenerQoS(),
+    tf2_ros::StaticListenerQoS(),
+    sub_options
+  );
 
   // load name
   ParamTree<rclcpp::Parameter>::SharedPtr sensor_param_tree
@@ -106,7 +117,6 @@ bool MICPSensorBase::fetchTF(const rclcpp::Time stamp)
     }
     else
     {
-      std::cout << "ELSE!" << std::endl;
       RCLCPP_WARN(nh_->get_logger(), "Transform not available yet.");
       return false;
     }

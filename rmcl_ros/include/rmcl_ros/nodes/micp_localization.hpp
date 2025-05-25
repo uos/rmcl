@@ -60,7 +60,6 @@ public:
   rmagine::Transform Tom_;
   rclcpp::Time Tom_stamp_;
 
-
 private:
 
   void poseCB(
@@ -123,8 +122,6 @@ private:
 
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr 
     Tbm_publisher_;
-
-
   
   std::mutex mutex_;
 

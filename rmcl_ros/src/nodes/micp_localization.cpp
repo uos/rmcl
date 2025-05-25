@@ -164,8 +164,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   #endif // RMCL_OPTIX
   // loading general micp config
 
-  
-
   const ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree 
     = get_parameter_tree(this, "sensors");
   if(sensors_param_tree->size() == 0)
@@ -185,6 +183,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
       {
         num_dynamic_sensors_++;
       }
+      sensor->asyncSpin();
     } else {
       std::string sensor_name = elem.second->name;
       std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;
@@ -362,6 +361,20 @@ void MICPLocalizationNode::poseCB(
 {
   RCLCPP_INFO_STREAM(get_logger(), "Initial pose guess received.");
   
+  // check if RViz was started wrong
+
+  const rclcpp::Time now_time = this->now();
+  const rclcpp::Time msg_time = msg->header.stamp;
+
+  double time_diff;
+  try{
+    time_diff = (now_time - msg_time).seconds();
+  } catch(const std::runtime_error& ex) {
+    RCLCPP_WARN_STREAM(this->get_logger(), "Received pose has different time source than MICP-L node (Have you started RViz with the same use_sim_time settings?)");
+    return;
+  }
+  std::cout << "Time Diff (now - pose): " << time_diff << " s" << std::endl;
+
   // wait for correction loop to finish
   
   // normally the pose is set in map coords
@@ -987,8 +1000,6 @@ void MICPLocalizationNode::correctionLoop()
 
 void MICPLocalizationNode::tfBroadcastLoop()
 {
-  
-
   double runtime_avg = 0.001;
   double new_factor = 0.1;
 
