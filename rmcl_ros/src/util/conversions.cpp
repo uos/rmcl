@@ -860,37 +860,210 @@ bool convert(
   return true;
 }
 
-// bool estimateModel(
-//   rmcl_msgs::msg::O1DnInfo& info,
-//   const sensor_msgs::msg::PointCloud2& cloud)
-// {
-//   const size_t pc_width = cloud.width;
-//   const size_t pc_height = cloud.height;
+void estimateModelAndData(
+  std_msgs::msg::Header& header,
+  rmcl_msgs::msg::O1DnInfo& info,
+  rmcl_msgs::msg::RangeData& data,
+  const sensor_msgs::msg::PointCloud2& cloud)
+{
+  const size_t pc_width = cloud.width;
+  const size_t pc_height = cloud.height;
 
-//   scan.o1dn.info.width  = (pcd_width - width_skip_begin - width_skip_end) / width_increment;
-//   scan.o1dn.info.height = (pcd_height - height_skip_begin - height_skip_end) / height_increment;
-//   scan.o1dn.info.dirs.resize(scan.o1dn.info.width * scan.o1dn.info.height);
-//   scan.o1dn.data.ranges.resize(scan.o1dn.info.width * scan.o1dn.info.height);
+  info.width  = pc_width;
+  info.height = pc_height;
+  info.orig.x = 0.0;
+  info.orig.y = 0.0;
+  info.orig.z = 0.0;
+  info.dirs.resize(info.width * info.height);
 
-//   const sensor_msgs::msg::PointField* field_x = NULL;
-//   const sensor_msgs::msg::PointField* field_y = NULL;
-//   const sensor_msgs::msg::PointField* field_z = NULL;
-  
-//   for(const sensor_msgs::msg::PointField& field : pcd->fields)
-//   {
-//     if(field.name == "x")
-//     {
-//       field_x = &field;
-//     }
-//     else if(field.name == "y")
-//     {
-//       field_y = &field;
-//     }
-//     else if(field.name == "z")
-//     {
-//       field_z = &field;
-//     }
-//   }
-// }
+  const sensor_msgs::msg::PointField* field_x = NULL;
+  const sensor_msgs::msg::PointField* field_y = NULL;
+  const sensor_msgs::msg::PointField* field_z = NULL;
+  // const bool 
+  const sensor_msgs::msg::PointField* field_mask = NULL;
+  const sensor_msgs::msg::PointField* field_normal_x = NULL;
+  const sensor_msgs::msg::PointField* field_normal_y = NULL;
+  const sensor_msgs::msg::PointField* field_normal_z = NULL;
+  const sensor_msgs::msg::PointField* field_color = NULL;
+  bool is_rgba = false;
+  const sensor_msgs::msg::PointField* field_stamp = NULL;
+  const sensor_msgs::msg::PointField* field_intensity = NULL;
+  const sensor_msgs::msg::PointField* field_label = NULL;
+
+  for(const sensor_msgs::msg::PointField& field : cloud.fields)
+  {
+    if(field.name == "x")
+    {
+      field_x = &field;
+      data.ranges.resize(info.width * info.height);
+    }
+    else if(field.name == "y")
+    {
+      field_y = &field;
+    }
+    else if(field.name == "z")
+    {
+      field_z = &field;
+    }
+    else if(field.name == "mask")
+    {
+      field_mask = &field;
+      data.mask.resize(info.width * info.height);
+    }
+    else if(field.name == "normal_x")
+    {
+      field_normal_x = &field;
+      data.normals.resize(info.width * info.height);
+    }
+    else if(field.name == "normal_y")
+    {
+      field_normal_y = &field;
+    }
+    else if(field.name == "normal_z")
+    {
+      field_normal_z = &field;
+    }
+    else if(field.name == "rgb")
+    {
+      field_color = &field;
+      data.colors.resize(info.width * info.height);
+    }
+    else if(field.name == "rgba")
+    {
+      field_color = &field;
+      data.colors.resize(info.width * info.height);
+      is_rgba = true;
+    }
+    else if(field.name == "time")
+    {
+      field_stamp = &field;
+      data.stamps.resize(info.width * info.height);
+    }
+    else if(field.name == "intensity")
+    {
+      field_intensity = &field;
+      data.intensities.resize(info.width * info.height);
+    }
+    else if(field.name == "label")
+    {
+      field_label = &field;
+      data.labels.resize(info.width * info.height);
+    }
+  }
+
+  if(field_x == NULL || field_y == NULL || field_z == NULL)
+  {
+    throw std::runtime_error("NO POINT FIELD IN CLOUD!");
+  }
+
+  for(size_t tgt_i = 0; tgt_i < info.height; tgt_i++)
+  {
+    const size_t src_i = tgt_i;
+    const uint8_t* row = &cloud.data[src_i * cloud.row_step];
+
+    for(size_t tgt_j = 0; tgt_j < info.width; tgt_j++)
+    {
+      const size_t src_j = tgt_j;
+      const uint8_t* data_ptr = &row[src_j * cloud.point_step];
+      const size_t buffer_id = tgt_i * info.width + tgt_j;
+
+      float x, y, z;
+      if (field_x->datatype == sensor_msgs::msg::PointField::FLOAT32)
+      {
+        // Float
+        x = *reinterpret_cast<const float*>(data_ptr + field_x->offset);
+        y = *reinterpret_cast<const float*>(data_ptr + field_y->offset);
+        z = *reinterpret_cast<const float*>(data_ptr + field_z->offset);
+      }
+      else if (field_x->datatype == sensor_msgs::msg::PointField::FLOAT64)
+      {
+        // Double
+        x = *reinterpret_cast<const double*>(data_ptr + field_x->offset);
+        y = *reinterpret_cast<const double*>(data_ptr + field_y->offset);
+        z = *reinterpret_cast<const double*>(data_ptr + field_z->offset);
+      }
+      else
+      {
+        throw std::runtime_error("Field X has unknown DataType. Check Topic of PC");
+      }
+
+      if(std::isfinite(x) && std::isfinite(y) && std::isfinite(z))
+      {
+        rm::Vector ps_s = rm::Vector{x, y, z};
+        const float range = ps_s.l2norm();
+        ps_s /= range;
+        info.dirs[buffer_id].x = ps_s.x;
+        info.dirs[buffer_id].y = ps_s.y;
+        info.dirs[buffer_id].z = ps_s.z;
+        data.ranges[buffer_id] = range;
+      }
+      else
+      {
+        info.dirs[buffer_id].x = 0.0;
+        info.dirs[buffer_id].y = 0.0;
+        info.dirs[buffer_id].z = 0.0;
+        data.ranges[buffer_id] = 0.0;
+      }
+
+      if(field_mask)
+      {
+        data.ranges[buffer_id] = *(data_ptr + field_mask->offset);
+      }
+
+      if(field_normal_x)
+      {
+        geometry_msgs::msg::Point32 normal;
+        if(field_normal_x->datatype == sensor_msgs::msg::PointField::FLOAT32)
+        {
+          // Float
+          normal.x = *reinterpret_cast<const float*>(data_ptr + field_normal_x->offset);
+          normal.y = *reinterpret_cast<const float*>(data_ptr + field_normal_y->offset);
+          normal.z = *reinterpret_cast<const float*>(data_ptr + field_normal_z->offset);
+        }
+        else if(field_normal_x->datatype == sensor_msgs::msg::PointField::FLOAT64)
+        {
+          // Double
+          normal.x = *reinterpret_cast<const double*>(data_ptr + field_normal_x->offset);
+          normal.y = *reinterpret_cast<const double*>(data_ptr + field_normal_y->offset);
+          normal.z = *reinterpret_cast<const double*>(data_ptr + field_normal_z->offset);
+        }
+        data.normals[buffer_id] = normal;
+      }
+
+      if(field_color)
+      {
+        std_msgs::msg::ColorRGBA color;
+
+        color.r = *reinterpret_cast<const float*>(data_ptr + field_color->offset);
+        color.g = *reinterpret_cast<const float*>(data_ptr + field_color->offset + 4);
+        color.b = *reinterpret_cast<const float*>(data_ptr + field_color->offset + 8);
+        
+        if(is_rgba)
+        {
+          color.a = *reinterpret_cast<const float*>(data_ptr + field_color->offset + 12);
+        } else {
+          color.a = 1.0;
+        }
+
+        data.colors[buffer_id] = color;
+      }
+
+      if(field_stamp)
+      {
+        data.stamps[buffer_id] = *reinterpret_cast<const float*>(data_ptr + field_stamp->offset);
+      }
+
+      if(field_intensity)
+      {
+        data.intensities[buffer_id] = *reinterpret_cast<const float*>(data_ptr + field_intensity->offset);
+      }
+
+      if(field_label)
+      {
+        data.labels[buffer_id] = *reinterpret_cast<const uint32_t*>(data_ptr + field_label->offset);
+      }
+    }
+  }
+}
 
 } // namespace rmcl 

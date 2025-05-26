@@ -187,11 +187,11 @@ bool convert(
   const ParamTree<rclcpp::Parameter>::SharedPtr data_params,
   rmcl_msgs::msg::RangeData& range_data);
 
-
-// bool estimateModel(
-//   rmcl_msgs::msg::O1DnInfo& info,
-//   const sensor_msgs::msg::PointCloud2& cloud);
-
+void estimateModelAndData(
+  std_msgs::msg::Header& header,
+  rmcl_msgs::msg::O1DnInfo& info,
+  rmcl_msgs::msg::RangeData& data,
+  const sensor_msgs::msg::PointCloud2& cloud);
 
 } // namespace rmcl 
 
