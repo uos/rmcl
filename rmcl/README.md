@@ -1,3 +1,3 @@
 # RMCL
 
-ROS-agnostic part of RMCL. TODO: Write some words
+ROS-agnostic part of RMCL.
