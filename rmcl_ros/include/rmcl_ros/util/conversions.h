@@ -97,7 +97,6 @@ void convert(
     const rmcl_msgs::msg::OnDnInfo& from,
     rmagine::OnDnModel& to);
 
-
 void convert(
     const geometry_msgs::msg::Transform& Tros,
     rmagine::Transform& Trm);
@@ -122,7 +121,7 @@ void convert(
     std::vector<geometry_msgs::msg::Point32>& cloud);
 
 void convert(
-    const rmcl_msgs::msg::ScanStamped& scan, 
+    const rmcl_msgs::msg::ScanStamped& scan,
     sensor_msgs::msg::PointCloud& cloud);
 
 void convert(
@@ -137,6 +136,34 @@ void convert(
     const rmcl_msgs::msg::O1DnStamped& scan, 
     sensor_msgs::msg::PointCloud& cloud);
 
+// PointCloud2
+void convert(
+    sensor_msgs::msg::PointCloud2& cloud,
+    const std_msgs::msg::Header& header,
+    const rmcl_msgs::msg::ScanInfo& info,
+    const rmcl_msgs::msg::RangeData& data,
+    bool dense = false);
+
+void convert(
+    sensor_msgs::msg::PointCloud2& cloud,
+    const std_msgs::msg::Header& header,
+    const rmcl_msgs::msg::DepthInfo& info,
+    const rmcl_msgs::msg::RangeData& data,
+    bool dense = false);
+
+void convert(
+    sensor_msgs::msg::PointCloud2& cloud,
+    const std_msgs::msg::Header& header,
+    const rmcl_msgs::msg::O1DnInfo& info,
+    const rmcl_msgs::msg::RangeData& data,
+    bool dense = false);
+
+void convert(
+    sensor_msgs::msg::PointCloud2& cloud,
+    const std_msgs::msg::Header& header,
+    const rmcl_msgs::msg::OnDnInfo& info,
+    const rmcl_msgs::msg::RangeData& data,
+    bool dense = false);
     
 bool convert(
   const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
@@ -154,13 +181,15 @@ bool convert(
   const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
   rmcl_msgs::msg::OnDnInfo& ondn_model);
 
-
-
 bool convert(
   const ParamTree<rclcpp::Parameter>::SharedPtr data_params,
   rmcl_msgs::msg::RangeData& range_data);
 
-
+void estimateModelAndData(
+  std_msgs::msg::Header& header,
+  rmcl_msgs::msg::O1DnInfo& info,
+  rmcl_msgs::msg::RangeData& data,
+  const sensor_msgs::msg::PointCloud2& cloud);
 
 } // namespace rmcl 
 

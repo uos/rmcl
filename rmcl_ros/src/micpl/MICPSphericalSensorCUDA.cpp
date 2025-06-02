@@ -35,11 +35,12 @@ void MICPSphericalSensorCUDA::connectToTopic(const std::string& topic_name)
     data_sub_, *tf_buffer_, odom_frame, 10, nh_->get_node_logging_interface(),
     nh_->get_node_clock_interface(), buffer_timeout);
   
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.callback_group = cb_group_;
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
-  data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile()); // delete "get_rmw_..." for rolling
+  data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile(), sub_options); // delete "get_rmw_..." for rolling
+
   tf_filter_->registerCallback(&MICPSphericalSensorCUDA::updateMsg, this);
-
-
 
   RCLCPP_INFO_STREAM(nh_->get_logger(), "[" << name << "] [MICPSphericalSensorCUDA] Waiting for message from topic '" << topic_name << "'...");
 }
@@ -92,12 +93,29 @@ void MICPSphericalSensorCUDA::updateMsg(
   const rmcl_msgs::msg::ScanStamped::SharedPtr msg)
 {
   rm::StopWatch sw;
+  const rclcpp::Time now_time = nh_->get_clock()->now();
   const rclcpp::Time msg_time = msg->header.stamp;
-  const double diff_now_msg = (nh_->get_clock()->now() - msg_time).seconds();
 
-  if(fabs(diff_now_msg) > 0.1)
+  if(now_time.get_clock_type() != msg_time.get_clock_type())
   {
-    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING: (now - input msg's stamp) is more than 100 ms apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
+    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING - STAMP MISMATCH: (now - input msg's stamp) have different clock types: " << now_time.get_clock_type());
+    return;
+  }
+
+  // const double diff_now_msg = (now_time - msg_time).seconds();
+  
+  double diff_now_msg;
+
+  try {
+    diff_now_msg = (now_time - msg_time).seconds();
+  } catch(const std::runtime_error& ex) {
+    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING - STAMP MISMATCH: (now - input msg's stamp) have different clock type");
+    return;
+  }
+
+  if(fabs(diff_now_msg) > 0.5)
+  {
+    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING - NETWORK DELAY: (now - input msg's stamp) is more far apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
   }
 
   sw();
@@ -112,7 +130,16 @@ void MICPSphericalSensorCUDA::updateMsg(
   correspondences_->setTsb(Tsb);
   const double el_fetch_tf = sw();
 
-  const double diff_odom_msg = (Tbo_stamp - dataset_stamp_).seconds();
+  // const double diff_odom_msg = (Tbo_stamp - dataset_stamp_).seconds();
+
+  double diff_odom_msg;
+  try {
+    diff_odom_msg = (Tbo_stamp - dataset_stamp_).seconds();
+  } catch(const std::runtime_error& ex) {
+    RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING - STAMP MISMATCH: (now - input msg's stamp) have different clock type");
+    data_correction_mutex_.unlock();
+    return;
+  }
 
   // copy to internal representation
   // fill sensor_model_ and initialize copy data to dataset

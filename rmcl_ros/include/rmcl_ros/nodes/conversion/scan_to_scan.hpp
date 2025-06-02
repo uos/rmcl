@@ -5,6 +5,8 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <rmcl_msgs/msg/scan_stamped.hpp>
 
+#include <sensor_msgs/msg/point_cloud2.hpp>
+
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/scan_operations.h>
 
@@ -55,7 +57,7 @@ private:
 
   rmcl_msgs::msg::ScanStamped scan_;
 
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_debug_cloud_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_debug_cloud_;
   rclcpp::Publisher<rmcl_msgs::msg::ScanStamped>::SharedPtr pub_scan_;
   
   OnSetParametersCallbackHandle::SharedPtr callback_handle_;

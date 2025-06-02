@@ -60,7 +60,6 @@ public:
   rmagine::Transform Tom_;
   rclcpp::Time Tom_stamp_;
 
-
 private:
 
   void poseCB(
@@ -123,8 +122,6 @@ private:
 
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr 
     Tbm_publisher_;
-
-
   
   std::mutex mutex_;
 
@@ -152,6 +149,7 @@ private:
   bool adaptive_max_dist_ = true;
   double correction_rate_max_ = 100.0;
   rmagine::Transform initial_pose_offset_;
+  rmagine::Transform initial_pose_guess_;
 
   double tf_rate_ = 100.0;
 };

@@ -38,6 +38,7 @@
 #include <rmagine/types/Memory.hpp>
 #include <rmagine/types/sensor_models.h>
 #include <rmcl_msgs/msg/scan.hpp>
+#include <rmcl_msgs/msg/o1_dn_stamped.hpp>
 
 namespace rmcl {
 
@@ -46,6 +47,37 @@ void fill(
     const rmagine::Memory<float, rmagine::RAM>& ranges);
 
 void fillEmpty(rmcl_msgs::msg::Scan& scan);
+
+
+struct IterationOptions
+{
+  size_t skip_begin = 0;
+  size_t skip_end = 0;
+  size_t increment = 0;
+};
+
+struct FilterOptions2D
+{
+  float range_min;
+  float range_max;
+
+  IterationOptions width;
+  IterationOptions height;
+};
+
+struct FilterOptions1D
+{
+  float range_min;
+  float range_max;
+
+  IterationOptions skip;
+};
+
+void filter(
+  rmcl_msgs::msg::O1Dn& o1dn_out,
+  const rmcl_msgs::msg::O1Dn& o1dn_in, 
+  const FilterOptions2D& options);
+
 
 } // namespace rmcl
 

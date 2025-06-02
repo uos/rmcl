@@ -18,7 +18,7 @@ Pc2ToScanNode::Pc2ToScanNode(
 
   if(debug_cloud_)
   {
-    pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
+    pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "~/debug_cloud", 10);
   }
 
@@ -212,7 +212,8 @@ bool Pc2ToScanNode::convert(
   return true;
 }
 
-void Pc2ToScanNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
+void Pc2ToScanNode::cloudCB(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
 {
   if (sensor_frame_ == "")
   {
@@ -230,9 +231,8 @@ void Pc2ToScanNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 
   if (debug_cloud_)
   {
-    sensor_msgs::msg::PointCloud cloud;
-    rmcl::convert(scan_, cloud);
-    cloud.header.stamp = msg->header.stamp;
+    sensor_msgs::msg::PointCloud2 cloud;
+    rmcl::convert(cloud, scan_.header, scan_.scan.info, scan_.scan.data);
     pub_debug_cloud_->publish(cloud);
   }
 }

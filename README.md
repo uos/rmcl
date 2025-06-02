@@ -65,8 +65,9 @@ See the older branches or commits for reference.
 
 ### Running `micp_localization_node` (Theoretical Usage)
 
-> **Note:** The following is a theoretical usage example meant to illustrate the general setup.  
-> For actual working examples and detailed instructions, please refer to:  
+> [!NOTE]
+> The following part shows a theoretical usage example meant to illustrate the general setup of MICP-L.  
+> For actual working examples and detailed instructions, please refer to:
 > [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
 
 

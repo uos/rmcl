@@ -58,7 +58,7 @@ bool check(const rm::Vector& v)
 
 bool check(const rm::Quaternion& q)
 {
-  return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w) && (fabs(q.l2norm()-1.0) < 0.0001);
+  return std::isfinite(q.x) && std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w);
 }
 
 bool check(const rm::Transform& T)
@@ -164,8 +164,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   #endif // RMCL_OPTIX
   // loading general micp config
 
-  
-
   const ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree 
     = get_parameter_tree(this, "sensors");
   if(sensors_param_tree->size() == 0)
@@ -185,6 +183,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
       {
         num_dynamic_sensors_++;
       }
+      sensor->asyncSpin();
     } else {
       std::string sensor_name = elem.second->name;
       std::cout << "Couldn't load sensor: '" << sensor_name << "'" << std::endl;
@@ -196,7 +195,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   std::cout << "MICP load params - done. Valid Sensors: " << sensors_.size() << std::endl;
 
   // SETUP ROS CONNECTIONS
-
 
   { // set up tf
     tf_buffer_ =
@@ -213,17 +211,24 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     tf_broadcaster_ =
       std::make_shared<tf2_ros::TransformBroadcaster>(*this);
 
+    int num_tries = 0;
     // odom and base frames have to be available!
     while(!tf_buffer_->_frameExists(base_frame_))
     {
-      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << base_frame_ << "' frame to become available ...");
-      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+      num_tries++;
+      RCLCPP_INFO_STREAM(this->get_logger(), "Waiting for '" << base_frame_ << "' frame to become available ... (" << num_tries << ")");
+      // this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
+      std::this_thread::sleep_for(std::chrono::duration<double>(1.0));
     }
+    RCLCPP_INFO_STREAM(this->get_logger(), "'" << base_frame_ << "' found.");
+    std::cout << "Done." << std::endl;
 
+    num_tries = 0;
     while(!tf_buffer_->_frameExists(odom_frame_))
     {
-      RCLCPP_INFO_STREAM_ONCE(this->get_logger(), "Waiting for '" << odom_frame_ << "' frame to become available ...");
-      this->get_clock()->sleep_for(std::chrono::duration<double>(0.2));
+      num_tries++;
+      RCLCPP_INFO_STREAM(this->get_logger(), "Waiting for '" << odom_frame_ << "' frame to become available ... (" << num_tries << ")");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
     }
   }
 
@@ -356,6 +361,20 @@ void MICPLocalizationNode::poseCB(
 {
   RCLCPP_INFO_STREAM(get_logger(), "Initial pose guess received.");
   
+  // check if RViz was started wrong
+
+  const rclcpp::Time now_time = this->now();
+  const rclcpp::Time msg_time = msg->header.stamp;
+
+  double time_diff;
+  try{
+    time_diff = (now_time - msg_time).seconds();
+  } catch(const std::runtime_error& ex) {
+    RCLCPP_WARN_STREAM(this->get_logger(), "Received pose has different time source than MICP-L node (Have you started RViz with the same use_sim_time settings?)");
+    return;
+  }
+  std::cout << "Time Diff (now - pose): " << time_diff << " s" << std::endl;
+
   // wait for correction loop to finish
   
   // normally the pose is set in map coords
@@ -816,6 +835,7 @@ void MICPLocalizationNode::correctOnce()
 
     // store/update Tom, if allowed
     Tom_ = T_onew_map;
+    Tom_.R.normalizeInplace();
   }
 
   mutex_.unlock();
@@ -875,8 +895,8 @@ void MICPLocalizationNode::broadcastTransform()
   // check Tom
   if(!check(Tom_))
   {
-    std::cout << "Tom is malformed! : " << Tom_.t << ", " << Tom_.R << std::endl;
-    throw std::runtime_error("Tom malformed");
+    std::cout << "[WARNING] Tom is malformed! : " << Tom_.t << ", " << Tom_.R << std::endl;
+    // throw std::runtime_error("Tom malformed");
   }
   convert(Tom_, T_odom_map.transform);
   mutex_.unlock();
@@ -980,8 +1000,6 @@ void MICPLocalizationNode::correctionLoop()
 
 void MICPLocalizationNode::tfBroadcastLoop()
 {
-  
-
   double runtime_avg = 0.001;
   double new_factor = 0.1;
 

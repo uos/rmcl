@@ -3,7 +3,6 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <sensor_msgs/msg/point_cloud.hpp>
 #include <rmcl_msgs/msg/scan_stamped.hpp>
 
 #include <rmcl_ros/util/conversions.h>
@@ -18,12 +17,10 @@
 #include <tf2/convert.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
-
 namespace rm = rmagine;
 
 namespace rmcl
 {
-
 
 class Pc2ToScanNode : public rclcpp::Node
 {
@@ -50,7 +47,7 @@ private:
   
   rmcl_msgs::msg::ScanStamped scan_;
 
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_debug_cloud_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_debug_cloud_;
   rclcpp::Publisher<rmcl_msgs::msg::ScanStamped>::SharedPtr pub_scan_;
 
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

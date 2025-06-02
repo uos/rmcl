@@ -19,20 +19,25 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
     "msg/PolarCoord.msg"
     "msg/RangeData.msg"
+    "msg/RangeDataStamped.msg"
     # Spherical
     "msg/ScanInfo.msg"
+    "msg/ScanInfoStamped.msg"
     "msg/Scan.msg"
     "msg/ScanStamped.msg"
     # Pinhole
     "msg/DepthInfo.msg"
+    "msg/DepthInfoStamped.msg"
     "msg/Depth.msg"
     "msg/DepthStamped.msg"
     # O1Dn
     "msg/O1DnInfo.msg"
+    "msg/O1DnInfoStamped.msg"
     "msg/O1Dn.msg"
     "msg/O1DnStamped.msg"
     # OnDn
     "msg/OnDnInfo.msg"
+    "msg/OnDnInfoStamped.msg"
     "msg/OnDn.msg"
     "msg/OnDnStamped.msg"
     # MICP

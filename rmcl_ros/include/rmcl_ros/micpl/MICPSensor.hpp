@@ -62,6 +62,16 @@ public:
 
   virtual void getDataFromParameters() = 0;
 
+  inline void asyncSpin()
+  {
+    exec_thread_ = std::thread([this]() {
+      // main function
+      exec_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
+      exec_->add_callback_group(cb_group_, nh_->get_node_base_interface());
+      exec_->spin();
+    });
+  }
+
   // name of the sensor
   std::string name;
   bool static_dataset = false;
@@ -99,6 +109,12 @@ public:
   size_t total_dataset_measurements;
   size_t valid_dataset_measurements;
 
+  // This is called as soon as data was received and pre-processed
+  std::function<void(MICPSensorBase*)> on_data_received;
+
+
+protected:
+
   // ROS
   rclcpp::Node::SharedPtr nh_;
 
@@ -110,8 +126,9 @@ public:
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr 
     correspondence_viz_pub_;
 
-  // This is called as soon as data was received and pre-processed
-  std::function<void(MICPSensorBase*)> on_data_received;
+  rclcpp::CallbackGroup::SharedPtr cb_group_;
+  std::shared_ptr<rclcpp::Executor> exec_;
+  std::thread exec_thread_;
 };
 
 using MICPSensorPtr = std::shared_ptr<MICPSensorBase>;
