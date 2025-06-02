@@ -118,7 +118,7 @@ void MICPPinholeSensorCPU::updateMsg(
     return;
   }
 
-  if(fabs(diff_now_msg) > 0.1)
+  if(fabs(diff_now_msg) > 0.5)
   {
     RCLCPP_WARN_STREAM(nh_->get_logger(), "[" << name << "::topicCB] WARNING - NETWORK DELAY: (now - input msg's stamp) is more far apart (" << diff_now_msg * 1000.0 << " ms). It is likely that control algorithms will not work as expected.");
   }
