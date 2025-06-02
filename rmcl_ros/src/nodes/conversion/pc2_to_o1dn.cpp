@@ -25,7 +25,7 @@ Pc2ToO1DnNode::Pc2ToO1DnNode(
 
   if(debug_cloud_)
   {
-    pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
+    pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "~/debug_cloud", 10);
   }
 
@@ -114,7 +114,7 @@ rcl_interfaces::msg::SetParametersResult Pc2ToO1DnNode::parametersCallback(
       debug_cloud_ = param.as_bool();
       if(debug_cloud_ && !pub_debug_cloud_)
       {
-        pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud>(
+        pub_debug_cloud_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
           "debug_cloud", 10);
       }
       else if(!debug_cloud_ && pub_debug_cloud_)
@@ -161,7 +161,7 @@ void Pc2ToO1DnNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
   const rclcpp::Time ros_now = this->get_clock()->now();
 
   const double diff_now_msg = (ros_now - msg_time).seconds();
-  if(fabs(diff_now_msg) > 0.1)
+  if(fabs(diff_now_msg) > 0.5)
   {
     RCLCPP_WARN_STREAM(this->get_logger(), "[Pc2ToO1DnNode::cloudCB] WARNING - NETWORK DELAY: (now - input msg's stamp) is far apart (" << diff_now_msg * 1000.0 << " ms).");
   }
@@ -184,7 +184,7 @@ void Pc2ToO1DnNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
   const double el = sw();
   // const rclcpp::Time phsical_time_2 = this->get_clock()->now();
   // const double diff_now_msg_2 = (phsical_time_2 - phsical_time_1).seconds();
-  if(fabs(el) > 0.1)
+  if(fabs(el) > 0.5)
   {
     RCLCPP_WARN_STREAM(this->get_logger(), "[Pc2ToO1DnNode::cloudCB] WARNING: Conversion takes too long (" << el * 1000.0 << " ms).");
   }
@@ -199,9 +199,8 @@ void Pc2ToO1DnNode::cloudCB(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
       // SHOULD NEVER HAPPEN
       RCLCPP_ERROR(get_logger(), "ERROR: debug cloud is true but publisher does not exist!");
     }
-    sensor_msgs::msg::PointCloud cloud;
-    rmcl::convert(scan_, cloud);
-    cloud.header.stamp = msg->header.stamp;
+    sensor_msgs::msg::PointCloud2 cloud;
+    rmcl::convert(cloud, scan_.header, scan_.o1dn.info, scan_.o1dn.data);
     pub_debug_cloud_->publish(cloud);
   }
 }

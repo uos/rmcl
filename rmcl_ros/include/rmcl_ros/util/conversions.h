@@ -181,8 +181,6 @@ bool convert(
   const ParamTree<rclcpp::Parameter>::SharedPtr sensor_model_params,
   rmcl_msgs::msg::OnDnInfo& ondn_model);
 
-
-
 bool convert(
   const ParamTree<rclcpp::Parameter>::SharedPtr data_params,
   rmcl_msgs::msg::RangeData& range_data);

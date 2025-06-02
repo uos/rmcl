@@ -460,6 +460,8 @@ void convert(
   cloud.row_step = cloud.point_step * model.getWidth();
   cloud.data.reserve(cloud.height * cloud.row_step);
 
+  size_t num_valid = 0;
+
   for(size_t vid = 0; vid < model.getHeight(); vid++)
   {
     for(size_t hid = 0; hid < model.getWidth(); hid++)
@@ -630,8 +632,12 @@ void convert(
           cloud.data.push_back(tmp_data[3]);
         }
       }
+
+      num_valid++;
     }
   }
+
+  cloud.width = num_valid / cloud.height;
 }
 
 void convert(
