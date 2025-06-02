@@ -144,9 +144,6 @@ Make sure the fixed frame in RViz is set to match the map coordinate system.
 
 # RMCL - Project
 
-## Branch Compatibility
-
-
 ## Installation
 
 Dependencies:
@@ -161,7 +158,7 @@ Clone this repository into your ROS workspace and build it.
 colcon build
 ```
 
-#### Branch Compatibility
+### Branch Compatibility
 
 |  RMCL Branch    |  Supported ROS 2 versions    |
 |:----|:----|
