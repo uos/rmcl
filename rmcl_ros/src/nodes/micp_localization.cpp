@@ -102,8 +102,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     .allow_undeclared_parameters(true)
     .automatically_declare_parameters_from_overrides(true))
 {
-  Tom_ = rmagine::Transform::Identity();
-  Tbo_latest_ = rmagine::Transform::Identity();
+  
   
   std::cout << "MICPLocalizationNode" << std::endl;
 
@@ -133,27 +132,50 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   pose_noise_ = rmcl::get_parameter(this, "pose_noise", 0.01);
   adaptive_max_dist_ = rmcl::get_parameter(this, "adaptive_max_dist", true);
 
-  std::vector<double> initial_pose_offset = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  initial_pose_offset = rmcl::get_parameter(this, "initial_pose_offset", initial_pose_offset);
+  std::vector<double> pose_guess_offset = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  pose_guess_offset = rmcl::get_parameter(this, "pose_guess_offset", pose_guess_offset);
 
-  initial_pose_offset_.t.x = initial_pose_offset[0];
-  initial_pose_offset_.t.y = initial_pose_offset[1];
-  initial_pose_offset_.t.z = initial_pose_offset[2];
+  pose_guess_offset_.t.x = pose_guess_offset[0];
+  pose_guess_offset_.t.y = pose_guess_offset[1];
+  pose_guess_offset_.t.z = pose_guess_offset[2];
 
-  if(initial_pose_offset.size() == 6)
+  if(pose_guess_offset.size() == 6)
   {
     rm::EulerAngles euler;
-    euler.roll = initial_pose_offset[3];
-    euler.pitch = initial_pose_offset[4];
-    euler.yaw = initial_pose_offset[5];
-    initial_pose_offset_.R = euler;
+    euler.roll = pose_guess_offset[3];
+    euler.pitch = pose_guess_offset[4];
+    euler.yaw = pose_guess_offset[5];
+    pose_guess_offset_.R = euler;
   }
-  else if(initial_pose_offset.size() == 7)
+  else if(pose_guess_offset.size() == 7)
   {
-    initial_pose_offset_.R.x = initial_pose_offset[3];
-    initial_pose_offset_.R.y = initial_pose_offset[4];
-    initial_pose_offset_.R.z = initial_pose_offset[5];
-    initial_pose_offset_.R.w = initial_pose_offset[6];
+    pose_guess_offset_.R.x = pose_guess_offset[3];
+    pose_guess_offset_.R.y = pose_guess_offset[4];
+    pose_guess_offset_.R.z = pose_guess_offset[5];
+    pose_guess_offset_.R.w = pose_guess_offset[6];
+  }
+
+  std::vector<double> initial_pose_guess = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  initial_pose_guess = rmcl::get_parameter(this, "initial_pose_guess", initial_pose_guess);
+
+  initial_pose_guess_.t.x = initial_pose_guess[0];
+  initial_pose_guess_.t.y = initial_pose_guess[1];
+  initial_pose_guess_.t.z = initial_pose_guess[2];
+
+  if(initial_pose_guess.size() == 6)
+  {
+    rm::EulerAngles euler;
+    euler.roll = initial_pose_guess[3];
+    euler.pitch = initial_pose_guess[4];
+    euler.yaw = initial_pose_guess[5];
+    initial_pose_guess_.R = euler;
+  }
+  else if(initial_pose_guess.size() == 7)
+  {
+    initial_pose_guess_.R.x = initial_pose_guess[3];
+    initial_pose_guess_.R.y = initial_pose_guess[4];
+    initial_pose_guess_.R.z = initial_pose_guess[5];
+    initial_pose_guess_.R.w = initial_pose_guess[6];
   }
 
   #ifdef RMCL_EMBREE
@@ -229,6 +251,25 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
       num_tries++;
       RCLCPP_INFO_STREAM(this->get_logger(), "Waiting for '" << odom_frame_ << "' frame to become available ... (" << num_tries << ")");
       this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
+    }
+
+    // wait for first odom transform
+    num_tries = 0;
+    while(!fetchTF(this->now()))
+    {
+      num_tries++;
+      RCLCPP_INFO_STREAM(this->get_logger(), "Waiting for '"<< base_frame_ <<"' to '" << odom_frame_ << "' transform to become available ... (" << num_tries << ")");
+      this->get_clock()->sleep_for(std::chrono::duration<double>(1.0));
+    }
+
+    // TF Available (base to odom). Now we can calculate the first Tom
+    // Note: Tbm == initial_pose_guess_
+    Tom_ = initial_pose_guess_ * ~Tbo_latest_;
+
+    if(!check(Tom_))
+    {
+      std::cout << "Tom malformed! The 'initial_pose_guess' parameter may be invalid. Setting Tom to identity" << std::endl;
+      Tom_ = rm::Transform::Identity();
     }
   }
 
@@ -432,7 +473,7 @@ void MICPLocalizationNode::poseCB(
   // figure out what transform from odom to map is
 
   // transform b -> m == transform b -> pc -> m
-  const rm::Transform Tbm = T_pc_m * T_b_pc * initial_pose_offset_;
+  const rm::Transform Tbm = T_pc_m * T_b_pc * pose_guess_offset_;
 
   mutex_.lock();
   Tom_ = Tbm * ~Tbo;
