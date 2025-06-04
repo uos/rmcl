@@ -175,7 +175,7 @@ To navigate a robot automatically and safely through uneven terrain, the combina
 This package will be expanded by more functionalities to localize a robot in mesh maps.
 The planned Roadmap is as follows:
 
-- [x] MICP-L (Tracking)
+- [x] MICP-L (Pose Tracking)
 - [ ] RMCL (Global Localization)
 
 ## News
