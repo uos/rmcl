@@ -90,13 +90,23 @@ void ScanMapSegmentationEmbreeNode::scanCB(
   const rm::MemoryView<float, rm::RAM> ranges = res.ranges;
   const rm::MemoryView<rm::Vector, rm::RAM> normals = res.normals;
 
-  sensor_msgs::msg::PointCloud cloud_outlier_scan;
-  cloud_outlier_scan.header.stamp = msg->header.stamp;
-  cloud_outlier_scan.header.frame_id = msg->header.frame_id;
+  sensor_msgs::msg::PointCloud2 cloud_outlier_scan2;
+  cloud_outlier_scan2.header.stamp = msg->header.stamp;
+  cloud_outlier_scan2.header.frame_id = msg->header.frame_id;
+  cloud_outlier_scan2.point_step = sizeof(SegmentationPoint);
+  cloud_outlier_scan2.fields = SegmentationPoint::Fields();
+  cloud_outlier_scan2.width = 0;
+  cloud_outlier_scan2.height = 1;
+  cloud_outlier_scan2.is_dense = true;
 
-  sensor_msgs::msg::PointCloud cloud_outlier_map;
-  cloud_outlier_map.header.stamp = msg->header.stamp;
-  cloud_outlier_map.header.frame_id = msg->header.frame_id;
+  sensor_msgs::msg::PointCloud2 cloud_outlier_map2;
+  cloud_outlier_map2.header.stamp = msg->header.stamp;
+  cloud_outlier_map2.header.frame_id = msg->header.frame_id;
+  cloud_outlier_map2.point_step = sizeof(SegmentationPoint);
+  cloud_outlier_map2.fields = SegmentationPoint::Fields();
+  cloud_outlier_map2.width = 0;
+  cloud_outlier_map2.height = 1;
+  cloud_outlier_map2.is_dense = true;
 
   // if this doesnt work: the ranges/dirs of the original scan must be ordered differently
   for(size_t vid = 0; vid < model.getHeight(); vid++)
@@ -130,42 +140,46 @@ void ScanMapSegmentationEmbreeNode::scanCB(
             // something is in front of surface
             if( plane_distance > min_dist_outlier_scan_ )
             {
-              geometry_msgs::msg::Point32 p_ros;
-              p_ros.x = preal_s.x;
-              p_ros.y = preal_s.y;
-              p_ros.z = preal_s.z;
-              cloud_outlier_scan.points.push_back(p_ros);
+              SegmentationPoint p_seg;
+              p_seg.x = preal_s.x;
+              p_seg.y = preal_s.y;
+              p_seg.z = preal_s.z;
+              push_back(cloud_outlier_scan2, p_seg);
+              cloud_outlier_scan2.width++;
             }
           } else {
             // ray cutted the surface
             if( plane_distance > min_dist_outlier_map_ )
             {
-              geometry_msgs::msg::Point32 p_ros;
-              p_ros.x = pint_s.x;
-              p_ros.y = pint_s.y;
-              p_ros.z = pint_s.z;
-              cloud_outlier_map.points.push_back(p_ros);
+              SegmentationPoint p_seg;
+              p_seg.x = pint_s.x;
+              p_seg.y = pint_s.y;
+              p_seg.z = pint_s.z;
+              push_back(cloud_outlier_map2, p_seg);
+              cloud_outlier_map2.width++;
             }
           }
             
         } else {
-            // point in real scan but not in simulated
-            geometry_msgs::msg::Point32 p_ros;
-            p_ros.x = preal_s.x;
-            p_ros.y = preal_s.y;
-            p_ros.z = preal_s.z;
-            cloud_outlier_scan.points.push_back(p_ros);
+          // point in real scan but not in simulated
+          SegmentationPoint p_seg;
+          p_seg.x = preal_s.x;
+          p_seg.y = preal_s.y;
+          p_seg.z = preal_s.z;
+          push_back(cloud_outlier_scan2, p_seg);
+          cloud_outlier_scan2.width++;
         }
       } else {
         if(range_sim_valid)
         {
           // sim hits surface but real not: map could be wrong
           rm::Vector pint_s = model.getDirection(vid, hid) * range_sim + model.getOrigin(vid, hid);
-          geometry_msgs::msg::Point32 p_ros;
-          p_ros.x = pint_s.x;
-          p_ros.y = pint_s.y;
-          p_ros.z = pint_s.z;
-          cloud_outlier_map.points.push_back(p_ros);
+          SegmentationPoint p_seg;
+          p_seg.x = pint_s.x;
+          p_seg.y = pint_s.y;
+          p_seg.z = pint_s.z;
+          push_back(cloud_outlier_map2, p_seg);
+          cloud_outlier_map2.width++;
         } else {
           // both sim and real does not hit the map
         }
@@ -173,10 +187,8 @@ void ScanMapSegmentationEmbreeNode::scanCB(
     }
   }
 
-  sensor_msgs::msg::PointCloud2 cloud_outlier_scan2;
-  sensor_msgs::msg::PointCloud2 cloud_outlier_map2;
-  sensor_msgs::convertPointCloudToPointCloud2(cloud_outlier_scan, cloud_outlier_scan2);
-  sensor_msgs::convertPointCloudToPointCloud2(cloud_outlier_map, cloud_outlier_map2);
+  cloud_outlier_scan2.row_step = cloud_outlier_scan2.width * cloud_outlier_scan2.point_step;
+  cloud_outlier_map2.row_step = cloud_outlier_map2.width * cloud_outlier_map2.point_step;
 
   pub_outlier_scan_->publish(cloud_outlier_scan2);
   pub_outlier_map_->publish(cloud_outlier_map2);
