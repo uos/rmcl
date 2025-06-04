@@ -933,6 +933,7 @@ void MICPLocalizationNode::broadcastTransform()
   T_odom_map.header.frame_id = map_frame_;
   T_odom_map.child_frame_id = odom_frame_;
 
+  std::unique_lock lock(mutex_);
   // check Tom
   if(!check(Tom_))
   {
@@ -940,8 +941,7 @@ void MICPLocalizationNode::broadcastTransform()
     // throw std::runtime_error("Tom malformed");
   }
   convert(Tom_, T_odom_map.transform);
-  mutex_.unlock();
-  
+  lock.unlock();
 
   tf_broadcaster_->sendTransform(T_odom_map);
 }
