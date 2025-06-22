@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(rmcl_ros
-	VERSION 2.2.0)
+	VERSION 2.2.1)
 
 option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 option(BUILD_MICP_EXPERIMENTS "Build Experiments" OFF)
