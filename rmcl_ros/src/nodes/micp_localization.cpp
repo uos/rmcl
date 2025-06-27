@@ -102,8 +102,6 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
     .allow_undeclared_parameters(true)
     .automatically_declare_parameters_from_overrides(true))
 {
-  
-  
   std::cout << "MICPLocalizationNode" << std::endl;
 
   // 1. Load parameters
@@ -846,7 +844,7 @@ void MICPLocalizationNode::correctOnce()
     
     // Cmerged_o -> T_onew_oold
     rm::Transform T_onew_oold_inner 
-      = rm::umeyama_transform(Cmerged_o);
+      = rm::umeyama_transform(Cmerged_weighted_o);
 
     if(!check(T_onew_oold_inner))
     {
