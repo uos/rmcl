@@ -30,6 +30,10 @@ public:
   virtual void setTsb(const rmagine::Transform& Tsb) override;
 
   virtual void find(const rmagine::Transform& Tbm_est);
+
+private:
+
+  rmagine::SphericalModel model_cache_;
 };
 
 
@@ -48,6 +52,9 @@ public:
   virtual void setTsb(const rmagine::Transform& Tsb) override;
 
   virtual void find(const rmagine::Transform& Tbm_est);
+
+private:
+  rmagine::PinholeModel model_cache_;
 };
 
 
@@ -66,6 +73,9 @@ public:
   virtual void setTsb(const rmagine::Transform& Tsb) override;
 
   virtual void find(const rmagine::Transform& Tbm_est);
+
+private:
+  rmagine::O1DnModel model_cache_;
 };
 
 class RCCOptixOnDn
@@ -83,6 +93,9 @@ public:
   virtual void setTsb(const rmagine::Transform& Tsb) override;
 
   virtual void find(const rmagine::Transform& Tbm_est);
+
+private:
+  rmagine::OnDnModel model_cache_;
 };
 
 
