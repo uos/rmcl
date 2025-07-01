@@ -97,12 +97,11 @@ void RCCOptixO1Dn::setTsb(const rm::Transform& Tsb)
 void RCCOptixO1Dn::setModel(const rm::O1DnModel& sensor_model)
 {
   rm::O1DnSimulatorOptix::setModel(sensor_model);
-  model_cache_ = sensor_model;
 }
 
 void RCCOptixO1Dn::find(const rm::Transform& Tbm_est)
 {
-  size_t n_new_measurements = model_cache_.size();
+  size_t n_new_measurements = m_model->size();
   if(n_new_measurements == 0)
   {
     return;
@@ -112,7 +111,7 @@ void RCCOptixO1Dn::find(const rm::Transform& Tbm_est)
   if(n_new_measurements > n_old_measurements)
   {
     rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, 
-      model_cache_.getHeight(), model_cache_.getWidth(), 1);
+      m_model->getHeight(), m_model->getWidth(), 1);
   }
 
   simulate(Tbm_est, model_buffers_);
@@ -135,12 +134,11 @@ void RCCOptixOnDn::setTsb(const rm::Transform& Tsb)
 void RCCOptixOnDn::setModel(const rm::OnDnModel& sensor_model)
 {
   rm::OnDnSimulatorOptix::setModel(sensor_model);
-  model_cache_ = sensor_model;
 }
 
 void RCCOptixOnDn::find(const rm::Transform& Tbm_est)
 {
-  size_t n_new_measurements = model_cache_.size();
+  size_t n_new_measurements = m_model->size();
   if(n_new_measurements == 0)
   {
     return;
@@ -150,7 +148,7 @@ void RCCOptixOnDn::find(const rm::Transform& Tbm_est)
   if(n_new_measurements > n_old_measurements)
   {
     rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, 
-      model_cache_.getHeight(), model_cache_.getWidth(), 1);
+      m_model->getHeight(), m_model->getWidth(), 1);
   }
 
   simulate(Tbm_est, model_buffers_);
