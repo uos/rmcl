@@ -112,7 +112,6 @@ public:
   // This is called as soon as data was received and pre-processed
   std::function<void(MICPSensorBase*)> on_data_received;
 
-
 protected:
 
   // ROS

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(rmcl
     LANGUAGES CXX C
-	VERSION 2.2.1
+	VERSION 2.2.2
 	)
 
 option(BUILD_TESTS "Build tests" ON)

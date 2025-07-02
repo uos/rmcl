@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
     <name>rmcl_ros</name>
-    <version>2.2.1</version>
+    <version>2.2.2</version>
     <description>The RMCL package. Software Tools for Mobile Robot Localization in 3D Meshes.</description>
 
     <maintainer email="amock@uos.de">Alexander Mock</maintainer>
@@ -20,6 +20,7 @@
     <depend>image_transport</depend>
     <depend>visualization_msgs</depend>
     <depend>rmcl</depend>
+    <depend>rmcl_msgs</depend>
     <depend>rmagine</depend>
 
     <export>

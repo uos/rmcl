@@ -52,6 +52,11 @@ MICPSensorBase::MICPSensorBase(
     enable_visualizations = sensor_param_tree->at("correspondences")->at("visualize")->data->as_bool();
   }
 
+  if(sensor_param_tree->exists("weight"))
+  {
+    merge_weight_multiplier = sensor_param_tree->at("weight")->data->as_double();
+  }
+
   map_frame = nh_->get_parameter("map_frame").as_string();
   odom_frame = nh_->get_parameter("odom_frame").as_string();
   base_frame = nh_->get_parameter("base_frame").as_string();
