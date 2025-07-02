@@ -20,7 +20,6 @@
     <depend>image_transport</depend>
     <depend>visualization_msgs</depend>
     <depend>rmcl</depend>
-    <depend>rmcl_msgs</depend>
     <depend>rmagine</depend>
 
     <export>
