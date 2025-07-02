@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(rmcl_msgs VERSION 2.2.1)
+project(rmcl_msgs VERSION 2.2.2)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
