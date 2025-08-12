@@ -29,39 +29,6 @@ set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
 )
 
-
-
-
-
-
-
-# function(print_link_info tgt)
-#   message(STATUS "--- ${tgt} ---")
-#   foreach(prop
-#     LINK_DIRECTORIES
-#     INTERFACE_LINK_DIRECTORIES
-#     LINK_LIBRARIES
-#     INTERFACE_LINK_LIBRARIES
-#     IMPORTED_LINK_INTERFACE_LIBRARIES
-#     )
-#     get_property(val TARGET ${tgt} PROPERTY ${prop})
-#     if(val)
-#       message(STATUS "- ${prop} = ${val}")
-#     endif()
-#   endforeach()
-
-#   # Per-config (useful for imported targets)
-#   foreach(cfg Debug Release RelWithDebInfo MinSizeRel)
-#     get_property(percfg TARGET ${tgt} PROPERTY IMPORTED_LINK_INTERFACE_LIBRARIES_${cfg})
-#     if(percfg)
-#       message(STATUS "${tgt} :: IMPORTED_LINK_INTERFACE_LIBRARIES_${cfg} = ${percfg}")
-#     endif()
-#   endforeach()
-# endfunction()
-
-
-
-
 find_package(ament_cmake REQUIRED)
 
 find_package(rclcpp REQUIRED)
@@ -74,7 +41,6 @@ find_package(visualization_msgs REQUIRED)
 
 find_package(OpenMP REQUIRED)
 
-
 find_package(rmagine 2.3.1
     COMPONENTS
         core
@@ -84,7 +50,7 @@ find_package(rmagine 2.3.1
         optix
 )
 
-find_package(rmcl 2.2.1 REQUIRED)
+find_package(rmcl 2.2.3 REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
 # TODO: we can do this better. maybe put definitions to each target?
