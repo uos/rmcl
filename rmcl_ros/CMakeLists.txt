@@ -29,6 +29,39 @@ set(CMAKE_MODULE_PATH
   ${CMAKE_MODULE_PATH}
 )
 
+
+
+
+
+
+
+# function(print_link_info tgt)
+#   message(STATUS "--- ${tgt} ---")
+#   foreach(prop
+#     LINK_DIRECTORIES
+#     INTERFACE_LINK_DIRECTORIES
+#     LINK_LIBRARIES
+#     INTERFACE_LINK_LIBRARIES
+#     IMPORTED_LINK_INTERFACE_LIBRARIES
+#     )
+#     get_property(val TARGET ${tgt} PROPERTY ${prop})
+#     if(val)
+#       message(STATUS "- ${prop} = ${val}")
+#     endif()
+#   endforeach()
+
+#   # Per-config (useful for imported targets)
+#   foreach(cfg Debug Release RelWithDebInfo MinSizeRel)
+#     get_property(percfg TARGET ${tgt} PROPERTY IMPORTED_LINK_INTERFACE_LIBRARIES_${cfg})
+#     if(percfg)
+#       message(STATUS "${tgt} :: IMPORTED_LINK_INTERFACE_LIBRARIES_${cfg} = ${percfg}")
+#     endif()
+#   endforeach()
+# endfunction()
+
+
+
+
 find_package(ament_cmake REQUIRED)
 
 find_package(rclcpp REQUIRED)
@@ -42,7 +75,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(OpenMP REQUIRED)
 
 
-find_package(rmagine 2.3.0
+find_package(rmagine 2.3.1
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -51,14 +84,14 @@ find_package(rmagine 2.3.0
         optix
 )
 
-find_package(rmcl 2.2 REQUIRED)
+find_package(rmcl 2.2.1 REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
-# TODO: we can do this better. maybe but definitions to each target?
-if(TARGET rmagine::embree)
+# TODO: we can do this better. maybe put definitions to each target?
+if(TARGET rmcl-embree)
     add_definitions(-DRMCL_EMBREE)
     set(RMCL_EMBREE TRUE)
-endif(TARGET rmagine::embree)
+endif(TARGET rmcl-embree)
 
 if(TARGET rmcl-cuda)
     add_definitions(-DRMCL_CUDA)
@@ -70,7 +103,6 @@ if(TARGET rmcl-optix)
     set(RMCL_OPTIX True)
 endif(TARGET rmcl-optix)
 
-# find_package(Eigen3 REQUIRED)
 
 include_directories(
     include
@@ -91,8 +123,8 @@ add_library(rmcl_ros SHARED
 )
 
 target_include_directories(rmcl_ros PUBLIC
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    "$<INSTALL_INTERFACE:include>")
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(rmcl_ros
     rmcl
@@ -114,35 +146,6 @@ install(TARGETS rmcl_ros
     RUNTIME DESTINATION bin
 )
 
-if(RMCL_EMBREE)
-    # add_library(rmcl_ros_embree SHARED
-    #     src/micpl/correspondences/RCCEmbree.cpp
-    #     src/micpl/correspondences/CPCEmbree.cpp
-    # )
-    # target_include_directories(rmcl_ros_embree PUBLIC
-    #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    #     "$<INSTALL_INTERFACE:include>")
-    # target_link_libraries(rmcl_ros_embree
-    #     rmcl_ros
-    #     rmcl-embree
-    #     rmagine::embree
-    #     OpenMP::OpenMP_CXX
-    # )
-
-    # ament_target_dependencies(rmcl_ros_embree
-    #     rclcpp
-    #     sensor_msgs
-    #     rmcl_msgs
-    #     geometry_msgs
-    # )
-
-    # install(TARGETS rmcl_ros_embree
-    #     ARCHIVE DESTINATION lib
-    #     LIBRARY DESTINATION lib
-    #     RUNTIME DESTINATION bin
-    # )
-endif(RMCL_EMBREE)
-
 if(RMCL_CUDA)
     add_library(rmcl_ros_cuda SHARED
         src/micpl/MICPSensorCUDA.cpp
@@ -152,8 +155,9 @@ if(RMCL_CUDA)
         src/micpl/MICPOnDnSensorCUDA.cpp
     )
     target_include_directories(rmcl_ros_cuda PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>")
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    )
     target_link_libraries(rmcl_ros_cuda
         rmcl_ros
         rmcl-cuda
@@ -173,33 +177,6 @@ if(RMCL_CUDA)
         RUNTIME DESTINATION bin
     )
 endif(RMCL_CUDA)
-
-if(RMCL_OPTIX)
-    # add_library(rmcl_ros_optix SHARED
-    #     src/micpl/correspondences/RCCOptix.cpp
-    # )
-    # target_include_directories(rmcl_ros_optix PUBLIC
-    #     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    #     "$<INSTALL_INTERFACE:include>")
-    # target_link_libraries(rmcl_ros_optix
-    #     rmcl_ros
-    #     rmcl-optix
-    #     rmagine::optix
-    # )
-
-    # ament_target_dependencies(rmcl_ros_optix
-    #     rclcpp
-    #     sensor_msgs
-    #     rmcl_msgs
-    #     geometry_msgs
-    # )
-
-    # install(TARGETS rmcl_ros_optix
-    #     ARCHIVE DESTINATION lib
-    #     LIBRARY DESTINATION lib
-    #     RUNTIME DESTINATION bin
-    # )
-endif(RMCL_OPTIX)
 
 ## Nodes
 

@@ -20,21 +20,13 @@
 
 #include <message_filters/subscriber.h>
 
-
 #include <rmagine/math/statistics.h>
 #include <rmagine/math/linalg.h>
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
-// Correspondences
-#include <rmcl/registration/Correspondences.hpp>
-#include <rmcl/registration/RCCEmbree.hpp>
-
-
 #include <mutex>
 #include <thread>
-
-
 
 namespace rmcl
 {
@@ -43,7 +35,6 @@ class MICPOnDnSensorCPU
 : public MICPSensorCPU
 {
 public:
-
   using Base = MICPSensorCPU;
 
   MICPOnDnSensorCPU(
