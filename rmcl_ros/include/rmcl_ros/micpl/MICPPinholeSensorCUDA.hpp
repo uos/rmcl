@@ -16,10 +16,8 @@
 
 #include <message_filters/subscriber.h>
 
-
 #include <rmagine/math/statistics.h>
 #include <rmagine/types/MemoryCuda.hpp>
-
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 

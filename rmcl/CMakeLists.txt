@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(rmcl
     LANGUAGES CXX C
-	VERSION 2.2.2
+	VERSION 2.2.3
 	)
 
 option(BUILD_TESTS "Build tests" ON)
@@ -54,7 +54,7 @@ list(APPEND CMAKE_MODULE_PATH ${rmcl_SOURCE_DIR}/cmake)
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.4.0")
 
-find_package(rmagine 2.3.0
+find_package(rmagine 2.3.1
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -147,12 +147,6 @@ set_target_properties(rmcl
       VERSION ${rmcl_VERSION}
       # CXX_STANDARD 17
 )
-
-# install(TARGETS rmcl
-#     EXPORT rmcl-targets
-#     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-# )
 
 # EMBREE
 if(TARGET rmagine::embree)

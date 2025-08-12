@@ -16,7 +16,6 @@
 
 #include <message_filters/subscriber.h>
 
-
 #include <rmagine/math/statistics.h>
 #include <rmagine/types/MemoryCuda.hpp>
 
