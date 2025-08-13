@@ -39,7 +39,6 @@ find_package(rmcl_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
-find_package(OpenMP REQUIRED)
 
 find_package(rmagine 2.3.1
     COMPONENTS
@@ -161,7 +160,6 @@ target_include_directories(micp_localization
 target_link_libraries(micp_localization
     rmcl_ros
     rmagine::core
-    OpenMP::OpenMP_CXX
 )
 
 if(RMCL_EMBREE)

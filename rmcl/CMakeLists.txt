@@ -51,6 +51,13 @@ set(CMAKE_TMP_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tmp)
 
 list(APPEND CMAKE_MODULE_PATH ${rmcl_SOURCE_DIR}/cmake)
 
+
+find_package(TBB REQUIRED)
+if(TARGET TBB::tbb)
+    set(TBB_INCLUDE_DIRS "")
+    set(TBB_LIBRARIES TBB::tbb)
+endif()
+
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.4.0")
 
@@ -144,14 +151,15 @@ if(TARGET rmagine::embree)
     target_link_libraries(rmcl-embree
         rmagine::core
         rmagine::embree
-        ${rmagine_ext_LIBRARIES}
         rmcl
+        ${TBB_LIBRARIES}
     )
 
     target_include_directories(rmcl-embree
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
+        ${TBB_INCLUDE_DIRS}
     )
 
     set_target_properties(rmcl-embree
