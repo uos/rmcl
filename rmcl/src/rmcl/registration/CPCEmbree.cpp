@@ -1,5 +1,8 @@
 #include "rmcl/registration/CPCEmbree.hpp"
 
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+
 namespace rm = rmagine;
 
 namespace rmcl
@@ -24,16 +27,20 @@ void CPCEmbree::find(const rm::Transform& Tbm_est)
   const rm::Transform Tsm = Tbm_est * Tsb_;
   const rm::Transform Tms = ~Tsm;
 
-  // #pragma omp parallel for
-  for(size_t i=0; i<dataset.points.size(); i++)
+  tbb::parallel_for( 
+    tbb::blocked_range<size_t>(0, dataset.points.size(), 128),
+    [&](const tbb::blocked_range<size_t>& r)
   {
-    const rm::Point Pm = Tsm * dataset.points[i];
-    const rm::EmbreeClosestPointResult cp = map_->closestPoint(Pm);
+    for(size_t i=r.begin(); i<r.end(); ++i)
+    {
+      const rm::Point Pm = Tsm * dataset.points[i];
+      const rm::EmbreeClosestPointResult cp = map_->closestPoint(Pm);
 
-    model_buffers_.hits[i] = (cp.d <= params.max_dist);
-    model_buffers_.points[i] = Tms * cp.p;
-    model_buffers_.normals[i] = Tms.R * cp.n;
-  }
+      model_buffers_.hits[i] = (cp.d <= params.max_dist);
+      model_buffers_.points[i] = Tms * cp.p;
+      model_buffers_.normals[i] = Tms.R * cp.n;
+    }
+  });
 }
 
 

@@ -755,7 +755,6 @@ void MICPLocalizationNode::correctOnce()
   stats.total_measurements = 0;
   stats.valid_measurements = 0;
 
-  // #pragma omp parallel for
   for(auto sensor : sensors_vec_)
   {
     // dont change the state of this sensor
