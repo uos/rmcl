@@ -121,7 +121,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   optimization_iterations_ = rmcl::get_parameter(this, "optimization_iterations", 5);
   correction_rate_max_ = rmcl::get_parameter(this, "correction_rate_max", 1000.0);
   int max_cpu_threads = rmcl::get_parameter(this, "max_cpu_threads", 4);
-  omp_set_num_threads(max_cpu_threads);
+  // omp_set_num_threads(max_cpu_threads);
 
   broadcast_tf_ = rmcl::get_parameter(this, "broadcast_tf", true);
   tf_rate_ = rmcl::get_parameter(this, "tf_rate", 100.0);

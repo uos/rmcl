@@ -87,17 +87,7 @@ if(TARGET rmagine::optix)
     option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
-
 find_package(Eigen3 REQUIRED)
-
-### EXTERNAL PROJECTS
-include(ExternalProject)
-
-##########################################
-## NanoFLANN: K-nearest neighbor search ##
-##########################################
-include(DownloadNanoflann)
-include_directories(${nanoflann_INCLUDE_DIR})
 
 set(RMCL_LIBRARIES rmcl)
 
@@ -119,14 +109,8 @@ include_directories(
 
 # CORE LIB
 add_library(rmcl SHARED
-    # Math
-    src/rmcl/math/math_batched.cpp
     # Registration
     src/rmcl/registration/CorrespondencesCPU.cpp
-    # # Spatial
-    # src/rmcl/spatial/KdTree.cpp # TODO: fix nanoflann
-    # # Clustering
-    # src/rmcl/clustering/clustering.cpp # TODO: fix nanoflann
 )
 
 # add_dependencies(rmcl nanoflann)
@@ -243,8 +227,6 @@ endif()
 # CUDA
 if(TARGET rmagine::cuda AND NOT ${DISABLE_CUDA})
     add_library(rmcl-cuda SHARED
-        # math
-        src/rmcl/math/math_batched.cu
         src/rmcl/registration/CorrespondencesCUDA.cpp
     )
 

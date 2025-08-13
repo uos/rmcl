@@ -24,7 +24,7 @@ void CPCEmbree::find(const rm::Transform& Tbm_est)
   const rm::Transform Tsm = Tbm_est * Tsb_;
   const rm::Transform Tms = ~Tsm;
 
-  #pragma omp parallel for
+  // #pragma omp parallel for
   for(size_t i=0; i<dataset.points.size(); i++)
   {
     const rm::Point Pm = Tsm * dataset.points[i];
