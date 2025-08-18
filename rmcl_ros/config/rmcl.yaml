@@ -43,6 +43,13 @@ rmcl_localization_node:
       min_dist: 0.02 # TODO: impl
       min_rot: 0.02 # TODO: impl
       debug: true
+
+      min_noise_tx: 0.1
+      min_noise_ty: 0.1
+      min_noise_tz: 0.05
+      min_noise_roll: 0.0
+      min_noise_pitch: 0.0
+      min_noise_yaw: 0.05
     visualization:
       rate: 20.0
       enabled: true

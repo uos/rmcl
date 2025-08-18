@@ -46,6 +46,12 @@ void ResidualResamplerCPU::updateParams()
   config_.likelihood_forget_per_radian = rmcl::get_parameter(node_, "~likelihood_forget_per_radian", 0.2);
 }
 
+// Next Resampler:
+// 1. Compute stats:
+//    - change of weights w.r.t. direction
+// 2. Use the estimated normal distribution to resample
+// KLD resampling?
+
 ParticleUpdateDynamicResults ResidualResamplerCPU::update(
   const rmagine::MemoryView<rmagine::Transform, rmagine::RAM> particle_poses,
   const rmagine::MemoryView<ParticleAttributes, rmagine::RAM> particle_attrs,
@@ -60,32 +66,36 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
 
   ParticleUpdateDynamicResults res;
 
-  float weight_sum = 0.0;
-  float weight_max = 0.0;
-
+  // stats
+  double weight_sum = 0.0;
+  double weight_sum_sq = 0.0;
+  double weight_max = 0.0;
+  double weight_min = std::numeric_limits<double>::max();
+  double weight_n = static_cast<double>(particle_attrs.size());
   for(size_t i=0; i<particle_attrs.size(); i++)
   {
-    weight_sum += particle_attrs[i].likelihood.mean;
-    weight_max = std::max(weight_max, particle_attrs[i].likelihood.mean);
+    const double v = particle_attrs[i].likelihood.mean;
+    weight_sum += v;
+    weight_sum_sq += v*v;
+    weight_max = std::max(weight_max, v);
+    weight_min = std::min(weight_min, v);
   }
 
+  double weight_mean = weight_sum / weight_n;
+  double weight_var  = weight_sum_sq / weight_n - weight_mean * weight_mean;
+
   std::cout << "   Particle Stats:" << std::endl;
-  std::cout << "   - weight sum: " << weight_sum << std::endl;
-  std::cout << "   - weight max: " << weight_max << std::endl;
+  std::cout << "   - weights: " << std::endl;
+  std::cout << "      - min, max: " << weight_min << ", " << weight_max << std::endl;
+  std::cout << "      - mean, var: " << weight_mean << "," << weight_var << std::endl;
 
   std::uniform_int_distribution<size_t> uniform_distribution(0, particle_poses.size() - 1);
   
-
   // Best-case noises of the system
   // TODO: does this need additional parameters or can we determine 
   // these from sensor noise and/or motion noise
 
   // How can we thread this algorithm?
-
-  std::vector<std::thread> workers;
-
-
-  
 
   sw();
   size_t insertion_idx = 0;
@@ -99,11 +109,11 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
     const rm::Transform pose =       particle_poses[random_index];
     const ParticleAttributes attrs = particle_attrs[random_index];
 
-    const float L = attrs.likelihood.mean;
-    const float L_sum_normed = L / weight_sum; // all L_normed are in sum 1; in [0, 1]
-    const float L_max_normed = L / weight_max; // L / L_max = L_normed2; in [0, 1]
+    const double L = attrs.likelihood.mean;
+    const double L_sum_normed = L / weight_sum; // all L_normed are in sum 1; in [0, 1]
+    const double L_max_normed = L / weight_max; // L / L_max = L_normed2; in [0, 1]
 
-    const size_t n_expected_insertions = static_cast<double>(L_sum_normed) * static_cast<double>(particle_poses_new.size());
+    const size_t n_expected_insertions = L_sum_normed * static_cast<double>(particle_poses_new.size());
     const size_t n_insertions_left = particle_poses_new.size() - insertion_idx;
 
     const size_t n_insertions = 
@@ -166,17 +176,18 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
       }
     }; // residual_fill
 
-    if(n_insertions > 10)
-    {
-      workers.emplace_back([=]{
-        residual_fill();
-      });
-    } else if(n_insertions > 0) {
-      residual_fill();
-    }
+    // I observed, the number of insertions is very small. mostly 0 or 1
+    // if(n_insertions > 10)
+    // {
+    //   workers.emplace_back([=]{
+    //     residual_fill();
+    //   });
+    // } else if(n_insertions > 0) {
+    //   residual_fill();
+    // }
 
     // we can do this asynchronously
-    // residual_fill();
+    residual_fill();
 
     insertion_idx += n_insertions;
     loop_iterations++;
@@ -187,14 +198,9 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
     // }
   }
 
-  for(auto& w: workers){ 
-    w.join();
-  }
-
   el = sw();
 
-  std::cout << "Waited for " << workers.size() << " large blocks" << std::endl;
-
+  // std::cout << "Waited for " << workers.size() << " large blocks" << std::endl;
   std::cout << "   - runtime: " << el << "s" << std::endl;
 
   {
