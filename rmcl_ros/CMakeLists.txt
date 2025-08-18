@@ -2,8 +2,18 @@ cmake_minimum_required(VERSION 3.18)
 project(rmcl_ros
 	VERSION 2.2.3)
 
-option(BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
-option(BUILD_MICP_EXPERIMENTS "Build Experiments" OFF)
+# option(RMCL_ROS_BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
+# option(RMCL_ROS_BUILD_MICP_EXPERIMENTS "Build Experiments" OFF)
+
+
+# To still use FetchContent_Populate for non CMake projects 
+# without triggering a warning
+if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+endif()
+
+include(FetchContent)
+
 
 include(GNUInstallDirs)
 
@@ -24,10 +34,7 @@ if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
   endif()
 endif()
 
-set(CMAKE_MODULE_PATH
-  ${rmcl_SOURCE_DIR}/cmake
-  ${CMAKE_MODULE_PATH}
-)
+list(APPEND CMAKE_MODULE_PATH ${rmcl_ros_SOURCE_DIR}/cmake)
 
 find_package(ament_cmake REQUIRED)
 
@@ -85,6 +92,9 @@ add_library(rmcl_ros SHARED
     src/micpl/MICPPinholeSensorCPU.cpp
     src/micpl/MICPO1DnSensorCPU.cpp
     src/micpl/MICPOnDnSensorCPU.cpp
+    # rmcl localization
+    src/rmcl/KLDResamplerCPU.cpp
+    src/rmcl/ResidualResamplerCPU.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
@@ -111,14 +121,120 @@ install(TARGETS rmcl_ros
     RUNTIME DESTINATION bin
 )
 
+if(TARGET rmcl-embree)
+
+    add_library(rmcl_embree_ros SHARED
+        # rmcl localization
+        src/rmcl/TFMotionUpdaterCPU.cpp
+        src/rmcl/PCDSensorUpdaterEmbree.cpp
+    )
+
+    target_include_directories(rmcl_embree_ros PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>)
+
+    target_link_libraries(rmcl_embree_ros
+        rmcl-embree
+        rmagine::core
+        rmagine::embree
+    )
+
+    ament_target_dependencies(rmcl_embree_ros
+        rclcpp
+        sensor_msgs
+        rmcl_msgs
+        geometry_msgs
+        tf2_ros
+        visualization_msgs
+    )
+
+    install(TARGETS rmcl_embree_ros
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+
+endif(TARGET rmcl-embree)
+
 if(RMCL_CUDA)
+
+    set(RMCL_OPTIX_DOWNLOAD_VERSION "9.0.0" CACHE STRING "Desired optix version used for download.")
+
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        find_package(CUDAToolkit QUIET)
+        if(CUDAToolkit_FOUND)
+            enable_language(CUDA)
+            set(CUDA_FOUND True)
+            set(CUDA_LIBRARIES CUDA::cudart)
+            set(CUDA_cusolver_LIBRARY CUDA::cusolver)
+            set(CUDA_cublas_LIBRARY CUDA::cublas)
+            set(CUDA_DRIVER_LIBRARY CUDA::cuda_driver)
+            set(CUDA_INCLUDE_DIRS "") # is in target instead    
+            get_target_property(NVIDIA_DRIVER_PATH CUDA::cuda_driver LOCATION)    
+        else()
+            find_package(CUDA)
+            if(CUDA_FOUND)
+                enable_language(CUDA)
+                # 1. CUDA_DRIVER_LIBRARY <- Figure out if there is a cuda driver library available
+                if(CUDA_CUDA_LIBRARY)
+                    set(CUDA_DRIVER_LIBRARY ${CUDA_CUDA_LIBRARY})
+                else()
+                    find_library(CUDA_DRIVER_LIBRARY NAMES cuda)
+                endif()
+                # 2. CUDA_DRIVER_LIBRARY <- Figure out path to cuda.so
+                if(CUDA_DRIVER_LIBRARY)
+                    if(TARGET ${CUDA_DRIVER_LIBRARY})
+                        get_target_property(NVIDIA_DRIVER_PATH ${CUDA_DRIVER_LIBRARY} LOCATION) # ERROR: https://github.com/uos/rmagine/issues/14
+                    else() # already a path
+                        set(NVIDIA_DRIVER_PATH ${CUDA_DRIVER_LIBRARY})
+                    endif()
+                endif()
+            else()
+                message(STATUS "Neither CudaToolkit nor CUDA found!")
+            endif(CUDA_FOUND)
+        endif(CUDAToolkit_FOUND)
+
+        # Resolve symlinks until we get the actual file
+        get_filename_component(NVIDIA_DRIVER_REALPATH ${NVIDIA_DRIVER_PATH} REALPATH)
+
+        get_filename_component(NVIDIA_DRIVER_NAME ${NVIDIA_DRIVER_REALPATH} NAME)
+
+        # Try extracting version number from filename
+        string(REGEX MATCH "[0-9]+(\\.[0-9]+)*" NVIDIA_DRIVER_VERSION "${NVIDIA_DRIVER_NAME}")
+
+        if(NVIDIA_DRIVER_VERSION) 
+            message(STATUS "Auto-detected NVIDIA driver version: ${NVIDIA_DRIVER_REALPATH} -> ${NVIDIA_DRIVER_VERSION}")
+
+            include(MaxOptixVersion)
+            max_optix_version(NVIDIA_DRIVER_VERSION MAX_OPTIX_VERSION)
+            message(STATUS "Maximum allowed optix version for the current nvidia driver is: ${MAX_OPTIX_VERSION}")
+
+            # TODO: override?
+            if(${RMCL_OPTIX_DOWNLOAD_VERSION} VERSION_GREATER ${MAX_OPTIX_VERSION})
+                message(STATUS "Decrease RMCL_OPTIX_DOWNLOAD_VERSION from ${RMCL_OPTIX_DOWNLOAD_VERSION} to ${MAX_OPTIX_VERSION}. This is the latest supported version for the currently used NVIDIA driver version ${NVIDIA_DRIVER_VERSION}")
+                set(RMCL_OPTIX_DOWNLOAD_VERSION ${MAX_OPTIX_VERSION})
+            endif()
+        else()
+            message(WARNING "Could not detect driver version from path: ${NVIDIA_DRIVER_REALPATH}")
+        endif()
+
+    endif(CMAKE_CUDA_COMPILER) # -> CUDA_FOUND
+
     add_library(rmcl_ros_cuda SHARED
+        # MICP-L
         src/micpl/MICPSensorCUDA.cpp
         src/micpl/MICPSphericalSensorCUDA.cpp
         src/micpl/MICPPinholeSensorCUDA.cpp
         src/micpl/MICPO1DnSensorCUDA.cpp
         src/micpl/MICPOnDnSensorCUDA.cpp
+        # RMCL
+        src/rmcl/particle_motion.cu
+        src/rmcl/resampling.cu
+        src/rmcl/ResidualResamplerGPU.cpp
     )
+
     target_include_directories(rmcl_ros_cuda PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -134,6 +250,7 @@ if(RMCL_CUDA)
         sensor_msgs
         rmcl_msgs
         geometry_msgs
+        tf2_ros
     )
 
     install(TARGETS rmcl_ros_cuda
@@ -141,6 +258,158 @@ if(RMCL_CUDA)
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin
     )
+
+    if(TARGET rmcl-optix)
+
+        # Replace this
+        # get_target_property(RMAGINE_OPTIX_INCLUDES rmagine::optix INTERFACE_INCLUDE_DIRECTORIES)
+        # By this:
+
+        find_package(OptiX QUIET)
+
+        if(NOT OptiX_FOUND)
+            message(STATUS "Searching for OptiX online")
+
+            FetchContent_Declare(
+                optix_header
+                GIT_REPOSITORY   https://github.com/NVIDIA/optix-dev.git
+                GIT_TAG          v${RMCL_OPTIX_DOWNLOAD_VERSION}
+            )
+            FetchContent_Populate(optix_header)
+
+            set(OptiX_ROOT_DIR ${optix_header_SOURCE_DIR})
+            find_package(OptiX QUIET)
+        endif()
+
+        if(NOT OptiX_FOUND)
+            message(FATAL_ERROR "CMake error in finding OptiX")
+        endif(NOT OptiX_FOUND)
+
+        set(RMCL_ROS_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_ros_optix_ptx")
+        set(RMCL_ROS_OPTIX_PTX_GLOB_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/rmcl_ros_optix_ptx")
+
+        set(CUDA_GENERATED_OUTPUT_DIR ${RMCL_ROS_OPTIX_PTX_DIR})
+
+        message(STATUS "Writing Optix Kernels to ${RMCL_ROS_OPTIX_PTX_DIR}")
+
+        set(OPTIX_KERNEL_FILES
+            src/rmcl/optix/BeamEvaluateProgram.cu
+        )
+
+        if(CUDAToolkit_FOUND)
+            # NEW VERSION
+
+            add_library(rmcl_ros_optix_cu_to_ptx OBJECT
+                ${OPTIX_KERNEL_FILES}
+            )
+
+            target_include_directories(rmcl_ros_optix_cu_to_ptx PRIVATE
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                $<BUILD_INTERFACE:${OptiX_INCLUDE_DIRS}>
+            )
+
+            set_target_properties(rmcl_ros_optix_cu_to_ptx 
+                PROPERTIES
+                    CUDA_PTX_COMPILATION ON
+                    # CUDA_ARCHITECTURES all
+            )
+
+            target_link_libraries(rmcl_ros_optix_cu_to_ptx
+                ${OptiX_LIBRARIES}
+                rmagine::core
+                rmagine::cuda
+            )
+
+            add_custom_target(rmcl_ros_optix_ptx ALL
+                DEPENDS 
+                    rmagine::core 
+                    rmcl_ros_optix_cu_to_ptx 
+                    ${OPTIX_KERNEL_FILES}
+                SOURCES ${OPTIX_KERNEL_FILES}
+                VERBATIM)
+
+            add_custom_command(
+                TARGET rmcl_ros_optix_ptx POST_BUILD
+                COMMAND ${CMAKE_COMMAND} 
+                    -DRMCL_ROS_SOURCE_DIR=${rmcl_ros_SOURCE_DIR} 
+                    -DRMCL_ROS_OPTIX_PTX_DIR=${RMCL_ROS_OPTIX_PTX_DIR}
+                    -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}"
+                    -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernelsCudaToolkit.cmake"
+            )
+        else(CUDAToolkit_FOUND)
+            # THIS IS GOING TO BE OBSOLETE
+
+            cuda_include_directories(
+                ${RMAGINE_OPTIX_INCLUDES}
+            )
+
+            cuda_compile_ptx(RMCL_ROS_OPTIX_PTX_FILES
+                ${OPTIX_KERNEL_FILES}
+            )
+
+            add_custom_target(rmcl_ros_optix_ptx ALL
+                DEPENDS
+                    ${RMCL_ROS_OPTIX_PTX_FILES}
+                    ${OPTIX_KERNEL_FILES}
+                SOURCES ${OPTIX_KERNEL_FILES}
+                VERBATIM)
+
+            message(STATUS "CMAKE_SOURCE_DIR: ${rmcl_ros_SOURCE_DIR}")
+
+            add_custom_command(
+                TARGET rmcl_ros_optix_ptx POST_BUILD
+                COMMAND ${CMAKE_COMMAND} 
+                    -DRMCL_ROS_SOURCE_DIR=${rmcl_ros_SOURCE_DIR} 
+                    -DRMCL_ROS_OPTIX_PTX_DIR=${RMCL_ROS_OPTIX_PTX_DIR} 
+                    -DOPTIX_KERNEL_FILES="${OPTIX_KERNEL_FILES}" 
+                    -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CompileOptixKernels.cmake"
+            )
+        endif(CUDAToolkit_FOUND)
+
+
+        add_library(rmcl_ros_optix SHARED
+            src/rmcl/TFMotionUpdaterGPU.cpp
+            src/rmcl/PCDSensorUpdaterOptix.cpp
+            # Correction Programs
+            src/rmcl/optix/eval_modules.cpp
+            src/rmcl/optix/eval_program_groups.cpp
+            src/rmcl/optix/eval_pipelines.cpp
+        )
+
+        add_dependencies(rmcl_ros_optix
+            rmcl_ros_optix_ptx
+        )
+
+        target_include_directories(rmcl_ros_optix PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+            $<BUILD_INTERFACE:${OptiX_INCLUDE_DIRS}>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>)
+
+        target_link_libraries(rmcl_ros_optix
+            rmcl
+            rmcl_ros
+            rmcl-cuda
+            rmcl_ros_cuda
+            rmcl-optix
+            rmagine::optix
+        )
+
+        ament_target_dependencies(rmcl_ros_optix
+            rclcpp
+            sensor_msgs
+            rmcl_msgs
+            geometry_msgs
+            tf2_ros
+        )
+
+        install(TARGETS rmcl_ros_optix
+            ARCHIVE DESTINATION lib
+            LIBRARY DESTINATION lib
+            RUNTIME DESTINATION bin
+        )
+    endif(TARGET rmcl-optix)
+
 endif(RMCL_CUDA)
 
 ## Nodes
@@ -430,6 +699,77 @@ install(TARGETS
 )
 
 endif(TARGET rmcl-embree)
+
+
+
+
+
+
+###################
+#### RMCL Node ####
+###################
+add_library(rmcl_localization SHARED
+  src/nodes/rmcl_localization.cpp)
+
+target_include_directories(rmcl_localization
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+
+target_link_libraries(rmcl_localization
+    rmcl_ros
+    Eigen3::Eigen
+    rmagine::core
+    rmagine::embree
+)
+
+if(RMCL_EMBREE)
+    target_link_libraries(rmcl_localization
+        rmcl-embree
+        rmcl_embree_ros
+    )
+endif(RMCL_EMBREE)
+    
+if(RMCL_CUDA)
+    target_link_libraries(rmcl_localization
+        rmcl-cuda
+    )
+endif(RMCL_CUDA)
+
+if(RMCL_OPTIX)
+    message(WARNING "Linking CUDA + OptiX related code")
+    target_link_libraries(rmcl_localization
+        rmcl_ros_cuda
+        rmcl-cuda
+        rmcl_ros_optix
+        rmcl-optix
+    )
+endif(RMCL_OPTIX)
+
+ament_target_dependencies(rmcl_localization 
+    rclcpp
+    rclcpp_components
+    geometry_msgs
+    sensor_msgs
+    tf2_ros
+    visualization_msgs
+)
+
+rclcpp_components_register_node(rmcl_localization PLUGIN "rmcl::RmclNode" EXECUTABLE rmcl_localization_node)
+
+install(TARGETS 
+    rmcl_localization
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
+#################
+# Finish package configuration
+
+install(DIRECTORY config launch
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_export_include_directories(
   include

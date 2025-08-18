@@ -1,0 +1,50 @@
+rmcl_localization_node:
+  ros__parameters:
+    base_frame: base_link
+    odom_frame: odom
+    map_frame: map
+
+    map_server:
+      map:
+        name: test
+        # source: TODO # set from launch file
+
+    max_particles: 1000000
+
+    motion_update: # per particle
+      type: tf # TODO: check if we can make plugins?
+      compute: gpu
+      
+      rate: 40.0
+      # weight_noise: 0.2
+      forget_rate: 0.8 # per meter
+      forget_rate_per_second: 0.95 # per second # TODO: make own "time update" from this
+      map: map
+      debug: true
+    sensor_update: # per particle
+      type: pcd
+      compute: gpu
+
+      samples: 100
+      correspondence_type: 0
+      dist_sigma: 0.3
+      real_hit_sim_miss_error: 10.0 # in meter
+      real_miss_sim_hit_error: 40.0 # in meter
+      real_miss_sim_miss_error: 0.0 # in meter
+      sensor_range_min: 0.2
+      sensor_range_max: 80.0
+      map: map
+      debug: true
+    resampling: # a posteriori (sensor update) using fusing a priori (motion update) and likelihood field
+      type: residual
+      compute: gpu
+
+      rate: 2.0
+      min_dist: 0.02 # TODO: impl
+      min_rot: 0.02 # TODO: impl
+      debug: true
+    visualization:
+      rate: 20.0
+      enabled: true
+      max_particles: 50000
+

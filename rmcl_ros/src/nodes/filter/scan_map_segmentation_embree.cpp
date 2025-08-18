@@ -19,7 +19,6 @@
 
 #include <memory>
 #include <chrono>
-#include <omp.h>
 #include <thread>
 #include <mutex>
 
