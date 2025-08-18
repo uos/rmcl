@@ -37,9 +37,9 @@ rmcl_localization_node:
       debug: true
     resampling: # a posteriori (sensor update) using fusing a priori (motion update) and likelihood field
       type: residual
-      compute: gpu
+      compute: cpu
 
-      rate: 2.0
+      rate: 5.0
       min_dist: 0.02 # TODO: impl
       min_rot: 0.02 # TODO: impl
       debug: true

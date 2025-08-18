@@ -117,7 +117,6 @@ void residual_resample_kernel(
   const ParticleUpdateDynamicConfig config)
 {
   const unsigned int pid = blockIdx.x * blockDim.x + threadIdx.x;
-  
 
   const float min_noise_tx = 0.03;
   const float min_noise_ty = 0.03;
@@ -130,64 +129,37 @@ void residual_resample_kernel(
   const float likelihood_forget_per_meter = 0.3;
   const float likelihood_forget_per_radian = 0.2;
 
-  
+  const float L_max = stats->max;
+  const float L_sum = stats->sum;
 
   if(pid < n_particles)
   {
+    // Get random number
     curandState& rstate = rstates[pid];
+    const unsigned int random_int = curand(&rstate);
+    const unsigned int random_index = random_int % n_particles;
 
-
-
-    const float L_max = stats->max;
-    const float L_sum = stats->sum;
-
-    const rm::Transform pose = particle_poses[pid];
-    const ParticleAttributes attrs = particle_attrs[pid];
-    
-    // init state with randomness from actual PRNG (CPU).
-
-
-    // unsigned int state = *reinterpret_cast<const unsigned int*>(&pose.t.x);
-    const unsigned int rand_int = curand(&rstate);
-
-    // curand_discrete()
-
-    const unsigned int rand_id = rand_int % n_particles;
-    const float rand_flt = (rand_int / (float)UINT_MAX); // betwen 0 and 1
+    // sample around this pose
+    const rm::Transform pose = particle_poses[random_index];
+    const ParticleAttributes attrs = particle_attrs[random_index];
 
     const float L = attrs.likelihood.mean;
-    const float L_sum_normed = L / L_sum;
-    const float L_max_normed = L / L_max;
+    const float L_sum_normed = L / L_sum; // all L_normed are in sum 1; in [0, 1]
+    const float L_max_normed = L / L_max; // L / L_max = L_normed2; in [0, 1]
+    
+    const size_t n_expected_insertions = L_sum_normed * n_particles;
+    // const size_t n_insertions_left = n_particles - insertion_idx;
 
-    rm::Transform pose_new;
-    ParticleAttributes attrs_new;
+    // const size_t n_insertions = 
+    //   (n_expected_insertions <= n_insertions_left) ? 
+    //   n_expected_insertions : n_insertions_left;
 
-    if(rand_flt < L_max_normed)
-    {
-      // keep this particle
-      pose_new = pose;
-      attrs_new = attrs;
-    } else {
-      // otherwise take a random other particle
-      pose_new = particle_poses[rand_id];
-      attrs_new = particle_attrs[rand_id];
-    }
-
-    // float noise_tx = min_noise_tx / L_max_normed;
-    // float noise_ty = min_noise_ty / L_max_normed;
-    // float noise_tz = min_noise_tz / L_max_normed;
-
-    // float noise_roll  = min_noise_roll  / L_max_normed;
-    // float noise_pitch = min_noise_pitch / L_max_normed;
-    // float noise_yaw   = min_noise_yaw   / L_max_normed;
-
-    // pose_new.t.x += Nd(*rand_gen_) * noise_tx;
-    // pose_new.t.y += Nd(*rand_gen_) * noise_ty;
-    // pose_new.t.z += Nd(*rand_gen_) * noise_tz;
-
-
-    particle_poses_new[pid] = pose_new;
-    particle_attrs_new[pid] = attrs_new;
+    // // sample from this pose
+    // const rm::Transform pose =       particle_poses[random_index];
+    // const ParticleAttributes attrs = particle_attrs[random_index];
+    
+    // particle_poses_new[pid] = pose_new;
+    // particle_attrs_new[pid] = attrs_new;
   }
 }
 
