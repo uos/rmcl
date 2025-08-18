@@ -4,11 +4,12 @@
 #include <rmcl_ros/rmcl/PCDSensorUpdaterEmbree.hpp>
 #include <rmcl_ros/rmcl/KLDResamplerCPU.hpp>
 #include <rmcl_ros/rmcl/ResidualResamplerCPU.hpp>
+#include <rmcl_ros/rmcl/TournamentResamplerCPU.hpp>
 
 // GPU
 #include <rmcl_ros/rmcl/TFMotionUpdaterGPU.hpp>
 #include <rmcl_ros/rmcl/PCDSensorUpdaterOptix.hpp>
-#include <rmcl_ros/rmcl/ResidualResamplerGPU.hpp>
+#include <rmcl_ros/rmcl/TournamentResamplerGPU.hpp>
 
 
 namespace rmcl
@@ -243,8 +244,8 @@ void RmclNode::initSamples(const geometry_msgs::msg::PoseWithCovarianceStamped& 
 void RmclNode::initSamplesUniform()
 {
   static std::mt19937 gen;
-  static std::uniform_real_distribution<float> dist_x(-10.0, 10.0);
-  static std::uniform_real_distribution<float> dist_y(-20.0, 20.0);
+  static std::uniform_real_distribution<float> dist_x(-20.0, 15.0);
+  static std::uniform_real_distribution<float> dist_y(-40.0, 20.0);
   static std::uniform_real_distribution<float> dist_z(-0.0, 2.0);
   static std::uniform_real_distribution<float> dist_roll(0.0, 0.0);
   static std::uniform_real_distribution<float> dist_pitch(0.0, 0.0);
@@ -510,10 +511,21 @@ void RmclNode::resampling()
         resampling_node_
       );
 
-      resampler_gpu_ = std::make_shared<ResidualResamplerGPU>(
+      // resampler_gpu_ = std::make_shared<ResidualResamplerGPU>(
+      //   resampling_node_
+      // );
+    } 
+    else if(config_resampling_.type == "tournament") 
+    {
+      resampler_ = std::make_shared<TournamentResamplerCPU>(
         resampling_node_
-      ); 
-    } else {
+      );
+      resampler_gpu_ = std::make_shared<TournamentResamplerGPU>(
+        resampling_node_
+      );
+    } 
+    else 
+    {
       // ERROR
       throw std::runtime_error("ERROR sensor update type unknown");
     }

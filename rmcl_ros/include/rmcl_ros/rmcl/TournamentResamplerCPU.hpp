@@ -1,5 +1,5 @@
-#ifndef RMCL_MCL_RESIDUAL_RESAMPLER_GPU_HPP
-#define RMCL_MCL_RESIDUAL_RESAMPLER_GPU_HPP
+#ifndef RMCL_RMCL_TOURNAMENT_RESAMPLER_CPU_HPP
+#define RMCL_RMCL_TOURNAMENT_RESAMPLER_CPU_HPP
 
 #include "Resampler.hpp"
 #include "ParticleAttributes.hpp"
@@ -9,21 +9,17 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float64.hpp>
 
-#include <rmagine/types/MemoryCuda.hpp>
-
-#include <curand.h>
-#include <curand_kernel.h>
 
 namespace rmcl
 {
 
-class ResidualResamplerGPU
-: public Resampler<rmagine::VRAM_CUDA>
+class TournamentResamplerCPU
+: public Resampler<rmagine::RAM>
 {
 public:
-  using Base = Resampler<rmagine::VRAM_CUDA>;
+  using Base = Resampler<rmagine::RAM>;
 
-  ResidualResamplerGPU(
+  TournamentResamplerCPU(
     rclcpp::Node::SharedPtr node);
 
   void reset() override;
@@ -31,10 +27,10 @@ public:
   void init() override;
 
   ParticleUpdateDynamicResults update(
-    const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses,
-    const rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs,
-    rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses_new,
-    rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs_new,
+    const rmagine::MemoryView<rmagine::Transform, rmagine::RAM> particle_poses,
+    const rmagine::MemoryView<ParticleAttributes, rmagine::RAM> particle_attrs,
+    rmagine::MemoryView<rmagine::Transform, rmagine::RAM> particle_poses_new,
+    rmagine::MemoryView<ParticleAttributes, rmagine::RAM> particle_attrs_new,
     const ParticleUpdateDynamicConfig& config) override;
 
 private:
@@ -61,11 +57,8 @@ private:
   } config_;
 
   std::unique_ptr<std::mt19937> rand_gen_;
-
-  rmagine::Memory<curandState, rmagine::VRAM_CUDA> rstates_;
-  
 };
 
 } // namespace rmcl
 
-#endif // RMCL_MCL_RESIDUAL_RESAMPLER_GPU_HPP
+#endif // RMCL_RMCL_TOURNAMENT_RESAMPLER_CPU_HPP

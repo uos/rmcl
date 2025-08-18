@@ -95,6 +95,7 @@ add_library(rmcl_ros SHARED
     # rmcl localization
     src/rmcl/KLDResamplerCPU.cpp
     src/rmcl/ResidualResamplerCPU.cpp
+    src/rmcl/TournamentResamplerCPU.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
@@ -232,7 +233,7 @@ if(RMCL_CUDA)
         # RMCL
         src/rmcl/particle_motion.cu
         src/rmcl/resampling.cu
-        src/rmcl/ResidualResamplerGPU.cpp
+        src/rmcl/TournamentResamplerGPU.cpp
     )
 
     target_include_directories(rmcl_ros_cuda PUBLIC

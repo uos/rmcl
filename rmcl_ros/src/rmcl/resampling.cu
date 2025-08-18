@@ -106,7 +106,7 @@ __device__ float lcg_rand_flt(unsigned int& state) {
 
 
 __global__
-void residual_resample_kernel(
+void tournament_resample_kernel(
   const rmagine::Transform* particle_poses,
   const ParticleAttributes* particle_attrs,
   const SimpleLikelihoodStats* stats,
@@ -118,13 +118,13 @@ void residual_resample_kernel(
 {
   const unsigned int pid = blockIdx.x * blockDim.x + threadIdx.x;
 
-  const float min_noise_tx = 0.03;
-  const float min_noise_ty = 0.03;
-  const float min_noise_tz = 0.0;
+  const float min_noise_tx = 0.1;
+  const float min_noise_ty = 0.1;
+  const float min_noise_tz = 0.05;
   
   const float min_noise_roll  = 0.0;
   const float min_noise_pitch = 0.0;
-  const float min_noise_yaw   = 0.01;
+  const float min_noise_yaw   = 0.05;
 
   const float likelihood_forget_per_meter = 0.3;
   const float likelihood_forget_per_radian = 0.2;
@@ -134,36 +134,82 @@ void residual_resample_kernel(
 
   if(pid < n_particles)
   {
+    // we need to do this reversed than the CPU version:
+    // 1. One thread is handling one insertion index
+    // 2. Get a random other element and see if it is 
+    //    effecting the current element
+
+    const unsigned int insertion_idx = pid;
+    
     // Get random number
     curandState& rstate = rstates[pid];
     const unsigned int random_int = curand(&rstate);
-    const unsigned int random_index = random_int % n_particles;
-
-    // sample around this pose
-    const rm::Transform pose = particle_poses[random_index];
-    const ParticleAttributes attrs = particle_attrs[random_index];
-
-    const float L = attrs.likelihood.mean;
-    const float L_sum_normed = L / L_sum; // all L_normed are in sum 1; in [0, 1]
-    const float L_max_normed = L / L_max; // L / L_max = L_normed2; in [0, 1]
+    const unsigned int random_idx = random_int % n_particles;
+    const float random_flt = (random_int / (float)UINT_MAX); // betwen 0 and 1
+    const float Nd_tx = curand_normal(&rstate);
+    const float Nd_ty = curand_normal(&rstate);
+    const float Nd_tz = curand_normal(&rstate);
+    const float Nd_rx = curand_normal(&rstate);
+    const float Nd_ry = curand_normal(&rstate);
+    const float Nd_rz = curand_normal(&rstate);
     
-    const size_t n_expected_insertions = L_sum_normed * n_particles;
-    // const size_t n_insertions_left = n_particles - insertion_idx;
 
-    // const size_t n_insertions = 
-    //   (n_expected_insertions <= n_insertions_left) ? 
-    //   n_expected_insertions : n_insertions_left;
+    const unsigned int source_idx = random_idx;
 
-    // // sample from this pose
-    // const rm::Transform pose =       particle_poses[random_index];
-    // const ParticleAttributes attrs = particle_attrs[random_index];
-    
-    // particle_poses_new[pid] = pose_new;
-    // particle_attrs_new[pid] = attrs_new;
+    const float Ls = particle_attrs[source_idx].likelihood.mean;
+    const float Ls_max_normed = Ls / L_max;
+    const float Li = particle_attrs[insertion_idx].likelihood.mean;
+    const float Li_max_normed = Li / L_max;
+
+    rm::Transform pose;
+    ParticleAttributes attrs;
+
+    if(Ls > Li)
+    {
+      // source pose is winner!
+      pose = particle_poses[source_idx];
+      attrs = particle_attrs[source_idx];
+    } else {
+      // insertion (target) pose is winner!
+      pose = particle_poses[insertion_idx];
+      attrs = particle_attrs[insertion_idx];
+    }
+
+    rm::Transform pose_new = pose;
+    ParticleAttributes attrs_new = attrs;
+
+    const float noise_tx = min_noise_tx;
+    const float noise_ty = min_noise_ty;
+    const float noise_tz = min_noise_tz;
+
+    const float noise_roll  = min_noise_roll;
+    const float noise_pitch = min_noise_pitch;
+    const float noise_yaw   = min_noise_yaw;
+
+    pose_new.t.x += Nd_tx * noise_tx;
+    pose_new.t.y += Nd_ty * noise_ty;
+    pose_new.t.z += Nd_tz * noise_tz;
+    rm::EulerAngles e = pose_new.R;
+    e.roll += Nd_rx * noise_roll;
+    e.pitch += Nd_ry * noise_pitch;
+    e.yaw += Nd_rz * noise_yaw;
+    pose_new.R = e;
+
+    const rm::Transform pose_diff = ~pose * pose_new;
+
+    // keep the likelihood, reduce number of measurements
+    const float trans_dist = pose_diff.t.l2normSquared(); // in meter
+    const float rot_dist = pose_diff.R.l2norm(); // in radian
+    const float reduction_factor = pow(likelihood_forget_per_meter, trans_dist) 
+                                * pow(likelihood_forget_per_radian, rot_dist);
+    attrs_new.likelihood.n_meas *= reduction_factor;
+
+    particle_poses_new[insertion_idx] = pose_new;
+    particle_attrs_new[insertion_idx] = attrs_new;
   }
 }
 
-void residual_resample(
+void tournament_resample(
   const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses,
   const rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs,
   const rmagine::MemoryView<SimpleLikelihoodStats, rmagine::VRAM_CUDA> stats,
@@ -176,7 +222,7 @@ void residual_resample(
   constexpr unsigned int blockSize = 1024;
   const unsigned int gridSize = (particle_poses.size() + blockSize - 1) / blockSize;
 
-  residual_resample_kernel<<<gridSize, blockSize>>>(
+  tournament_resample_kernel<<<gridSize, blockSize>>>(
     particle_poses.raw(), particle_attrs.raw(), stats.raw(), rstates.raw(),
     particle_poses_new.raw(), particle_attrs_new.raw(), n_particles, config);
 }

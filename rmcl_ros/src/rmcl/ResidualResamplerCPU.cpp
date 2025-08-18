@@ -66,6 +66,8 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
 
   ParticleUpdateDynamicResults res;
 
+  sw();
+
   // stats
   double weight_sum = 0.0;
   double weight_sum_sq = 0.0;
@@ -84,11 +86,7 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
   double weight_mean = weight_sum / weight_n;
   double weight_var  = weight_sum_sq / weight_n - weight_mean * weight_mean;
 
-  std::cout << "   Particle Stats:" << std::endl;
-  std::cout << "   - weights: " << std::endl;
-  std::cout << "      - min, max: " << weight_min << ", " << weight_max << std::endl;
-  std::cout << "      - mean, var: " << weight_mean << "," << weight_var << std::endl;
-
+  
   std::uniform_int_distribution<size_t> uniform_distribution(0, particle_poses.size() - 1);
   
   // Best-case noises of the system
@@ -97,7 +95,7 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
 
   // How can we thread this algorithm?
 
-  sw();
+  
   size_t insertion_idx = 0;
   size_t loop_iterations = 0;
   
@@ -111,8 +109,8 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
 
     const double L = attrs.likelihood.mean;
     const double L_sum_normed = L / weight_sum; // all L_normed are in sum 1; in [0, 1]
-    const double L_max_normed = L / weight_max; // L / L_max = L_normed2; in [0, 1]
-
+    const double L_max_normed = L / weight_max;
+    
     const size_t n_expected_insertions = L_sum_normed * static_cast<double>(particle_poses_new.size());
     const size_t n_insertions_left = particle_poses_new.size() - insertion_idx;
 
@@ -175,33 +173,22 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
         particle_attrs_new[insertion_idx + inner_idx] = attrs_new;
       }
     }; // residual_fill
-
-    // I observed, the number of insertions is very small. mostly 0 or 1
-    // if(n_insertions > 10)
-    // {
-    //   workers.emplace_back([=]{
-    //     residual_fill();
-    //   });
-    // } else if(n_insertions > 0) {
-    //   residual_fill();
-    // }
-
-    // we can do this asynchronously
+    
     residual_fill();
 
     insertion_idx += n_insertions;
     loop_iterations++;
-
-    // if(loop_iterations % 1000 == 0)
-    // {
-    //   std::cout << "Insertion Idx: " << insertion_idx << std::endl; 
-    // }
   }
 
   el = sw();
 
+  std::cout << "   Particle Stats:" << std::endl;
+  std::cout << "   - weights: " << std::endl;
+  std::cout << "      - min, max: " << weight_min << ", " << weight_max << std::endl;
+  std::cout << "      - mean, var: " << weight_mean << "," << weight_var << std::endl;
+
   // std::cout << "Waited for " << workers.size() << " large blocks" << std::endl;
-  std::cout << "   - runtime: " << el << "s" << std::endl;
+  std::cout << "   Runtime: " << el << "s" << std::endl;
 
   {
     std_msgs::msg::Float64 msg;

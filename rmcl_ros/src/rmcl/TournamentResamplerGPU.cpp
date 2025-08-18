@@ -1,4 +1,4 @@
-#include <rmcl_ros/rmcl/ResidualResamplerGPU.hpp>
+#include <rmcl_ros/rmcl/TournamentResamplerGPU.hpp>
 #include <random>
 #include <memory>
 #include <rmagine/math/types.h>
@@ -12,7 +12,7 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-ResidualResamplerGPU::ResidualResamplerGPU(
+TournamentResamplerGPU::TournamentResamplerGPU(
   rclcpp::Node::SharedPtr node)
 :node_(node)
 {
@@ -21,17 +21,17 @@ ResidualResamplerGPU::ResidualResamplerGPU(
   pub_runtime_ = node_->create_publisher<std_msgs::msg::Float64>("runtime", 10);
 }
 
-void ResidualResamplerGPU::init()
+void TournamentResamplerGPU::init()
 {
   updateParams();
 }
 
-void ResidualResamplerGPU::reset()
+void TournamentResamplerGPU::reset()
 {
 
 }
 
-void ResidualResamplerGPU::updateParams()
+void TournamentResamplerGPU::updateParams()
 {
   config_.min_noise_tx = rmcl::get_parameter(node_, "~min_noise_tx", 0.03);
   config_.min_noise_ty = rmcl::get_parameter(node_, "~min_noise_ty", 0.03);
@@ -45,7 +45,7 @@ void ResidualResamplerGPU::updateParams()
   config_.likelihood_forget_per_radian = rmcl::get_parameter(node_, "~likelihood_forget_per_radian", 0.2);
 }
 
-ParticleUpdateDynamicResults ResidualResamplerGPU::update(
+ParticleUpdateDynamicResults TournamentResamplerGPU::update(
   const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses,
   const rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs,
   rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses_new,
@@ -94,7 +94,7 @@ ParticleUpdateDynamicResults ResidualResamplerGPU::update(
   // std::cout << "- sum: " << stats_cpu[0].sum << std::endl;
   // std::cout << "- max: " << stats_cpu[0].max << std::endl;
 
-  residual_resample(particle_poses, particle_attrs, 
+  tournament_resample(particle_poses, particle_attrs, 
       stats, rstates_, 
       particle_poses_new, particle_attrs_new, config);
 
