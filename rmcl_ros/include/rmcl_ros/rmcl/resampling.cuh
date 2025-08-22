@@ -32,7 +32,7 @@ void compute_stats(
   const rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA>& particle_attrs,
   rmagine::MemoryView<SimpleLikelihoodStats, rmagine::VRAM_CUDA> stats);
 
-void tournament_resample(
+void gladiator_resample(
   const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses,
   const rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs,
   const rmagine::MemoryView<SimpleLikelihoodStats, rmagine::VRAM_CUDA> stats,

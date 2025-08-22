@@ -17,13 +17,13 @@
 namespace rmcl
 {
 
-class TournamentResamplerGPU
+class GladiatorResamplerGPU
 : public Resampler<rmagine::VRAM_CUDA>
 {
 public:
   using Base = Resampler<rmagine::VRAM_CUDA>;
 
-  TournamentResamplerGPU(
+  GladiatorResamplerGPU(
     rclcpp::Node::SharedPtr node);
 
   void reset() override;

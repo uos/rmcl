@@ -1,4 +1,4 @@
-#include <rmcl_ros/rmcl/TournamentResamplerCPU.hpp>
+#include <rmcl_ros/rmcl/GladiatorResamplerCPU.hpp>
 #include <random>
 #include <memory>
 #include <atomic>
@@ -16,7 +16,7 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
-TournamentResamplerCPU::TournamentResamplerCPU(
+GladiatorResamplerCPU::GladiatorResamplerCPU(
   rclcpp::Node::SharedPtr node)
 :node_(node)
 {
@@ -25,17 +25,17 @@ TournamentResamplerCPU::TournamentResamplerCPU(
   pub_runtime_ = node_->create_publisher<std_msgs::msg::Float64>("runtime", 10);
 }
 
-void TournamentResamplerCPU::init()
+void GladiatorResamplerCPU::init()
 {
   updateParams();
 }
 
-void TournamentResamplerCPU::reset()
+void GladiatorResamplerCPU::reset()
 {
 
 }
 
-void TournamentResamplerCPU::updateParams()
+void GladiatorResamplerCPU::updateParams()
 {
   config_.min_noise_tx = rmcl::get_parameter(node_, "~min_noise_tx", 0.03);
   config_.min_noise_ty = rmcl::get_parameter(node_, "~min_noise_ty", 0.03);
@@ -55,7 +55,7 @@ void TournamentResamplerCPU::updateParams()
 // 2. Use the estimated normal distribution to resample
 // KLD resampling?
 
-ParticleUpdateDynamicResults TournamentResamplerCPU::update(
+ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
   const rmagine::MemoryView<rmagine::Transform, rmagine::RAM> particle_poses,
   const rmagine::MemoryView<ParticleAttributes, rmagine::RAM> particle_attrs,
   rmagine::MemoryView<rmagine::Transform, rmagine::RAM> particle_poses_new,

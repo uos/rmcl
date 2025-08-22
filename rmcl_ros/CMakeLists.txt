@@ -95,7 +95,7 @@ add_library(rmcl_ros SHARED
     # rmcl localization
     src/rmcl/KLDResamplerCPU.cpp
     src/rmcl/ResidualResamplerCPU.cpp
-    src/rmcl/TournamentResamplerCPU.cpp
+    src/rmcl/GladiatorResamplerCPU.cpp
 )
 
 target_include_directories(rmcl_ros PUBLIC
@@ -172,8 +172,7 @@ if(RMCL_CUDA)
             set(CUDA_cusolver_LIBRARY CUDA::cusolver)
             set(CUDA_cublas_LIBRARY CUDA::cublas)
             set(CUDA_DRIVER_LIBRARY CUDA::cuda_driver)
-            set(CUDA_INCLUDE_DIRS "") # is in target instead    
-            get_target_property(NVIDIA_DRIVER_PATH CUDA::cuda_driver LOCATION)    
+            set(CUDA_INCLUDE_DIRS "") # is in target instead
         else()
             find_package(CUDA)
             if(CUDA_FOUND)
@@ -184,43 +183,10 @@ if(RMCL_CUDA)
                 else()
                     find_library(CUDA_DRIVER_LIBRARY NAMES cuda)
                 endif()
-                # 2. CUDA_DRIVER_LIBRARY <- Figure out path to cuda.so
-                if(CUDA_DRIVER_LIBRARY)
-                    if(TARGET ${CUDA_DRIVER_LIBRARY})
-                        get_target_property(NVIDIA_DRIVER_PATH ${CUDA_DRIVER_LIBRARY} LOCATION) # ERROR: https://github.com/uos/rmagine/issues/14
-                    else() # already a path
-                        set(NVIDIA_DRIVER_PATH ${CUDA_DRIVER_LIBRARY})
-                    endif()
-                endif()
             else()
                 message(STATUS "Neither CudaToolkit nor CUDA found!")
             endif(CUDA_FOUND)
         endif(CUDAToolkit_FOUND)
-
-        # Resolve symlinks until we get the actual file
-        get_filename_component(NVIDIA_DRIVER_REALPATH ${NVIDIA_DRIVER_PATH} REALPATH)
-
-        get_filename_component(NVIDIA_DRIVER_NAME ${NVIDIA_DRIVER_REALPATH} NAME)
-
-        # Try extracting version number from filename
-        string(REGEX MATCH "[0-9]+(\\.[0-9]+)*" NVIDIA_DRIVER_VERSION "${NVIDIA_DRIVER_NAME}")
-
-        if(NVIDIA_DRIVER_VERSION) 
-            message(STATUS "Auto-detected NVIDIA driver version: ${NVIDIA_DRIVER_REALPATH} -> ${NVIDIA_DRIVER_VERSION}")
-
-            include(MaxOptixVersion)
-            max_optix_version(NVIDIA_DRIVER_VERSION MAX_OPTIX_VERSION)
-            message(STATUS "Maximum allowed optix version for the current nvidia driver is: ${MAX_OPTIX_VERSION}")
-
-            # TODO: override?
-            if(${RMCL_OPTIX_DOWNLOAD_VERSION} VERSION_GREATER ${MAX_OPTIX_VERSION})
-                message(STATUS "Decrease RMCL_OPTIX_DOWNLOAD_VERSION from ${RMCL_OPTIX_DOWNLOAD_VERSION} to ${MAX_OPTIX_VERSION}. This is the latest supported version for the currently used NVIDIA driver version ${NVIDIA_DRIVER_VERSION}")
-                set(RMCL_OPTIX_DOWNLOAD_VERSION ${MAX_OPTIX_VERSION})
-            endif()
-        else()
-            message(WARNING "Could not detect driver version from path: ${NVIDIA_DRIVER_REALPATH}")
-        endif()
-
     endif(CMAKE_CUDA_COMPILER) # -> CUDA_FOUND
 
     add_library(rmcl_ros_cuda SHARED
@@ -233,7 +199,7 @@ if(RMCL_CUDA)
         # RMCL
         src/rmcl/particle_motion.cu
         src/rmcl/resampling.cu
-        src/rmcl/TournamentResamplerGPU.cpp
+        src/rmcl/GladiatorResamplerGPU.cpp
     )
 
     target_include_directories(rmcl_ros_cuda PUBLIC
@@ -262,13 +228,30 @@ if(RMCL_CUDA)
 
     if(TARGET rmcl-optix)
 
+        # A target rmcl-optix: Assumption. OptiX must be available on the system.
+
         # Replace this
-        # get_target_property(RMAGINE_OPTIX_INCLUDES rmagine::optix INTERFACE_INCLUDE_DIRECTORIES)
-        # By this:
 
         find_package(OptiX QUIET)
 
-        if(NOT OptiX_FOUND)
+        if(NOT OptiX_FOUND AND OptiX_LIBRARY_FOUND) # No headers found but library available
+
+            if(OptiX_LIBRARY_DRIVER_VERSION)
+                message(STATUS "Auto-detected NVIDIA driver version (from OptiX lib): ${OptiX_LIBRARY_DRIVER_VERSION}")
+                include(MaxOptixVersion)
+                max_optix_version(OptiX_LIBRARY_DRIVER_VERSION MAX_OPTIX_VERSION)
+
+                if(MAX_OPTIX_VERSION)
+                    if(${RMCL_OPTIX_DOWNLOAD_VERSION} VERSION_GREATER ${MAX_OPTIX_VERSION})
+                        message(STATUS "Decrease RMCL_OPTIX_DOWNLOAD_VERSION from ${RMCL_OPTIX_DOWNLOAD_VERSION} to ${MAX_OPTIX_VERSION}. This is the latest supported version for the currently used NVIDIA driver version ${NVIDIA_DRIVER_VERSION}")
+                        set(RMCL_OPTIX_DOWNLOAD_VERSION ${MAX_OPTIX_VERSION})
+                    endif()
+                else(MAX_OPTIX_VERSION)
+                    message(WARNING "Could not determine maximum allowed OptiX version for NVIDIA driver ${OptiX_LIBRARY_DRIVER_VERSION}. Trying ${RMCL_OPTIX_DOWNLOAD_VERSION}")
+                endif(MAX_OPTIX_VERSION)
+
+            endif(OptiX_LIBRARY_DRIVER_VERSION)
+
             message(STATUS "Searching for OptiX online")
 
             FetchContent_Declare(
@@ -283,7 +266,7 @@ if(RMCL_CUDA)
         endif()
 
         if(NOT OptiX_FOUND)
-            message(FATAL_ERROR "CMake error in finding OptiX")
+            message(FATAL_ERROR "CMake error in finding OptiX (rmcl_ros). This should be impossible, since rmcl-optix target was already built.")
         endif(NOT OptiX_FOUND)
 
         set(RMCL_ROS_OPTIX_PTX_DIR "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/rmcl_ros_optix_ptx")
@@ -341,7 +324,7 @@ if(RMCL_CUDA)
             # THIS IS GOING TO BE OBSOLETE
 
             cuda_include_directories(
-                ${RMAGINE_OPTIX_INCLUDES}
+                ${OptiX_INCLUDE_DIRS}
             )
 
             cuda_compile_ptx(RMCL_ROS_OPTIX_PTX_FILES

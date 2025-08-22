@@ -4,12 +4,12 @@
 #include <rmcl_ros/rmcl/PCDSensorUpdaterEmbree.hpp>
 #include <rmcl_ros/rmcl/KLDResamplerCPU.hpp>
 #include <rmcl_ros/rmcl/ResidualResamplerCPU.hpp>
-#include <rmcl_ros/rmcl/TournamentResamplerCPU.hpp>
+#include <rmcl_ros/rmcl/GladiatorResamplerCPU.hpp>
 
 // GPU
 #include <rmcl_ros/rmcl/TFMotionUpdaterGPU.hpp>
 #include <rmcl_ros/rmcl/PCDSensorUpdaterOptix.hpp>
-#include <rmcl_ros/rmcl/TournamentResamplerGPU.hpp>
+#include <rmcl_ros/rmcl/GladiatorResamplerGPU.hpp>
 
 
 namespace rmcl
@@ -515,12 +515,12 @@ void RmclNode::resampling()
       //   resampling_node_
       // );
     } 
-    else if(config_resampling_.type == "tournament") 
+    else if(config_resampling_.type == "gladiator") 
     {
-      resampler_ = std::make_shared<TournamentResamplerCPU>(
+      resampler_ = std::make_shared<GladiatorResamplerCPU>(
         resampling_node_
       );
-      resampler_gpu_ = std::make_shared<TournamentResamplerGPU>(
+      resampler_gpu_ = std::make_shared<GladiatorResamplerGPU>(
         resampling_node_
       );
     } 

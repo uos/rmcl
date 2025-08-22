@@ -106,7 +106,7 @@ __device__ float lcg_rand_flt(unsigned int& state) {
 
 
 __global__
-void tournament_resample_kernel(
+void gladiator_resample_kernel(
   const rmagine::Transform* particle_poses,
   const ParticleAttributes* particle_attrs,
   const SimpleLikelihoodStats* stats,
@@ -209,7 +209,7 @@ void tournament_resample_kernel(
   }
 }
 
-void tournament_resample(
+void gladiator_resample(
   const rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses,
   const rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs,
   const rmagine::MemoryView<SimpleLikelihoodStats, rmagine::VRAM_CUDA> stats,
@@ -222,7 +222,7 @@ void tournament_resample(
   constexpr unsigned int blockSize = 1024;
   const unsigned int gridSize = (particle_poses.size() + blockSize - 1) / blockSize;
 
-  tournament_resample_kernel<<<gridSize, blockSize>>>(
+  gladiator_resample_kernel<<<gridSize, blockSize>>>(
     particle_poses.raw(), particle_attrs.raw(), stats.raw(), rstates.raw(),
     particle_poses_new.raw(), particle_attrs_new.raw(), n_particles, config);
 }

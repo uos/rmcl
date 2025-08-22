@@ -13,13 +13,13 @@
 namespace rmcl
 {
 
-class TournamentResamplerCPU
+class GladiatorResamplerCPU
 : public Resampler<rmagine::RAM>
 {
 public:
   using Base = Resampler<rmagine::RAM>;
 
-  TournamentResamplerCPU(
+  GladiatorResamplerCPU(
     rclcpp::Node::SharedPtr node);
 
   void reset() override;
