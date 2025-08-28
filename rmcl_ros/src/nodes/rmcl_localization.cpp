@@ -11,6 +11,8 @@
 #include <rmcl_ros/rmcl/PCDSensorUpdaterOptix.hpp>
 #include <rmcl_ros/rmcl/GladiatorResamplerGPU.hpp>
 
+#include <rmagine/math/memory_math.h>
+
 
 namespace rmcl
 {
@@ -54,6 +56,8 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
       initSamples(*msg);
     });
   // sub_pose_wc_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_wc", 1);
+
+  pub_pose_wc_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("rmcl_pose", 1);
 
   // motion update
   motion_update_timer_ = this->create_wall_timer(
@@ -356,8 +360,11 @@ void RmclNode::prepareMemory(const std::string& target_device)
     } else {
       std::cout << "prepareMemory - ERROR 1" << std::endl;
     }
-  } else if(target_device == "gpu") {
-    if(data_location_ == "cpu") {
+  } 
+  else if(target_device == "gpu") 
+  {
+    if(data_location_ == "cpu") 
+    {
       // transfer data from CPU to GPU
       particle_cloud_gpu_->poses = particle_cloud_->poses;
       particle_cloud_gpu_->attrs = particle_cloud_->attrs;
@@ -500,6 +507,9 @@ void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 
 void RmclNode::resampling()
 {
+  induceState(); // prototype. uncomment this for just computing the particle set
+
+
   std::cout << "-------------------" << std::endl;
   std::cout << "{ // Resampling" << std::endl;
   if(!resampler_)
@@ -601,7 +611,7 @@ void RmclNode::resampling()
 
   std::cout << "} // Resampling" << std::endl;
 
-  induceState();
+  // induceState();
 
   // visualize();
 }
@@ -610,6 +620,79 @@ void RmclNode::induceState()
 {
   std::cout << "-------------------" << std::endl;
   std::cout << "{ // State Induction" << std::endl;
+
+
+  rm::StopWatch sw;
+  double el;
+
+  sw();
+
+  // make sync cpu memory
+  prepareMemory("cpu");
+  // copy cpu memory to this function
+  // ParticleCloud<rm::RAM> particle_cloud = *particle_cloud_;
+
+
+  // work slice
+  rm::MemoryView<rm::Transform, rm::RAM> particle_poses = particle_cloud_->poses(0, n_particles_);
+  rm::MemoryView<ParticleAttributes, rm::RAM> particle_attrs = particle_cloud_->attrs(0, n_particles_);
+
+  el = sw();
+
+  std::cout << "   - sync memory: " << el << "s" << std::endl;
+
+  // weight stats
+  sw();
+  double L_sum = 0.0;
+  double L_sum_sq = 0.0;
+  double L_max = 0.0;
+  double L_min = std::numeric_limits<double>::max();
+  double L_n = static_cast<double>(particle_attrs.size());
+
+  for(size_t i=0; i<particle_attrs.size(); i++)
+  {
+    const double v = particle_attrs[i].likelihood.mean;
+    L_sum += v;
+    L_sum_sq += v*v;
+    L_max = std::max(L_max, v);
+    L_min = std::min(L_min, v);
+  }
+
+  double L_mean = L_sum / L_n;
+  double L_var  = L_sum_sq / L_n - L_mean * L_mean;
+
+  el = sw();
+  std::cout << "   - weight stats: " << el << "s" << std::endl;
+
+  sw();
+  // geom stats
+  // rm::Transform Tbm = rm::karcher_mean(particle_poses, [&](size_t i){
+  //   return particle_attrs[i].likelihood.mean / L_sum;
+  // });
+
+  rm::Transform Tbm = rm::mock_mean(particle_poses, [&](size_t i){
+    return particle_attrs[i].likelihood.mean / L_sum;
+  });
+
+  el = sw();
+
+  std::cout << "   - weight-aware geom stats: " << el << "s" << std::endl;
+  std::cout << "   - Induced Pose: " << Tbm << std::endl;
+
+  geometry_msgs::msg::PoseWithCovarianceStamped Pbm;
+
+  Pbm.header.frame_id = "map";
+  Pbm.header.stamp = this->now();
+
+  Pbm.pose.pose.position.x = Tbm.t.x;
+  Pbm.pose.pose.position.y = Tbm.t.y;
+  Pbm.pose.pose.position.z = Tbm.t.z;
+  Pbm.pose.pose.orientation.x = Tbm.R.x;
+  Pbm.pose.pose.orientation.y = Tbm.R.y;
+  Pbm.pose.pose.orientation.z = Tbm.R.z;
+  Pbm.pose.pose.orientation.w = Tbm.R.w;
+
+  pub_pose_wc_->publish(Pbm);
 
   // further ideas:
   // ask for probability (CDF) service: request AABB, return probability

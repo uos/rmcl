@@ -104,7 +104,6 @@ ParticleUpdateDynamicResults GladiatorResamplerGPU::update(
 
   std::cout << "   - runtime: " << el << "s" << std::endl;
 
-
   return res;
 }
 

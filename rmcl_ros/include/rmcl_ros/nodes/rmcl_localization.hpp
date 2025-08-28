@@ -423,6 +423,8 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr sub_pose_wc_;
   // rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_pose;
 
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_pose_wc_;
+
   // 3. functions
   void updateVisualizationParams();
   void visualize();
