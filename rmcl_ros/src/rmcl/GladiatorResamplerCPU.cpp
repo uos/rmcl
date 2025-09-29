@@ -147,48 +147,61 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
       rm::Transform pose;
       ParticleAttributes attrs;
 
-      if(Ls > Li)
+
+      // compute fitness values
+      // const float Fs = Ls;
+      // const float Fi = Li;
+
+      const float Fs = Ls; // * (particle_attrs[source_idx].likelihood.n_meas + 1);
+      const float Fi = Li; // * (particle_attrs[source_idx].likelihood.n_meas + 1);
+
+      if(Fs > Fi)
       {
         // source pose is winner!
         pose = particle_poses[source_idx];
         attrs = particle_attrs[source_idx];
+        
       } else {
         // insertion (target) pose is winner!
         pose = particle_poses[insertion_idx];
         attrs = particle_attrs[insertion_idx];
+
+        // noise if target pose is winner
+        rm::Transform pose_new = pose;
+        ParticleAttributes attrs_new = attrs;
+
+        const float noise_tx = config_.min_noise_tx;
+        const float noise_ty = config_.min_noise_ty;
+        const float noise_tz = config_.min_noise_tz;
+
+        const float noise_roll  = config_.min_noise_roll;
+        const float noise_pitch = config_.min_noise_pitch;
+        const float noise_yaw   = config_.min_noise_yaw;
+
+        pose_new.t.x += Nd_tx * noise_tx;
+        pose_new.t.y += Nd_ty * noise_ty;
+        pose_new.t.z += Nd_tz * noise_tz;
+        rm::EulerAngles e = pose_new.R;
+        e.roll += Nd_rx * noise_roll;
+        e.pitch += Nd_ry * noise_pitch;
+        e.yaw += Nd_rz * noise_yaw;
+        pose_new.R = e;
+
+        const rm::Transform pose_diff = ~pose * pose_new;
+
+        // keep the likelihood, reduce number of measurements
+        const float trans_dist = pose_diff.t.l2normSquared(); // in meter
+        const float rot_dist = pose_diff.R.l2norm(); // in radian
+        const float reduction_factor = pow(config_.likelihood_forget_per_meter, trans_dist) 
+                                    * pow(config_.likelihood_forget_per_radian, rot_dist);
+        attrs_new.likelihood.n_meas *= reduction_factor;
+
+        particle_poses_new[insertion_idx] = pose_new;
+        particle_attrs_new[insertion_idx] = attrs_new;
+
       }
 
-      rm::Transform pose_new = pose;
-      ParticleAttributes attrs_new = attrs;
-
-      const float noise_tx = config_.min_noise_tx;
-      const float noise_ty = config_.min_noise_ty;
-      const float noise_tz = config_.min_noise_tz;
-
-      const float noise_roll  = config_.min_noise_roll;
-      const float noise_pitch = config_.min_noise_pitch;
-      const float noise_yaw   = config_.min_noise_yaw;
-
-      pose_new.t.x += Nd_tx * noise_tx;
-      pose_new.t.y += Nd_ty * noise_ty;
-      pose_new.t.z += Nd_tz * noise_tz;
-      rm::EulerAngles e = pose_new.R;
-      e.roll += Nd_rx * noise_roll;
-      e.pitch += Nd_ry * noise_pitch;
-      e.yaw += Nd_rz * noise_yaw;
-      pose_new.R = e;
-
-      const rm::Transform pose_diff = ~pose * pose_new;
-
-      // keep the likelihood, reduce number of measurements
-      const float trans_dist = pose_diff.t.l2normSquared(); // in meter
-      const float rot_dist = pose_diff.R.l2norm(); // in radian
-      const float reduction_factor = pow(config_.likelihood_forget_per_meter, trans_dist) 
-                                  * pow(config_.likelihood_forget_per_radian, rot_dist);
-      attrs_new.likelihood.n_meas *= reduction_factor;
-
-      particle_poses_new[insertion_idx] = pose_new;
-      particle_attrs_new[insertion_idx] = attrs_new;
+      
     }
   });
 

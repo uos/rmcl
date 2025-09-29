@@ -179,11 +179,19 @@ ParticleUpdateResults TFMotionUpdaterCPU::update(
 
   // forget_rate per meter to absolute -> exponential
 
+  std::cout << "   config forgets:" << std::endl;
+  std::cout << "   - space: " << config_.forget_rate << std::endl;
+  std::cout << "   - time: " << config_.forget_rate_per_second << std::endl;
+
+  std::cout << "   time & space:" << std::endl;
+  std::cout << "   - space: " << dist_travelled << std::endl;
+  std::cout << "   - time: " << dt << std::endl;
+
   const double forget_rate_space = 1.0 - pow(1.0 - config_.forget_rate, dist_travelled);
   const double forget_rate_time = 1.0 - pow(1.0 - config_.forget_rate_per_second, dt);
   const double forget_rate = forget_rate_space * forget_rate_time;
 
-  std::cout << "   forget rate:" << std::endl;
+  std::cout << "   applied forgets:" << std::endl;
   std::cout << "   - space: " << forget_rate_space << std::endl;
   std::cout << "   - time: " << forget_rate_time << std::endl;
   std::cout << "   - combined: " << forget_rate << std::endl;

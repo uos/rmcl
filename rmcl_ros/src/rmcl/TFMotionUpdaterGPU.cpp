@@ -117,8 +117,6 @@ ParticleUpdateResults TFMotionUpdaterGPU::update(
   rmagine::MemoryView<ParticleAttributes, rm::VRAM_CUDA> particle_attrs_gpu,
   const ParticleUpdateConfig& config)
 {
-  
-
   updateParams();
   // std::cout << "-----------------------" << std::endl;
   // std::cout << "Motion Update (TF, CPU)" << std::endl;

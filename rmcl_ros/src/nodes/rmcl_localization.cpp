@@ -507,7 +507,7 @@ void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 
 void RmclNode::resampling()
 {
-  induceState(); // prototype. uncomment this for just computing the particle set
+  // induceState(); // prototype. uncomment this for just computing the particle set
 
 
   std::cout << "-------------------" << std::endl;
@@ -732,11 +732,11 @@ void RmclNode::induceState()
 
 void RmclNode::visualize()
 {
-  std::cout << "-------------------" << std::endl;
-  std::cout << "{ // Visualize" << std::endl;
+  // std::cout << "-------------------" << std::endl;
+  // std::cout << "{ // Visualize" << std::endl;
   unsigned int n_viz_particles = std::min(config_visualization_.max_particles, (unsigned int)n_particles_);
 
-  std::cout << "    - Visualize " << n_viz_particles << " particles..." << std::endl;
+  // std::cout << "    - Visualize " << n_viz_particles << " particles..." << std::endl;
 
   // we need data on cpu
   if(data_location_ == "gpu")
@@ -809,7 +809,7 @@ void RmclNode::visualize()
 
   pub_pcl_viz_->publish(viz_pcl_particles_);
 
-  std::cout << "} // Visualize" << std::endl;
+  // std::cout << "} // Visualize" << std::endl;
 }
 
 } // namespace rmcl

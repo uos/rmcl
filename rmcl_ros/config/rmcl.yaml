@@ -9,23 +9,23 @@ rmcl_localization_node:
         name: test
         # source: TODO # set from launch file
 
-    max_particles: 500000
+    max_particles: 2000
 
     motion_update: # per particle
       type: tf # TODO: check if we can make plugins?
-      compute: gpu
+      compute: cpu
       
-      rate: 50.0
+      rate: 5.0
       # weight_noise: 0.2
-      forget_rate: 0.95 # per meter
-      forget_rate_per_second: 0.999 # per second # TODO: make own "time update" from this
+      forget_rate: 0.99 # per meter
+      forget_rate_per_second: 0.999999 # per second # TODO: make own "time update" from this
       map: map
       debug: true
     sensor_update: # per particle
       type: pcd
-      compute: gpu
+      compute: cpu
 
-      samples: 10
+      samples: 1
       correspondence_type: 0
       dist_sigma: 0.3
       real_hit_sim_miss_error: 10.0 # in meter
@@ -35,11 +35,12 @@ rmcl_localization_node:
       sensor_range_max: 80.0
       map: map
       debug: true
+      enabled: true
     resampling: # a posteriori (sensor update) using fusing a priori (motion update) and likelihood field
       type: gladiator
-      compute: gpu
+      compute: cpu
 
-      rate: 50.0
+      rate: 2.0
       min_dist: 0.02 # TODO: impl
       min_rot: 0.02 # TODO: impl
       debug: true
@@ -53,5 +54,5 @@ rmcl_localization_node:
     visualization:
       rate: 20.0
       enabled: true
-      max_particles: 50000
+      max_particles: 2000
 
