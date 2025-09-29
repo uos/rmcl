@@ -114,20 +114,9 @@ void gladiator_resample_kernel(
   rmagine::Transform* particle_poses_new,
   ParticleAttributes* particle_attrs_new,
   const unsigned int n_particles,
-  const ParticleUpdateDynamicConfig config)
+  const GladiatorResamplerConfig config)
 {
   const unsigned int pid = blockIdx.x * blockDim.x + threadIdx.x;
-
-  const float min_noise_tx = 0.1;
-  const float min_noise_ty = 0.1;
-  const float min_noise_tz = 0.05;
-  
-  const float min_noise_roll  = 0.0;
-  const float min_noise_pitch = 0.0;
-  const float min_noise_yaw   = 0.05;
-
-  const float likelihood_forget_per_meter = 0.3;
-  const float likelihood_forget_per_radian = 0.2;
 
   const float L_max = stats->max;
   const float L_sum = stats->sum;
@@ -139,7 +128,7 @@ void gladiator_resample_kernel(
     // 2. Get a random other element and see if it is 
     //    effecting the current element
 
-    const unsigned int insertion_idx = pid;
+    const unsigned int champion_idx = pid;
     
     // Get random number
     curandState& rstate = rstates[pid];
@@ -153,59 +142,66 @@ void gladiator_resample_kernel(
     const float Nd_ry = curand_normal(&rstate);
     const float Nd_rz = curand_normal(&rstate);
     
+    const unsigned int enemy_idx = random_idx;
 
-    const unsigned int source_idx = random_idx;
+    const float Lc = particle_attrs[champion_idx].likelihood.mean;
+    // const float Li_max_normed = Li / L_max;
 
-    const float Ls = particle_attrs[source_idx].likelihood.mean;
-    const float Ls_max_normed = Ls / L_max;
-    const float Li = particle_attrs[insertion_idx].likelihood.mean;
-    const float Li_max_normed = Li / L_max;
+    const float Le = particle_attrs[enemy_idx].likelihood.mean;
+    // const float Le_max_normed = Ls / L_max;
 
-    rm::Transform pose;
-    ParticleAttributes attrs;
+    // compute fitness values
+    const float Fc = Lc * particle_attrs[champion_idx].likelihood.n_meas;
+    const float Fe = Le * particle_attrs[enemy_idx].likelihood.n_meas;
 
-    if(Ls > Li)
+    if(Fe > Fc)
     {
-      // source pose is winner!
-      pose = particle_poses[source_idx];
-      attrs = particle_attrs[source_idx];
-    } else {
-      // insertion (target) pose is winner!
-      pose = particle_poses[insertion_idx];
-      attrs = particle_attrs[insertion_idx];
+      // enemy particle is winner! it takes over the champions place. + add noise
+      const rm::Transform pose = particle_poses[enemy_idx];
+      const ParticleAttributes attrs = particle_attrs[enemy_idx];
+
+      rm::Transform pose_new = pose;
+      ParticleAttributes attrs_new = attrs;
+
+      const float noise_tx = config.min_noise_tx;
+      const float noise_ty = config.min_noise_ty;
+      const float noise_tz = config.min_noise_tz;
+
+      const float noise_roll  = config.min_noise_roll;
+      const float noise_pitch = config.min_noise_pitch;
+      const float noise_yaw   = config.min_noise_yaw;
+
+      pose_new.t.x += Nd_tx * noise_tx;
+      pose_new.t.y += Nd_ty * noise_ty;
+      pose_new.t.z += Nd_tz * noise_tz;
+      rm::EulerAngles e = pose_new.R;
+      e.roll += Nd_rx * noise_roll;
+      e.pitch += Nd_ry * noise_pitch;
+      e.yaw += Nd_rz * noise_yaw;
+      pose_new.R = e;
+
+      const rm::Transform pose_diff = ~pose * pose_new;
+
+      // keep the likelihood, reduce number of measurements
+      const float trans_dist = pose_diff.t.l2normSquared(); // in meter
+      const float rot_dist = pose_diff.R.l2norm(); // in radian
+      
+      const float forget_rate_space = 1.0 - pow(1.0 - config.likelihood_forget_per_meter, trans_dist);
+      const float forget_rate_rot = 1.0 - pow(1.0 - config.likelihood_forget_per_radian, rot_dist);
+      const float forget_rate = forget_rate_space * forget_rate_rot;
+      const float remember_rate = (1.0 - forget_rate);
+      
+      attrs_new.likelihood.n_meas *= remember_rate;
+
+      particle_poses_new[champion_idx] = pose_new;
+      particle_attrs_new[champion_idx] = attrs_new;
     }
-
-    rm::Transform pose_new = pose;
-    ParticleAttributes attrs_new = attrs;
-
-    const float noise_tx = min_noise_tx;
-    const float noise_ty = min_noise_ty;
-    const float noise_tz = min_noise_tz;
-
-    const float noise_roll  = min_noise_roll;
-    const float noise_pitch = min_noise_pitch;
-    const float noise_yaw   = min_noise_yaw;
-
-    pose_new.t.x += Nd_tx * noise_tx;
-    pose_new.t.y += Nd_ty * noise_ty;
-    pose_new.t.z += Nd_tz * noise_tz;
-    rm::EulerAngles e = pose_new.R;
-    e.roll += Nd_rx * noise_roll;
-    e.pitch += Nd_ry * noise_pitch;
-    e.yaw += Nd_rz * noise_yaw;
-    pose_new.R = e;
-
-    const rm::Transform pose_diff = ~pose * pose_new;
-
-    // keep the likelihood, reduce number of measurements
-    const float trans_dist = pose_diff.t.l2normSquared(); // in meter
-    const float rot_dist = pose_diff.R.l2norm(); // in radian
-    const float reduction_factor = pow(likelihood_forget_per_meter, trans_dist) 
-                                * pow(likelihood_forget_per_radian, rot_dist);
-    attrs_new.likelihood.n_meas *= reduction_factor;
-
-    particle_poses_new[insertion_idx] = pose_new;
-    particle_attrs_new[insertion_idx] = attrs_new;
+    else
+    {
+      // champion stays champion
+      particle_poses_new[champion_idx] = particle_poses[champion_idx];
+      particle_attrs_new[champion_idx] = particle_attrs[champion_idx];
+    }
   }
 }
 
@@ -216,15 +212,16 @@ void gladiator_resample(
   rmagine::MemoryView<curandState, rmagine::VRAM_CUDA> rstates,
   rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses_new,
   rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs_new,
-  const ParticleUpdateDynamicConfig& config)
+  const GladiatorResamplerConfig& config)
 {
-  const unsigned int n_particles = particle_poses.size();
+  const unsigned int n_particles = particle_poses_new.size();
   constexpr unsigned int blockSize = 1024;
   const unsigned int gridSize = (particle_poses.size() + blockSize - 1) / blockSize;
 
   gladiator_resample_kernel<<<gridSize, blockSize>>>(
     particle_poses.raw(), particle_attrs.raw(), stats.raw(), rstates.raw(),
-    particle_poses_new.raw(), particle_attrs_new.raw(), n_particles, config);
+    particle_poses_new.raw(), particle_attrs_new.raw(), n_particles, 
+    config);
 }
 
 

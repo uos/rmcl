@@ -96,7 +96,7 @@ ParticleUpdateDynamicResults GladiatorResamplerGPU::update(
 
   gladiator_resample(particle_poses, particle_attrs, 
       stats, rstates_, 
-      particle_poses_new, particle_attrs_new, config);
+      particle_poses_new, particle_attrs_new, config_);
 
   res.n_particles = particle_poses_new.size();
 

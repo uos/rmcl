@@ -133,9 +133,6 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
       const size_t champion_idx = i;
       const size_t enemy_idx = Ud(rand_gen);
 
-      const rm::Transform pose = particle_poses[enemy_idx];
-      const ParticleAttributes attrs = particle_attrs[enemy_idx];
-
       const float Lc = particle_attrs[champion_idx].likelihood.mean;
       // const float Ls_max_normed = Ls / L_max;
       const float Le = particle_attrs[enemy_idx].likelihood.mean;
@@ -145,9 +142,13 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
       const float Fc = Lc * particle_attrs[champion_idx].likelihood.n_meas;
       const float Fe = Le * particle_attrs[enemy_idx].likelihood.n_meas;
 
-      if(Fe > (Fc + 0.01))
+      if(Fe > Fc)
       {
         // enemy particle is winner! it takes over the champions place. + add noise
+        
+        const rm::Transform pose = particle_poses[enemy_idx];
+        const ParticleAttributes attrs = particle_attrs[enemy_idx];
+        
         rm::Transform pose_new = pose;
         ParticleAttributes attrs_new = attrs;
 

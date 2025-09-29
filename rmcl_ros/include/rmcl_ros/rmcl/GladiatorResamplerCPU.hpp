@@ -4,6 +4,8 @@
 #include "Resampler.hpp"
 #include "ParticleAttributes.hpp"
 
+#include "GladiatorResamplerConfig.hpp"
+
 #include <random>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
@@ -40,21 +42,7 @@ private:
   rclcpp::Node::SharedPtr node_;
   rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub_runtime_;
 
-  struct {
-    // TODO: add config here
-
-    float min_noise_tx; // motion + sensor noise
-    float min_noise_ty;
-    float min_noise_tz;
-    float min_noise_roll;
-    float min_noise_pitch;
-    float min_noise_yaw;
-
-    // dependent how far from the original sample 
-    float likelihood_forget_per_meter = 0.3;
-    float likelihood_forget_per_radian = 0.2;
-
-  } config_;
+  GladiatorResamplerConfig config_;
 
   std::unique_ptr<std::mt19937> rand_gen_;
 };

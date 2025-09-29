@@ -10,6 +10,8 @@
 
 #include <rmcl_ros/rmcl/ParticleAttributes.hpp>
 
+#include <rmcl_ros/rmcl/GladiatorResamplerConfig.hpp>
+
 #include "Resampler.hpp"
 
 #include <curand_kernel.h>
@@ -39,7 +41,7 @@ void gladiator_resample(
   rmagine::MemoryView<curandState, rmagine::VRAM_CUDA> rstates,
   rmagine::MemoryView<rmagine::Transform, rmagine::VRAM_CUDA> particle_poses_new,
   rmagine::MemoryView<ParticleAttributes, rmagine::VRAM_CUDA> particle_attrs_new,
-  const ParticleUpdateDynamicConfig& config);
+  const GladiatorResamplerConfig& config);
 
 } // namespace rmcl
 
