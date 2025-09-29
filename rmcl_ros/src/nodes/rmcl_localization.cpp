@@ -32,7 +32,6 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
   sensor_update_node_ = this->create_sub_node("sensor_update");
   resampling_node_ = this->create_sub_node("resampling");
 
-
   // general params
   updateGeneralParams();
 
@@ -143,9 +142,15 @@ inline void convert(const std::array<double, 36>& Cin, rm::Matrix6x6& Cout)
   }
 }
 
-void RmclNode::initSamples(const geometry_msgs::msg::PoseWithCovarianceStamped& pose_wc)
+void RmclNode::initSamples(
+  const geometry_msgs::msg::PoseWithCovarianceStamped& pose_wc)
 {
+  std::unique_lock lock(data_mtx_);
+
   std::cout << "initSamples from pose!" << std::endl;
+
+
+
   static std::mt19937 gen;
   static std::normal_distribution dist{0.0, 1.0}; // std normal dist
 
@@ -274,6 +279,8 @@ void RmclNode::initSamplesUniform()
 
   // state noise delta (0) = 0.1 * motion(0) + 1.0 * motion(1)
 
+  std::unique_lock lock(data_mtx_);
+
   // set new working cloud
   n_particles_ = config_general_.max_particles;
   for(size_t i=0; i<n_particles_; i++)
@@ -380,6 +387,8 @@ void RmclNode::prepareMemory(const std::string& target_device)
 
 void RmclNode::motionUpdate()
 {
+  std::unique_lock lock(data_mtx_);
+
   std::cout << "-------------------" << std::endl;
   std::cout << "{ // Motion Update" << std::endl;
 
@@ -432,6 +441,8 @@ void RmclNode::motionUpdate()
 
 void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
 {
+  std::unique_lock lock(data_mtx_);
+
   std::cout << "-------------------" << std::endl;
   std::cout << "{ // Sensor Update" << std::endl;
 
@@ -507,6 +518,8 @@ void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 
 void RmclNode::resampling()
 {
+  std::unique_lock lock(data_mtx_);
+
   // induceState(); // prototype. uncomment this for just computing the particle set
 
 
@@ -618,6 +631,8 @@ void RmclNode::resampling()
 
 void RmclNode::induceState()
 {
+  std::shared_lock lock(data_mtx_);
+
   std::cout << "-------------------" << std::endl;
   std::cout << "{ // State Induction" << std::endl;
 
@@ -732,6 +747,8 @@ void RmclNode::induceState()
 
 void RmclNode::visualize()
 {
+  std::shared_lock lock(data_mtx_);
+
   // std::cout << "-------------------" << std::endl;
   // std::cout << "{ // Visualize" << std::endl;
   unsigned int n_viz_particles = std::min(config_visualization_.max_particles, (unsigned int)n_particles_);

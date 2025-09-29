@@ -130,43 +130,24 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
 
     for(size_t i = r.begin(); i != r.end(); ++i)
     {
-      const size_t source_idx = Ud(rand_gen);
-      const size_t insertion_idx = i;
-      const float Nd_tx = Nd(rand_gen);
-      const float Nd_ty = Nd(rand_gen);
-      const float Nd_tz = Nd(rand_gen);
-      const float Nd_rx = Nd(rand_gen);
-      const float Nd_ry = Nd(rand_gen);
-      const float Nd_rz = Nd(rand_gen);
+      const size_t champion_idx = i;
+      const size_t enemy_idx = Ud(rand_gen);
 
-      const float Ls = particle_attrs[source_idx].likelihood.mean;
+      const rm::Transform pose = particle_poses[enemy_idx];
+      const ParticleAttributes attrs = particle_attrs[enemy_idx];
+
+      const float Lc = particle_attrs[champion_idx].likelihood.mean;
       // const float Ls_max_normed = Ls / L_max;
-      const float Li = particle_attrs[insertion_idx].likelihood.mean;
+      const float Le = particle_attrs[enemy_idx].likelihood.mean;
       // const float Li_max_normed = Li / L_max;
 
-      rm::Transform pose;
-      ParticleAttributes attrs;
-
-
       // compute fitness values
-      // const float Fs = Ls;
-      // const float Fi = Li;
+      const float Fc = Lc * particle_attrs[champion_idx].likelihood.n_meas;
+      const float Fe = Le * particle_attrs[enemy_idx].likelihood.n_meas;
 
-      const float Fs = Ls; // * (particle_attrs[source_idx].likelihood.n_meas + 1);
-      const float Fi = Li; // * (particle_attrs[source_idx].likelihood.n_meas + 1);
-
-      if(Fs > Fi)
+      if(Fe > (Fc + 0.01))
       {
-        // source pose is winner!
-        pose = particle_poses[source_idx];
-        attrs = particle_attrs[source_idx];
-        
-      } else {
-        // insertion (target) pose is winner!
-        pose = particle_poses[insertion_idx];
-        attrs = particle_attrs[insertion_idx];
-
-        // noise if target pose is winner
+        // enemy particle is winner! it takes over the champions place. + add noise
         rm::Transform pose_new = pose;
         ParticleAttributes attrs_new = attrs;
 
@@ -177,6 +158,14 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
         const float noise_roll  = config_.min_noise_roll;
         const float noise_pitch = config_.min_noise_pitch;
         const float noise_yaw   = config_.min_noise_yaw;
+
+        // pre-gen random numbers
+        const float Nd_tx = Nd(rand_gen);
+        const float Nd_ty = Nd(rand_gen);
+        const float Nd_tz = Nd(rand_gen);
+        const float Nd_rx = Nd(rand_gen);
+        const float Nd_ry = Nd(rand_gen);
+        const float Nd_rz = Nd(rand_gen);
 
         pose_new.t.x += Nd_tx * noise_tx;
         pose_new.t.y += Nd_ty * noise_ty;
@@ -192,15 +181,21 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
         // keep the likelihood, reduce number of measurements
         const float trans_dist = pose_diff.t.l2normSquared(); // in meter
         const float rot_dist = pose_diff.R.l2norm(); // in radian
-        const float reduction_factor = pow(config_.likelihood_forget_per_meter, trans_dist) 
-                                    * pow(config_.likelihood_forget_per_radian, rot_dist);
-        attrs_new.likelihood.n_meas *= reduction_factor;
 
-        particle_poses_new[insertion_idx] = pose_new;
-        particle_attrs_new[insertion_idx] = attrs_new;
+        const float forget_rate_space = 1.0 - pow(1.0 - config_.likelihood_forget_per_meter, trans_dist);
+        const float forget_rate_rot = 1.0 - pow(1.0 - config_.likelihood_forget_per_radian, rot_dist);
+        const float forget_rate = forget_rate_space * forget_rate_rot;
+        const float remember_rate = (1.0 - forget_rate);
 
+        attrs_new.likelihood.n_meas *= remember_rate;
+
+        particle_poses_new[champion_idx] = pose_new;
+        particle_attrs_new[champion_idx] = attrs_new;
+      } else {
+        // champion stays champion
+        particle_poses_new[champion_idx] = particle_poses[champion_idx];
+        particle_attrs_new[champion_idx] = particle_attrs[champion_idx];
       }
-
       
     }
   });

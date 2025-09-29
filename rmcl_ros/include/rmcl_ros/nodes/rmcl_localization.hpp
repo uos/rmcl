@@ -28,6 +28,9 @@
 #include <chrono>
 #include <random>
 
+#include <shared_mutex>   // C++17
+#include <mutex>
+
 
 #include <rmcl_ros/rmcl/MotionUpdater.hpp>
 #include <rmcl_ros/rmcl/SensorUpdater.hpp>
@@ -273,6 +276,10 @@ private:
   // global data storage
 
   std::string data_location_;
+
+  std::shared_mutex data_mtx_;  // protects vec
+
+
 
   // CPU
   ParticleCloud<rm::RAM>* particle_cloud_;
