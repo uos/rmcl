@@ -134,21 +134,13 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
       const size_t enemy_idx = Ud(rand_gen);
 
       const float Lc = particle_attrs[champion_idx].likelihood.mean;
-      // const float Ls_max_normed = Ls / L_max;
       const float Le = particle_attrs[enemy_idx].likelihood.mean;
-      // const float Li_max_normed = Li / L_max;
 
-      // compute fitness values
-      const float Fc = Lc * particle_attrs[champion_idx].likelihood.n_meas;
-      const float Fe = Le * particle_attrs[enemy_idx].likelihood.n_meas;
-
-      if(Fe > Fc)
+      if(Le > Lc)
       {
-        // enemy particle is winner! it takes over the champions place. + add noise
-        
         const rm::Transform pose = particle_poses[enemy_idx];
         const ParticleAttributes attrs = particle_attrs[enemy_idx];
-        
+
         rm::Transform pose_new = pose;
         ParticleAttributes attrs_new = attrs;
 
@@ -185,19 +177,20 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
 
         const float forget_rate_space = 1.0 - pow(1.0 - config_.likelihood_forget_per_meter, trans_dist);
         const float forget_rate_rot = 1.0 - pow(1.0 - config_.likelihood_forget_per_radian, rot_dist);
-        const float forget_rate = forget_rate_space * forget_rate_rot;
+        const float forget_rate = std::max(forget_rate_space, forget_rate_rot);
         const float remember_rate = (1.0 - forget_rate);
 
         attrs_new.likelihood.n_meas *= remember_rate;
 
         particle_poses_new[champion_idx] = pose_new;
         particle_attrs_new[champion_idx] = attrs_new;
-      } else {
+      }
+      else
+      {
         // champion stays champion
         particle_poses_new[champion_idx] = particle_poses[champion_idx];
         particle_attrs_new[champion_idx] = particle_attrs[champion_idx];
       }
-      
     }
   });
 

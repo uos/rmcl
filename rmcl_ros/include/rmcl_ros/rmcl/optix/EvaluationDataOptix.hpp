@@ -78,10 +78,6 @@ struct BeamEvaluationData
     // handle
     unsigned long long              handle;
     // outputs
-    // rmagine::Vector*                m1; // from, data means
-    // rmagine::Vector*                m2; // to, model means
-    // rmagine::Matrix3x3*             C; // C between 1 and 2
-    // unsigned int*                   Ncorr;
 };
 
 
