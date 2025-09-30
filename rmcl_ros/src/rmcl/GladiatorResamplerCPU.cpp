@@ -56,6 +56,16 @@ void GladiatorResamplerCPU::updateParams()
 // 2. Use the estimated normal distribution to resample
 // KLD resampling?
 
+struct TwofoldMixture
+{
+  rm::Transform mean_normal;
+
+  // rm::Matrix<7,7, float>  C;
+
+  double likelihood_shift; // use this to sample uniformly
+};
+
+
 ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
   const rmagine::MemoryView<rmagine::Transform, rmagine::RAM> particle_poses,
   const rmagine::MemoryView<ParticleAttributes, rmagine::RAM> particle_attrs,
@@ -88,23 +98,33 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
     L_sum_sq += v*v;
     L_max = std::max(L_max, v);
     L_min = std::min(L_min, v);
-
-    rm::Gaussian3D gauss_entry;
-    gauss_entry.mean = particle_poses[i].t;
-    gauss_entry.sigma(0,0) = 1.0 / particle_attrs[i].likelihood.mean;
-    gauss_entry.sigma(1,1) = 1.0 / particle_attrs[i].likelihood.mean;
-    gauss_entry.sigma(2,2) = 1.0 / particle_attrs[i].likelihood.mean;
-    gauss_entry.n_meas = particle_attrs[i].likelihood.n_meas;
-
-    gauss_fit += gauss_entry;
   }
 
-  double L_mean = L_sum / L_n;
-  double L_var  = L_sum_sq / L_n - L_mean * L_mean;
+  // const double L_mean = L_sum / L_n;
+  // const double L_var  = L_sum_sq / L_n - L_mean * L_mean;
+  const double L_range = L_max - L_min;
+  const double L_sum_normed =  L_sum - L_min * static_cast<double>(particle_attrs.size());
+
+  // exclude bias
+  for(size_t i=0; i<particle_attrs.size(); i++)
+  {
+    const double v = particle_attrs[i].likelihood.mean;
+
+    const double vn = v - L_min;
+
+    
+
+  }
 
   el = sw();
 
+  std::cout << "!!!!!!!!!!!!!!!"  <<  std::endl;
+
   std::cout << "    Computing Stats: " << el << "s" << std::endl;
+  std::cout << "- min, max: " << L_min << ", " << L_max << " (diff: " << L_max  -  L_min <<  ")" <<  std::endl;
+  std::cout << "- L_sum: " << L_sum << ", normed: " << L_sum_normed <<  std::endl;
+
+  
 
   sw();
 
@@ -210,11 +230,11 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
 
   el = sw();
 
-  std::cout << "   Particle Stats:" << std::endl;
-  std::cout << "   - weights: " << std::endl;
-  std::cout << "      - min, max: " << L_min << ", " << L_max << std::endl;
-  std::cout << "      - mean, var: " << L_mean << "," << L_var << std::endl;
-  std::cout << "   Runtime: " << el << "s" << std::endl;
+  // std::cout << "   Particle Stats:" << std::endl;
+  // std::cout << "   - weights: " << std::endl;
+  // std::cout << "      - min, max: " << L_min << ", " << L_max << std::endl;
+  // std::cout << "      - mean, var: " << L_mean << "," << L_var << std::endl;
+  // std::cout << "   Runtime: " << el << "s" << std::endl;
 
   {
     std_msgs::msg::Float64 msg;
