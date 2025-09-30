@@ -9,7 +9,7 @@ rmcl_localization_node:
         name: test
         # source: TODO # set from launch file
 
-    max_particles: 500000
+    max_particles: 400000
 
     motion_update: # per particle
       type: tf # TODO: check if we can make plugins?
@@ -40,9 +40,9 @@ rmcl_localization_node:
 
     resampling: # a posteriori (sensor update) using fusing a priori (motion update) and likelihood field
       type: gladiator
-      compute: cpu
+      compute: gpu
 
-      rate: 20.0
+      rate: 10.0
       # min_dist: 0.02 # TODO: impl
       # min_rot: 0.02 # TODO: impl
       debug: true
