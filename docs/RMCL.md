@@ -17,7 +17,7 @@ ros2 launch rmcl_examples_sim start_robot_launch.py map:=avz
 ```
 
 ```bash
-ros2 launch rmcl_examples_rmcl rmcl_lidar3d.launch map:=avz
+ros2 launch rmcl_examples rmcl_rmcl.launch map:=avz
 ```
 
 A RViz window will open and you should see something like this:
@@ -35,6 +35,7 @@ Other services:
 
 Or draw a pose with the standard RViz tool.
 
+See the [rmcl_examples](https://github.com/amock/rmcl_examples) for more examples.
 
 ## Theory
 
