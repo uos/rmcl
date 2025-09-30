@@ -5,7 +5,9 @@
 #include <rmagine/util/prints.h>
 #include <rmagine/util/StopWatch.hpp>
 
+#include <rmagine/math/statistics.h>
 #include <rmagine/math/linalg.h>
+#include <rmagine/math/optimization.h>
 
 #include <rmcl_ros/util/conversions.h>
 #include <rmcl_ros/util/ros_helper.h>

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(rmcl_msgs VERSION 2.2.3)
+project(rmcl_msgs VERSION 2.3.0)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -43,6 +43,10 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     # MICP
     "msg/MICPSensorStats.msg"
     "msg/MICPStats.msg"
+    # RMCL
+    "srv/SetInitialPose.srv"
+    "msg/LikelihoodStats.msg"
+    "msg/ParticleStats.msg"
   DEPENDENCIES
     std_msgs
     geometry_msgs

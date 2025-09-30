@@ -44,6 +44,8 @@ Requirements:
 
 IMU prior is also possible as long as it is integrated as TF-Transform, e.g. with [Madgwick Filter](http://wiki.ros.org/imu_filter_madgwick).
 
+Read more details [here](./docs/MICPL.md) or if you seek for a quick start and you have no robot available, go to our hands-on examples: [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples).
+
 ### Publication
 
 Please reference the following paper when using the MICP-L method in your scientific work.
@@ -62,84 +64,13 @@ Please reference the following paper when using the MICP-L method in your scient
 The paper is available on [IEEE Xplore](https://ieeexplore.ieee.org/document/10802360) and as preprint on [arXiv](https://arxiv.org/abs/2210.13904). The experiments are available at [https://github.com/amock/micp_experiments](https://github.com/amock/micp_experiments), but they are primarily compatible with the ROS 1 version.  
 See the older branches or commits for reference.
 
+## RMCL - Global 6D Localization in Meshes from 1D Range Measurements 
 
-### Running `micp_localization_node` (Theoretical Usage)
+Ray Casting Monte Carlo Localization (RMCL) provides a practical, real-time implementation of Monte Carlo Localization (MCL) for global robot localization, accelerated by high-performance ray tracing over triangle meshes and geometric scene graphs. MCL has a decades-long track record; our focus is making it easy to deploy and tune on real robots. The pipeline scales across diverse hardware with parameters to meet tight compute and memory budgets (including for our smallest robots). The documentation begins with hands-on usage and configuration of `rmcl_localization_node`, followed by a concise overview of the underlying concepts and design choices.
 
-> [!NOTE]
-> The following part shows a theoretical usage example meant to illustrate the general setup of MICP-L.  
-> For actual working examples and detailed instructions, please refer to:
-> [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
+![Teaser](.resources/rmcl.gif)
 
-
-The `micp_localization_node` starts the process of localizing the robot within a triangle mesh using MICP, based on a given pose estimate.  It is typically launched via a **launch file**:
-
-```xml
-<launch>
-  <node pkg="rmcl_ros" exec="micp_localization_node" name="rmcl_micpl" output="screen">
-    <param name="map_file" value="/path/to/mesh/map.dae" />
-    <param from="/path/to/config/file.yaml" />
-  </node>
-</launch>
-```
-
-<details>
-<summary>Once the launch file is started, the output in Terminal should look as follows:</summary>
-
-```console
-[micp_localization_node-2] -------------------------
-[micp_localization_node-2]        --- MAP ---       
-[micp_localization_node-2] -------------------------
-[micp_localization_node-2] - file: /home/amock/rmcl_ws/install/rmcl_examples_maps/share/rmcl_examples_maps/maps/tray.dae
-[micp_localization_node-2] - meshes: 1
-[micp_localization_node-2] Cube-mesh
-[micp_localization_node-2]   - vertices, faces: 30, 10
-[micp_localization_node-2] For more infos enter in terminal: 
-[micp_localization_node-2] $ rmagine_map_info /home/amock/rmcl_ws/install/rmcl_examples_maps/share/rmcl_examples_maps/maps/tray.dae
-[micp_localization_node-2] 
-[micp_localization_node-2] --------------------------
-[micp_localization_node-2]      --- BACKENDS ---     
-[micp_localization_node-2] --------------------------
-[micp_localization_node-2] Available combining units:
-[micp_localization_node-2] - CPU
-[micp_localization_node-2] Available raytracing backends:
-[micp_localization_node-2] - Embree (CPU)
-[micp_localization_node-2] 
-[micp_localization_node-2] -------------------------
-[micp_localization_node-2]      --- FRAMES ---      
-[micp_localization_node-2] -------------------------
-[micp_localization_node-2] - base:	base_footprint
-[micp_localization_node-2] - odom:	odom
-[micp_localization_node-2] - map:	map
-[micp_localization_node-2] Estimating: base_footprint -> map
-[micp_localization_node-2] Providing:  odom -> map
-[micp_localization_node-2] 
-[micp_localization_node-2] -------------------------
-[micp_localization_node-2]      --- SENSORS ---     
-[micp_localization_node-2] -------------------------
-[micp_localization_node-2] - lidar3d
-[micp_localization_node-2]   - data:	topic
-[micp_localization_node-2]     - topic:	/rmcl_inputs/lidar3d
-[micp_localization_node-2]     - frame:	velodyne
-[micp_localization_node-2]   - model:	o1dn
-[micp_localization_node-2]   - correspondences: 
-[micp_localization_node-2]      - backend: embree
-[micp_localization_node-2]      - type:    RC
-[micp_localization_node-2]      - metric:  P2L
-[micp_localization_node-2] MICP load params - done. Valid Sensors: 1
-[micp_localization_node-2] [INFO] [1747438141.203392843] [rmcl_micpl]: Waiting for 'odom' frame to become available ...
-[micp_localization_node-2] Waiting for pose...
-```
-</details>
-
-
-After the node has been started, an initial pose estimate must be provided, eg, using the "2D Pose Estimate" tool in RViz, which publishes to the `/initialpose` topic.
-Make sure the fixed frame in RViz is set to match the map coordinate system.
-
-> Note: RMCL does not provide tools to visualize triangle mesh maps in RViz.
-> To view mesh maps, consider using the rviz_mesh_tools_plugins from the
-[mesh_tools](https://github.com/naturerobots/mesh_tools) repository.
-
---> For an actual quick start, go to: [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
+Read more details [here](./docs/RMCL.md).
 
 
 # RMCL - Project
@@ -166,45 +97,7 @@ colcon build
 
 ## Mesh Navigation
 
-To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented on [ROSCon 2023](https://vimeo.com/879000775):
+To navigate a robot automatically and safely through uneven terrain, the combination RMCL + MeshNav is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented at [ROSCon 2023](https://vimeo.com/879000775):
 
 <a href="https://vimeo.com/879000775" target="_blank" ><img src=".resources/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
 
-## Roadmap
-
-This package will be expanded by more functionalities to localize a robot in mesh maps.
-The planned Roadmap is as follows:
-
-- [x] MICP-L (Pose Tracking)
-- [ ] RMCL (Global Localization)
-
-## News
-
-### 2025-05-17: ROS 2-ify MICP-L - v2.2.0
-
-After conducting real-world tests, we refactored the **MICP-L** node to better integrate it into the **ROS 2** ecosystem and added several new features:
-- Limited the possible inputs to *only* `rmcl_msgs`. Instead, we provide nodes and instructions to convert commonly used range sensor messages into `rmcl_msgs`.
-- MICP-L can now be launched as a composable node.
-- Separated correspondence search from optimization without losing much efficiency. This allowed us to add classic closest-point correspondences (CP), in addition to ray-casting correspondences (RC) (only available for embree backend).
-- Improved time synchronization between combinations of sensors and odometry.
-- Added many new examples and small demos for a quick start: [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
-
-> For the old version, download v2.1.0
-
-### 2024-11-25: Restructuring - ROS 1 + ROS 2
-
-We had to do minor structural changes to the repository in order to better integrate new features into RMCL. This repository is now devided into
-- "rmcl" which is a ROS-agnostic library that can be compiled and installed as regular CMake project,
-- "rmcl_ros" which contains all the nodes,
-- "rmcl_msgs" which are the message moved from to this repository. The original msgs repository is not required anymore.
-
-Using the latest rmcl version might break your launch files as the nodes are now located in "rmcl_ros" package. However, it's rather simple to fix that.
-The new versions of RMCL are v2.1.0 for ROS 2 and v1.3.0 for ROS 1.
-
-### 2024-02-11: ROS2 release - v2.0.0
-
-The main branch is humble now! Since it is not backwards compatible we decided to increase the version of RMCL to 2.0.0. The noetic version will still exist with the "noetic" branch. The "noetic" branch will be maintained until the end of 2024.
-
-### 2024-01-05: ROS2 - humble
-
-The first ROS2 port has been released! If you are using ROS2, check out the `humble` branch of this and all linked repositories. After the new branch has been tested well enough, I will make it the main branch. The current version will persist in the `noetic` branch.

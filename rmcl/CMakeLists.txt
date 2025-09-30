@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(rmcl
     LANGUAGES CXX C
-	VERSION 2.2.3
+	VERSION 2.3.0
 	)
 
 option(BUILD_TESTS "Build tests" ON)
@@ -61,7 +61,7 @@ endif()
 # only print warning for Rmagine version greater than RMAGINE_MAX_VERSION
 set(RMAGINE_MAX_VERSION "2.4.0")
 
-find_package(rmagine 2.3.1
+find_package(rmagine 2.3.2
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -301,13 +301,6 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     add_definitions(-DRMCL_OPTIX)
     set(RMCL_OPTIX True)
 endif()
-
-#### TESTS: TODO Tests
-# if(BUILD_TESTS)
-#     enable_testing()
-#     add_subdirectory(tests)
-# endif(BUILD_TESTS)
-
 
 ### INSTALL
 include(CMakePackageConfigHelpers)

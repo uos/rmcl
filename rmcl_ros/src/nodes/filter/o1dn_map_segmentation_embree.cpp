@@ -18,7 +18,6 @@
 
 #include <chrono>
 #include <memory>
-#include <omp.h>
 
 namespace rm = rmagine;
 

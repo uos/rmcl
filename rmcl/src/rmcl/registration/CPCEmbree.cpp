@@ -43,5 +43,4 @@ void CPCEmbree::find(const rm::Transform& Tbm_est)
   });
 }
 
-
 } // namespace rmcl
