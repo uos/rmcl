@@ -703,6 +703,13 @@ endif(TARGET rmcl-embree)
 ###################
 #### RMCL Node ####
 ###################
+
+if(RMCL_OPTIX AND RMCL_EMBREE)
+
+# The first prototype (v0) for global localization will only compile when both and optix and embree is available.
+# So only for NVIDIA devices it is possible to 
+# Next step is to make things 
+
 add_library(rmcl_localization SHARED
   src/nodes/rmcl_localization.cpp)
 
@@ -758,6 +765,9 @@ install(TARGETS
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
 )
+
+endif()
+
 
 #################
 # Finish package configuration
