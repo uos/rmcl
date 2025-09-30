@@ -26,7 +26,8 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
     std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ =
     std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
+  tf_broadcaster_ =
+      std::make_shared<tf2_ros::TransformBroadcaster>(*this);
   
   motion_update_node_ = this->create_sub_node("motion_update");
   sensor_update_node_ = this->create_sub_node("sensor_update");
@@ -518,10 +519,13 @@ void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 
 void RmclNode::resampling()
 {
+
+  induceState(); // prototype. uncomment this for just computing the particle set
+
+
   std::unique_lock lock(data_mtx_);
 
-  // induceState(); // prototype. uncomment this for just computing the particle set
-
+  
 
   std::cout << "-------------------" << std::endl;
   std::cout << "{ // Resampling" << std::endl;
@@ -708,6 +712,54 @@ void RmclNode::induceState()
   Pbm.pose.pose.orientation.w = Tbm.R.w;
 
   pub_pose_wc_->publish(Pbm);
+
+  { // broadcast transform
+    
+    // 1. get current transform between base and odom
+    try {
+      geometry_msgs::msg::TransformStamped Tbo_ros = tf_buffer_->lookupTransform(
+        config_general_.odom_frame, // to
+        config_general_.base_frame, // from
+        this->now(), // TODO: is this right?
+        tf2::durationFromSec(0.3));
+
+      // T_bnew_o_stamp = T.header.stamp;
+      
+      rm::Transform Tbo;
+      Tbo.t.x = Tbo_ros.transform.translation.x;
+      Tbo.t.y = Tbo_ros.transform.translation.y;
+      Tbo.t.z = Tbo_ros.transform.translation.z;
+      Tbo.R.x = Tbo_ros.transform.rotation.x;
+      Tbo.R.y = Tbo_ros.transform.rotation.y;
+      Tbo.R.z = Tbo_ros.transform.rotation.z;
+      Tbo.R.w = Tbo_ros.transform.rotation.w;
+
+      const rm::Transform Tom = Tbm * ~Tbo;
+      
+      geometry_msgs::msg::TransformStamped Tom_ros;
+      Tom_ros.transform.translation.x = Tom.t.x;
+      Tom_ros.transform.translation.y = Tom.t.y;
+      Tom_ros.transform.translation.z = Tom.t.z;
+      Tom_ros.transform.rotation.x = Tom.R.x;
+      Tom_ros.transform.rotation.y = Tom.R.y;
+      Tom_ros.transform.rotation.z = Tom.R.z;
+      Tom_ros.transform.rotation.w = Tom.R.w;
+
+      Tom_ros.header.frame_id = config_general_.map_frame;
+      Tom_ros.child_frame_id = config_general_.odom_frame;
+      Tom_ros.header.stamp = this->now();
+
+      tf_broadcaster_->sendTransform(Tom_ros);
+
+
+    } catch (const tf2::TransformException & ex) {
+      std::cout << "   Could not find transform from " 
+            << config_general_.base_frame << " to " 
+            << config_general_.odom_frame << ": " << ex.what() << std::endl;
+      // return res;
+    }
+
+  }
 
   // further ideas:
   // ask for probability (CDF) service: request AABB, return probability

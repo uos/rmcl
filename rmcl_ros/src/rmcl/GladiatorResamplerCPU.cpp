@@ -4,6 +4,7 @@
 #include <atomic>
 #include <rmagine/math/types.h>
 #include <rmagine/util/StopWatch.hpp>
+#include <rmagine/util/prints.h>
 #include <rmcl_ros/util/ros_helper.h>
 
 #include <tbb/blocked_range.h>
@@ -78,6 +79,8 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
   double L_min = std::numeric_limits<double>::max();
   double L_n = static_cast<double>(particle_attrs.size());
 
+  rm::Gaussian3D gauss_fit = rm::Gaussian3D::Identity();
+
   for(size_t i=0; i<particle_attrs.size(); i++)
   {
     const double v = particle_attrs[i].likelihood.mean;
@@ -85,6 +88,15 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
     L_sum_sq += v*v;
     L_max = std::max(L_max, v);
     L_min = std::min(L_min, v);
+
+    rm::Gaussian3D gauss_entry;
+    gauss_entry.mean = particle_poses[i].t;
+    gauss_entry.sigma(0,0) = 1.0 / particle_attrs[i].likelihood.mean;
+    gauss_entry.sigma(1,1) = 1.0 / particle_attrs[i].likelihood.mean;
+    gauss_entry.sigma(2,2) = 1.0 / particle_attrs[i].likelihood.mean;
+    gauss_entry.n_meas = particle_attrs[i].likelihood.n_meas;
+
+    gauss_fit += gauss_entry;
   }
 
   double L_mean = L_sum / L_n;
@@ -95,6 +107,8 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
   std::cout << "    Computing Stats: " << el << "s" << std::endl;
 
   sw();
+
+  // std::cout << "    GAUSS FIT: " << gauss_fit.mean << std::endl;
 
   // std::normal_distribution<float> Nd(0.0, 1.0);
   // Best-case noises of the system

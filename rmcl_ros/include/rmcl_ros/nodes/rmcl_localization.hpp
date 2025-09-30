@@ -21,8 +21,9 @@
 
 
 #include <tf2/exceptions.h>
-#include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2/convert.h>
 
 #include <chrono>
@@ -268,8 +269,9 @@ private:
   // 2. members
   // this is shared to the plugins
   rm::MapMapPtr map_container_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  std::shared_ptr<tf2_ros::Buffer>            tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener>    tf_listener_;
+  std::shared_ptr<tf2_ros::Buffer>               tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
   size_t                                      n_particles_;
 

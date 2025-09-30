@@ -40,22 +40,22 @@ rmcl_localization_node:
 
     resampling: # a posteriori (sensor update) using fusing a priori (motion update) and likelihood field
       type: gladiator
-      compute: gpu
+      compute: cpu
 
       rate: 10.0
       # min_dist: 0.02 # TODO: impl
       # min_rot: 0.02 # TODO: impl
       debug: true
 
-      min_noise_tx: 0.2
-      min_noise_ty: 0.2
+      min_noise_tx: 0.15
+      min_noise_ty: 0.15
       min_noise_tz: 0.05
       min_noise_roll: 0.0
       min_noise_pitch: 0.0
-      min_noise_yaw: 0.05
+      min_noise_yaw: 0.03
 
       likelihood_forget_per_meter: 0.3
-      likelihood_forget_per_radian: 0.3
+      likelihood_forget_per_radian: 0.6
 
     visualization:
       rate: 20.0
