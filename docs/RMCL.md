@@ -22,7 +22,7 @@ ros2 launch rmcl_examples rmcl_rmcl.launch map:=avz
 
 A RViz window will open and you should see something like this:
 
-![Teaser](.resources/rmcl.gif)
+![Teaser](/.resources/rmcl.gif)
 
 Trigger global localization by calling
 
