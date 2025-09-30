@@ -182,13 +182,13 @@ ParticleUpdateDynamicResults ResidualResamplerCPU::update(
 
   el = sw();
 
-  std::cout << "   Particle Stats:" << std::endl;
-  std::cout << "   - weights: " << std::endl;
-  std::cout << "      - min, max: " << weight_min << ", " << weight_max << std::endl;
-  std::cout << "      - mean, var: " << weight_mean << "," << weight_var << std::endl;
+  // std::cout << "   Particle Stats:" << std::endl;
+  // std::cout << "   - weights: " << std::endl;
+  // std::cout << "      - min, max: " << weight_min << ", " << weight_max << std::endl;
+  // std::cout << "      - mean, var: " << weight_mean << "," << weight_var << std::endl;
 
-  // std::cout << "Waited for " << workers.size() << " large blocks" << std::endl;
-  std::cout << "   Runtime: " << el << "s" << std::endl;
+  // // std::cout << "Waited for " << workers.size() << " large blocks" << std::endl;
+  // std::cout << "   Runtime: " << el << "s" << std::endl;
 
   {
     std_msgs::msg::Float64 msg;

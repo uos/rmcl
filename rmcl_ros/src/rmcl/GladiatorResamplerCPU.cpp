@@ -82,44 +82,6 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
 
   ParticleUpdateDynamicResults res;
 
-  // sw();
-
-  // // stats
-  // double L_sum = 0.0;
-  // double L_sum_sq = 0.0;
-  // double L_max = 0.0;
-  // double L_min = std::numeric_limits<double>::max();
-  // double L_n = static_cast<double>(particle_attrs.size());
-
-  // for(size_t i=0; i<particle_attrs.size(); i++)
-  // {
-  //   const double v = particle_attrs[i].likelihood.mean;
-  //   L_sum += v;
-  //   L_sum_sq += v*v;
-  //   L_max = std::max(L_max, v);
-  //   L_min = std::min(L_min, v);
-  // }
-
-  // // const double L_mean = L_sum / L_n;
-  // // const double L_var  = L_sum_sq / L_n - L_mean * L_mean;
-  // const double L_range = L_max - L_min;
-  // const double L_sum_normed =  L_sum - L_min * static_cast<double>(particle_attrs.size());
-
-  // el = sw();
-
-  // // std::cout << "!!!!!!!!!!!!!!!"  <<  std::endl;
-
-  // std::cout << "    Computing Stats: " << el << "s" << std::endl;
-
-  // sw();
-
-  // std::cout << "    GAUSS FIT: " << gauss_fit.mean << std::endl;
-
-  // std::normal_distribution<float> Nd(0.0, 1.0);
-  // Best-case noises of the system
-  // TODO: does this need additional parameters or can we determine 
-  // these from sensor noise and/or motion noise
-
   // we start a tournament:
   // idx 0 vs random other  -> write to idx 0
   // idx 1 vs random other  -> write to idx 1

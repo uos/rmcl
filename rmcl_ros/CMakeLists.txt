@@ -94,7 +94,6 @@ add_library(rmcl_ros SHARED
     src/micpl/MICPO1DnSensorCPU.cpp
     src/micpl/MICPOnDnSensorCPU.cpp
     # rmcl localization
-    src/rmcl/KLDResamplerCPU.cpp
     src/rmcl/ResidualResamplerCPU.cpp
     src/rmcl/GladiatorResamplerCPU.cpp
 )

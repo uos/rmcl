@@ -2,7 +2,6 @@
 
 #include <rmcl_ros/rmcl/TFMotionUpdaterCPU.hpp>
 #include <rmcl_ros/rmcl/PCDSensorUpdaterEmbree.hpp>
-#include <rmcl_ros/rmcl/KLDResamplerCPU.hpp>
 #include <rmcl_ros/rmcl/ResidualResamplerCPU.hpp>
 #include <rmcl_ros/rmcl/GladiatorResamplerCPU.hpp>
 
@@ -188,11 +187,11 @@ void RmclNode::initSamples(
   rm::Matrix6x6 L;
   rm::chol(C, L);
 
-  std::cout << "C:" << std::endl;
-  std::cout << C << std::endl;
+  // std::cout << "C:" << std::endl;
+  // std::cout << C << std::endl;
 
-  std::cout << "Cholesky:" << std::endl;
-  std::cout << L << std::endl;
+  // std::cout << "Cholesky:" << std::endl;
+  // std::cout << L << std::endl;
   std::cout << "Cholesky Err: " << abssum(L*L.T() - C) / 36.0 << std::endl;
 
   rm::Matrix_<float, 6, 1> mu;
@@ -434,9 +433,6 @@ void RmclNode::motionUpdate()
 {
   std::unique_lock lock(data_mtx_);
 
-  std::cout << "-------------------" << std::endl;
-  std::cout << "{ // Motion Update" << std::endl;
-
   if(!motion_updater_)
   {
     // TODO: check if we can apply the pluginlib here
@@ -481,15 +477,11 @@ void RmclNode::motionUpdate()
   }
 
   motion_update_done_ = true;
-  std::cout << "} // Motion Update" << std::endl;
 }
 
 void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
 {
   std::unique_lock lock(data_mtx_);
-
-  std::cout << "-------------------" << std::endl;
-  std::cout << "{ // Sensor Update" << std::endl;
 
   if(!sensor_updater_)
   {
@@ -554,11 +546,9 @@ void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
     );
   } else {
     std::cout << "   ERROR: param value not known for 'compute': " << config_sensor_update_.compute << std::endl;
-  }  
+  }
 
   sensor_update_done_ = true;
-
-  std::cout << "} // Sensor Update " << std::endl;
 }
 
 void RmclNode::resampling()
@@ -569,10 +559,6 @@ void RmclNode::resampling()
 
   std::unique_lock lock(data_mtx_);
 
-  
-
-  std::cout << "-------------------" << std::endl;
-  std::cout << "{ // Resampling" << std::endl;
   if(!resampler_)
   {
     // TODO: check if we can apply the pluginlib here
@@ -627,9 +613,9 @@ void RmclNode::resampling()
 
     std::swap(particle_cloud_, particle_cloud_next_);
 
-  } else if(config_resampling_.compute == "gpu") {
-    
-    std::cout << "   - GPU" << std::endl;
+  } 
+  else if(config_resampling_.compute == "gpu") 
+  {
     res = resampler_gpu_->update(
       particle_cloud_gpu_->poses(0, n_particles_),
       particle_cloud_gpu_->attrs(0, n_particles_),
@@ -644,10 +630,6 @@ void RmclNode::resampling()
     std::cout << "   ERROR: param value not known for 'compute': " << config_sensor_update_.compute << std::endl;
   }
 
-  std::cout << "   DONE." << std::endl;
-
-  std::cout << "   Particles: " << n_particles_ << " -> " << res.n_particles << std::endl;
-
   if(res.n_particles < 10)
   {
     std::cout << "   ERROR: NUMBER OF PARTICLES TO LOW AFTER RESAMPLING! : " << res.n_particles << " -> Skipping Resampling step." << std::endl;
@@ -655,14 +637,6 @@ void RmclNode::resampling()
   }
 
   n_particles_ = res.n_particles;
-
-  std::cout << "   Swapped." << std::endl;
-
-  std::cout << "} // Resampling" << std::endl;
-
-  // induceState();
-
-  // visualize();
 }
 
 rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
@@ -670,14 +644,6 @@ rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
   std::shared_lock lock(data_mtx_);
 
   rmcl_msgs::msg::ParticleStats stats;
-
-  std::cout << "-------------------" << std::endl;
-  std::cout << "{ // State Induction" << std::endl;
-
-  rm::StopWatch sw;
-  double el;
-
-  sw();
 
   // make sync cpu memory
   prepareMemory("cpu");
@@ -689,13 +655,6 @@ rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
   // work slice
   rm::MemoryView<rm::Transform, rm::RAM> particle_poses = particle_cloud_->poses(0, n_induction_particles);
   rm::MemoryView<ParticleAttributes, rm::RAM> particle_attrs = particle_cloud_->attrs(0, n_induction_particles);
-
-  el = sw();
-
-  std::cout << "   - sync memory: " << el << "s" << std::endl;
-
-  // weight stats
-  sw();
 
   // WARNING:
   // The following calculation is not completely correct
@@ -739,12 +698,8 @@ rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
   stats.trans_bb_max.z = bb_trans.max.z;
 
   stats.nparticles = n_induction_particles;
-
-  el = sw();
-  std::cout << "   - weight stats: " << el << "s" << std::endl;
-
-  sw();
   
+  // first pass: calculate mean
   rm::Transform Tbm = rm::markley_mean(particle_poses, [&](size_t i){
     return particle_attrs[i].likelihood.mean / L_sum;
   });
@@ -757,11 +712,7 @@ rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
   stats.pose.pose.orientation.z = Tbm.R.z;
   stats.pose.pose.orientation.w = Tbm.R.w;
 
-  el = sw();
-
-  std::cout << "   - weight-aware geom stats: " << el << "s" << std::endl;
-  std::cout << "   - Induced Pose: " << Tbm << std::endl;
-
+  // second pass: calculate covariance
   rm::Matrix6x6 cov = rm::covariance(Tbm, particle_poses, [&](size_t i){
     return particle_attrs[i].likelihood.mean / L_sum;
   });
@@ -773,41 +724,8 @@ rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
       stats.pose.covariance[6 * i + j] = cov(i,j);
     }
   }
-  
-  // further ideas:
-  // ask for probability (CDF) service: request AABB, return probability
 
-  // TODO, first thoughts for robust deduction:
-  // detect number of modes
-  // or simpler: detect if distrubition has one mode or not (Dip test, ...)
-  // or simpler: detect if the current distribution is a unimodal normal distrubution or not
-
-  // possible potential helpful outcomes:
-  // Localization category:
-  // - localized
-  // - not localized, because of
-  //    - ambigities
-  //    - not collected enough information
-  // 
-  
-  // Fit normal distribution to data with additional scaling factor 
-  // as we are fitting it to a likelihood field which just has to be 
-  // proportional to an actual probability distribution
-
-  // float weight_sum = 0.0;
-  // float weight_max = 0.0;
-  // for(size_t i=0; i<particle_attrs.size(); i++)
-  // {
-  //   weight_sum += particle_attrs[i].likelihood.mean;
-  //   weight_max = std::max(weight_max, particle_attrs[i].likelihood.mean);
-  // }
-
-  // mean
-  // weighted mean
-  // rm::Vector3f wmean = {0.0, 0.0, 0.0};
-  // for(size_t i=0; i<)
-
-  std::cout << "} // State Induction" << std::endl;
+  // std::cout << "} // State Induction" << std::endl;
 
   return stats;
 }

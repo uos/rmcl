@@ -338,7 +338,7 @@ ParticleUpdateResults PCDSensorUpdaterOptix::update(
   }
   el = sw();
 
-  std::cout << "   - runtime: " << el << "s" << std::endl;
+  // std::cout << "   - runtime: " << el << "s" << std::endl;
 
   {
     std_msgs::msg::Float64 msg;

@@ -50,7 +50,6 @@ namespace rmcl
 
 void TFMotionUpdaterGPU::init()
 {
-  std::cout << "   TFMotionUpdaterGPU::INIT!" << std::endl;
   // motion update params
   updateParams();
   loadMap();
@@ -118,10 +117,6 @@ ParticleUpdateResults TFMotionUpdaterGPU::update(
   const ParticleUpdateConfig& config)
 {
   updateParams();
-  // std::cout << "-----------------------" << std::endl;
-  // std::cout << "Motion Update (TF, CPU)" << std::endl;
-
-  // std::cout << "   GPU!" << std::endl;
 
   ParticleUpdateResults res;
 
@@ -182,13 +177,8 @@ ParticleUpdateResults TFMotionUpdaterGPU::update(
   const double forget_rate_space = 1.0 - pow(1.0 - config_.forget_rate, dist_travelled);
   const double forget_rate_time = 1.0 - pow(1.0 - config_.forget_rate_per_second, dt);
 
-  std::cout << "   forget rate:" << std::endl;
-  std::cout << "   - space: " << forget_rate_space << std::endl;
-  std::cout << "   - time: " << forget_rate_time << std::endl;
-
   // combined forget rate
   const double forget_rate = forget_rate_space * forget_rate_time;
-  std::cout << "   - combined: " << forget_rate << std::endl;
 
   rm::StopWatch sw;
   double el;
@@ -196,8 +186,6 @@ ParticleUpdateResults TFMotionUpdaterGPU::update(
   sw();
   particle_move_and_forget(particle_poses_gpu, particle_attrs_gpu, T_bnew_bold, forget_rate);
   el = sw();
-
-  std::cout << "   - Runtime: " << el << "s" << std::endl;
 
   T_bold_o_ = T_bnew_o;
   T_bold_o_stamp_ = T_bnew_o_stamp;

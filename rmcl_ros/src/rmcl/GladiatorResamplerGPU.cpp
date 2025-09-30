@@ -63,46 +63,20 @@ ParticleUpdateDynamicResults GladiatorResamplerGPU::update(
   rm::StopWatch sw;
   double el;
 
-
-  // rm::Memory<ParticleAttributes, rm::RAM> particle_attrs_cpu = particle_attrs;
-
-  // float max = 0.0;
-  // float sum = 0.0;
-
-  // for(size_t i=0; i<particle_attrs_cpu.size(); i++)
-  // {
-  //   const float L = particle_attrs_cpu[i].likelihood.mean;
-  //   max = std::max(L, max);
-  //   sum += L;
-  // }
-
-  // std::cout << "CPU Stats:" << std::endl;
-  // std::cout << "- sum: " << sum << std::endl;
-  // std::cout << "- max: " << max << std::endl;
-  
-
   ParticleUpdateDynamicResults res;
 
+  // TODO: we already computed this on a subset of data
   rm::Memory<SimpleLikelihoodStats, rm::VRAM_CUDA> stats(1);
 
   sw();
   
   compute_stats(particle_poses, particle_attrs, stats);
 
-  // rm::Memory<SimpleLikelihoodStats, rm::RAM> stats_cpu = stats;
-  // std::cout << "GPU Stats:" << std::endl; 
-  // std::cout << "- sum: " << stats_cpu[0].sum << std::endl;
-  // std::cout << "- max: " << stats_cpu[0].max << std::endl;
-
   gladiator_resample(particle_poses, particle_attrs, 
       stats, rstates_, 
       particle_poses_new, particle_attrs_new, config_);
 
   res.n_particles = particle_poses_new.size();
-
-  el = sw();
-
-  std::cout << "   - runtime: " << el << "s" << std::endl;
 
   return res;
 }

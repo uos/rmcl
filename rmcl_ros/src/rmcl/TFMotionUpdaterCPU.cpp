@@ -51,7 +51,6 @@ bool collision_in_between(
 
 void TFMotionUpdaterCPU::init()
 {
-  std::cout << "   TFMotionUpdaterCPU::INIT!" << std::endl;
   // motion update params
   updateParams();
   loadMap();
@@ -164,11 +163,6 @@ ParticleUpdateResults TFMotionUpdaterCPU::update(
 
   const rm::Transform T_bnew_bold = ~T_bold_o_ * T_bnew_o;
   double dist_travelled = T_bnew_bold.t.l2norm();
-  // uint32_t forget_measurements = 100 * dist_travelled; // make this dependend from a parameter
-  
-  // std::cout << "- Dist travelled: " << dist_travelled << "m" << std::endl;
-  // std::cout << "- Forget Measurements: " << forget_measurements << std::endl;
-  // std::cout << "- Current Measurements: " << particle_attrs[0].likelihood.n_meas << std::endl;
 
   // TODO: rotation?
 
@@ -179,22 +173,9 @@ ParticleUpdateResults TFMotionUpdaterCPU::update(
 
   // forget_rate per meter to absolute -> exponential
 
-  std::cout << "   config forgets:" << std::endl;
-  std::cout << "   - space: " << config_.forget_rate << std::endl;
-  std::cout << "   - time: " << config_.forget_rate_per_second << std::endl;
-
-  std::cout << "   time & space:" << std::endl;
-  std::cout << "   - space: " << dist_travelled << std::endl;
-  std::cout << "   - time: " << dt << std::endl;
-
   const double forget_rate_space = 1.0 - pow(1.0 - config_.forget_rate, dist_travelled);
   const double forget_rate_time = 1.0 - pow(1.0 - config_.forget_rate_per_second, dt);
   const double forget_rate = forget_rate_space * forget_rate_time;
-
-  std::cout << "   applied forgets:" << std::endl;
-  std::cout << "   - space: " << forget_rate_space << std::endl;
-  std::cout << "   - time: " << forget_rate_time << std::endl;
-  std::cout << "   - combined: " << forget_rate << std::endl;
 
   rm::StopWatch sw;
   double el;
@@ -242,14 +223,6 @@ ParticleUpdateResults TFMotionUpdaterCPU::update(
     }
   });
   el = sw();
-
-  // std::cout << "- New Measurements: " << particle_attrs[0].likelihood.n_meas << std::endl;
-  // std::cout << "- Runtime: " << el << "s" << std::endl;
-
-  // if(el > (1.0 / config_motion_update_.rate))
-  // {
-  //   std::cout << "WARNING: Could not hold required update rate! maximum possible: " << 1.0 / el << std::endl; 
-  // }
 
   T_bold_o_ = T_bnew_o;
   T_bold_o_stamp_ = T_bnew_o_stamp;
