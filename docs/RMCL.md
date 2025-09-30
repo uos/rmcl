@@ -70,6 +70,7 @@ Move the particles using odometry from TF and apply so called forget factors to 
 #### TODOs
 
 * Remove the likelihood when sliding through walls. This is only implemented in the CPU version
+* Provide a MotionUpdater that is constrained to the mesh's surface
 
 ### Resampling
 
@@ -84,4 +85,7 @@ Possible Improvements:
 * Take the approach from [MegaParticles](https://staff.aist.go.jp/k.koide/projects/icra2024_mp/) (SVGD) and use a BVH structure as an ever adapting acceleration structure around the particle set for quick nearest neighbor search. Based on some timings, the BVH in [lvr2](https://github.com/uos/lvr2) could be quick enough to do that. And it's also GPU capable. 
 * Reduce the number particles smarter
 
+## Software TODOs
 
+* Test if a bit of threading make things better: I think it would help to perform chunk-wise operations on the particle set for better asynchoronization
+* Provide plugin interface (mid-term)

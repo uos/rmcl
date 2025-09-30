@@ -1,5 +1,20 @@
-# Mesh ICP Localization (MICP-L)
+# MICP-L - Pose Tracking in Meshes
 
+MICP-L: Mesh-based ICP for Robot Localization Using Hardware-Accelerated Ray Casting.
+An approach to directly register range sensor data to a mesh in order to localize a mobile robot using hardware-accelerated ray casting correspondences (See publications).
+
+[![Teaser](.resources/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
+
+|  Hilti: 6DoF Localization  | MulRan: Large-scale scenes |
+|:--:|:--:|
+| <a href="http://www.youtube.com/watch?v=5pubwlbrpro" target="_blank" ><img src="https://i.ytimg.com/vi/5pubwlbrpro/maxresdefault.jpg" alt="MICP-L Hilti Video" width="100%" style="max-width: 500px" height="auto" /></a> | <a href="http://www.youtube.com/watch?v=8j6ZtYPnFzw" target="_blank" ><img src="https://i.ytimg.com/vi/8j6ZtYPnFzw/maxresdefault.jpg" alt="MICP-L MulRan Video" width="100%" style="max-width: 500px" height="auto" /></a> |
+
+Requirements:
+- At least one range sensor is equipped and running
+- Triangle mesh as map
+- Prior odometry estimation of the robot given as TF
+
+IMU prior is also possible as long as it is integrated as TF-Transform, e.g. with [Madgwick Filter](http://wiki.ros.org/imu_filter_madgwick).
 
 
 ## Running `micp_localization_node` (Theoretical Usage)
@@ -78,8 +93,6 @@ Make sure the fixed frame in RViz is set to match the map coordinate system.
 [mesh_tools](https://github.com/naturerobots/mesh_tools) repository.
 
 --> For an actual quick start, go to: [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
-
-
 
 ## Publication
 
