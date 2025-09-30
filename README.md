@@ -97,45 +97,7 @@ colcon build
 
 ## Mesh Navigation
 
-To navigate a robot automatically and safely through uneven terrain, the combination RMCL + Mesh Navigation Stack is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented on [ROSCon 2023](https://vimeo.com/879000775):
+To navigate a robot automatically and safely through uneven terrain, the combination RMCL + MeshNav is very suitable: [https://github.com/naturerobots/mesh_navigation](https://github.com/naturerobots/mesh_navigation). As we presented at [ROSCon 2023](https://vimeo.com/879000775):
 
 <a href="https://vimeo.com/879000775" target="_blank" ><img src=".resources/ROSCon2023.png" alt="MICP-L ROSCon 2023 Video" width="300px" /></a>
 
-## Roadmap
-
-This package will be expanded by more functionalities to localize a robot in mesh maps.
-The planned Roadmap is as follows:
-
-- [x] MICP-L (Pose Tracking)
-- [ ] RMCL (Global Localization)
-
-## News
-
-### 2025-05-17: ROS 2-ify MICP-L - v2.2.0
-
-After conducting real-world tests, we refactored the **MICP-L** node to better integrate it into the **ROS 2** ecosystem and added several new features:
-- Limited the possible inputs to *only* `rmcl_msgs`. Instead, we provide nodes and instructions to convert commonly used range sensor messages into `rmcl_msgs`.
-- MICP-L can now be launched as a composable node.
-- Separated correspondence search from optimization without losing much efficiency. This allowed us to add classic closest-point correspondences (CP), in addition to ray-casting correspondences (RC) (only available for embree backend).
-- Improved time synchronization between combinations of sensors and odometry.
-- Added many new examples and small demos for a quick start: [https://github.com/amock/rmcl_examples](https://github.com/amock/rmcl_examples)
-
-> For the old version, download v2.1.0
-
-### 2024-11-25: Restructuring - ROS 1 + ROS 2
-
-We had to do minor structural changes to the repository in order to better integrate new features into RMCL. This repository is now devided into
-- "rmcl" which is a ROS-agnostic library that can be compiled and installed as regular CMake project,
-- "rmcl_ros" which contains all the nodes,
-- "rmcl_msgs" which are the message moved from to this repository. The original msgs repository is not required anymore.
-
-Using the latest rmcl version might break your launch files as the nodes are now located in "rmcl_ros" package. However, it's rather simple to fix that.
-The new versions of RMCL are v2.1.0 for ROS 2 and v1.3.0 for ROS 1.
-
-### 2024-02-11: ROS2 release - v2.0.0
-
-The main branch is humble now! Since it is not backwards compatible we decided to increase the version of RMCL to 2.0.0. The noetic version will still exist with the "noetic" branch. The "noetic" branch will be maintained until the end of 2024.
-
-### 2024-01-05: ROS2 - humble
-
-The first ROS2 port has been released! If you are using ROS2, check out the `humble` branch of this and all linked repositories. After the new branch has been tested well enough, I will make it the main branch. The current version will persist in the `noetic` branch.
