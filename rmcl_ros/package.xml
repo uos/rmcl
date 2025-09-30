@@ -21,6 +21,7 @@
     <depend>visualization_msgs</depend>
     <depend>rmcl</depend>
     <depend>rmagine</depend>
+    <depend>std_srvs</depend>
 
     <export>
         <build_type>ament_cmake</build_type>

@@ -45,6 +45,7 @@ find_package(tf2_ros REQUIRED)
 find_package(rmcl_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 
 find_package(rmagine 2.3.1
@@ -114,6 +115,7 @@ ament_target_dependencies(rmcl_ros
     geometry_msgs
     tf2_ros
     visualization_msgs
+    std_srvs
 )
 
 install(TARGETS rmcl_ros
@@ -147,6 +149,7 @@ if(TARGET rmcl-embree)
         geometry_msgs
         tf2_ros
         visualization_msgs
+        std_srvs
     )
 
     install(TARGETS rmcl_embree_ros
@@ -218,6 +221,7 @@ if(RMCL_CUDA)
         rmcl_msgs
         geometry_msgs
         tf2_ros
+        std_srvs
     )
 
     install(TARGETS rmcl_ros_cuda
@@ -385,6 +389,7 @@ if(RMCL_CUDA)
             rmcl_msgs
             geometry_msgs
             tf2_ros
+            std_srvs
         )
 
         install(TARGETS rmcl_ros_optix
@@ -442,6 +447,7 @@ ament_target_dependencies(micp_localization
     rmcl_msgs
     image_transport
     visualization_msgs
+    std_srvs
 )
 
 rclcpp_components_register_node(micp_localization
@@ -474,6 +480,7 @@ ament_target_dependencies(conv_pc2_to_scan
     rmcl_msgs
     image_transport
     visualization_msgs
+    std_srvs
 )
 
 rclcpp_components_register_node(conv_pc2_to_scan 
@@ -539,6 +546,7 @@ ament_target_dependencies(conv_scan_to_scan
     rmcl_msgs
     image_transport
     visualization_msgs
+    std_srvs
 )
 
 rclcpp_components_register_node(conv_scan_to_scan 
@@ -612,6 +620,7 @@ ament_target_dependencies(map_segmentation
     rmcl_msgs
     image_transport
     visualization_msgs
+    std_srvs
 )
 
 install(TARGETS 
@@ -640,6 +649,7 @@ ament_target_dependencies(o1dn_map_segmentation_embree
     sensor_msgs
     tf2_ros
     rmcl_msgs
+    std_srvs
 )
 
 rclcpp_components_register_node(o1dn_map_segmentation_embree 
@@ -669,6 +679,7 @@ ament_target_dependencies(scan_map_segmentation_embree
     sensor_msgs
     tf2_ros
     rmcl_msgs
+    std_srvs
 )
 
 rclcpp_components_register_node(scan_map_segmentation_embree 
@@ -771,6 +782,7 @@ ament_export_dependencies(rclcpp
   tf2_ros
   rmcl_msgs
   image_transport
-  visualization_msgs)
+  visualization_msgs
+  std_srvs)
 
 ament_package()

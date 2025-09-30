@@ -44,6 +44,8 @@
 #include <rmagine/types/MemoryCuda.hpp>
 
 
+#include <std_srvs/srv/empty.hpp>
+#include <rmcl_msgs/srv/set_initial_pose.hpp>
 
 namespace rm = rmagine;
 
@@ -320,6 +322,10 @@ private:
     std::vector<double> bb_max = { 50.0,  50.0, 0.0, 0.0, 0.0,  M_PI};
     size_t n_particles;
   } config_global_initialization_;
+
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr srv_global_initialization_;
+
+  // rclcpp::Service<std_srvs::srv::Empty>::SharedPtr 
 
 
   ///////////////////////////////
