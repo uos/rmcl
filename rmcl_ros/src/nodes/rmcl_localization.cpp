@@ -762,38 +762,18 @@ rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
   std::cout << "   - weight-aware geom stats: " << el << "s" << std::endl;
   std::cout << "   - Induced Pose: " << Tbm << std::endl;
 
+  rm::Matrix6x6 cov = rm::covariance(Tbm, particle_poses, [&](size_t i){
+    return particle_attrs[i].likelihood.mean / L_sum;
+  });
 
-  // compute the covariance
-
-
-  // uppper 3x3 block
-
-  rm::Matrix3x3 C11 = rm::Matrix3x3::Zeros();
-
-  float test_sum = 0.0;
-
-  for(size_t i=0; i<particle_poses.size(); i++)
+  for(size_t i=0; i<6; i++)
   {
-    float w = particle_attrs[i].likelihood.mean / L_sum;
-
-    // relative pose Transform other -> base
-    rm::Transform Tob = ~Tbm * particle_poses[i];
-
-    C11 += Tob.t.multT(Tob.t) * w;
-
-    
+    for(size_t j=0; j<6; j++)
+    {
+      stats.pose.covariance[6 * i + j] = cov(i,j);
+    }
   }
-
-  stats.pose.covariance[6 * 0 + 0] = C11(0,0);
-  stats.pose.covariance[6 * 0 + 1] = C11(0,1);
-  stats.pose.covariance[6 * 0 + 2] = C11(0,2);
-  stats.pose.covariance[6 * 1 + 0] = C11(1,0);
-  stats.pose.covariance[6 * 1 + 1] = C11(1,1);
-  stats.pose.covariance[6 * 1 + 2] = C11(1,2);
-  stats.pose.covariance[6 * 2 + 0] = C11(2,0);
-  stats.pose.covariance[6 * 2 + 1] = C11(2,1);
-  stats.pose.covariance[6 * 2 + 2] = C11(2,2);
-
+  
   // further ideas:
   // ask for probability (CDF) service: request AABB, return probability
 
