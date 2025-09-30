@@ -12,6 +12,8 @@
 
 #include <tbb/enumerable_thread_specific.h>
 
+#include <rmagine/math/memory_math.h>
+
 namespace rm = rmagine;
 
 namespace rmcl
@@ -80,53 +82,36 @@ ParticleUpdateDynamicResults GladiatorResamplerCPU::update(
 
   ParticleUpdateDynamicResults res;
 
-  sw();
+  // sw();
 
-  // stats
-  double L_sum = 0.0;
-  double L_sum_sq = 0.0;
-  double L_max = 0.0;
-  double L_min = std::numeric_limits<double>::max();
-  double L_n = static_cast<double>(particle_attrs.size());
+  // // stats
+  // double L_sum = 0.0;
+  // double L_sum_sq = 0.0;
+  // double L_max = 0.0;
+  // double L_min = std::numeric_limits<double>::max();
+  // double L_n = static_cast<double>(particle_attrs.size());
 
-  rm::Gaussian3D gauss_fit = rm::Gaussian3D::Identity();
+  // for(size_t i=0; i<particle_attrs.size(); i++)
+  // {
+  //   const double v = particle_attrs[i].likelihood.mean;
+  //   L_sum += v;
+  //   L_sum_sq += v*v;
+  //   L_max = std::max(L_max, v);
+  //   L_min = std::min(L_min, v);
+  // }
 
-  for(size_t i=0; i<particle_attrs.size(); i++)
-  {
-    const double v = particle_attrs[i].likelihood.mean;
-    L_sum += v;
-    L_sum_sq += v*v;
-    L_max = std::max(L_max, v);
-    L_min = std::min(L_min, v);
-  }
+  // // const double L_mean = L_sum / L_n;
+  // // const double L_var  = L_sum_sq / L_n - L_mean * L_mean;
+  // const double L_range = L_max - L_min;
+  // const double L_sum_normed =  L_sum - L_min * static_cast<double>(particle_attrs.size());
 
-  // const double L_mean = L_sum / L_n;
-  // const double L_var  = L_sum_sq / L_n - L_mean * L_mean;
-  const double L_range = L_max - L_min;
-  const double L_sum_normed =  L_sum - L_min * static_cast<double>(particle_attrs.size());
+  // el = sw();
 
-  // exclude bias
-  for(size_t i=0; i<particle_attrs.size(); i++)
-  {
-    const double v = particle_attrs[i].likelihood.mean;
+  // // std::cout << "!!!!!!!!!!!!!!!"  <<  std::endl;
 
-    const double vn = v - L_min;
+  // std::cout << "    Computing Stats: " << el << "s" << std::endl;
 
-    
-
-  }
-
-  el = sw();
-
-  std::cout << "!!!!!!!!!!!!!!!"  <<  std::endl;
-
-  std::cout << "    Computing Stats: " << el << "s" << std::endl;
-  std::cout << "- min, max: " << L_min << ", " << L_max << " (diff: " << L_max  -  L_min <<  ")" <<  std::endl;
-  std::cout << "- L_sum: " << L_sum << ", normed: " << L_sum_normed <<  std::endl;
-
-  
-
-  sw();
+  // sw();
 
   // std::cout << "    GAUSS FIT: " << gauss_fit.mean << std::endl;
 

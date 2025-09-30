@@ -3,6 +3,11 @@
 
 #include "ParticleUpdater.hpp"
 #include <memory>
+#include <rmagine/math/types.h>
+
+#include <deque>
+
+#include <rmcl_msgs/msg/particle_stats.hpp>
 
 namespace rmcl
 {
@@ -18,6 +23,19 @@ public:
   virtual void init() = 0;
 
   virtual void reset() = 0;
+
+  inline void addStats(rmcl_msgs::msg::ParticleStats stats) {
+    const size_t history_size = 10;
+    if (stats_.size() == history_size) 
+    {
+      stats_.pop_front();
+    }
+    stats_.push_back(stats);
+  }
+
+protected:
+
+  std::deque<rmcl_msgs::msg::ParticleStats> stats_;
 };
 
 template<typename MemT>

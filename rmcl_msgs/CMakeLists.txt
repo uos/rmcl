@@ -43,7 +43,10 @@ rosidl_generate_interfaces(${PROJECT_NAME}
     # MICP
     "msg/MICPSensorStats.msg"
     "msg/MICPStats.msg"
+    # RMCL
     "srv/SetInitialPose.srv"
+    "msg/LikelihoodStats.msg"
+    "msg/ParticleStats.msg"
   DEPENDENCIES
     std_msgs
     geometry_msgs

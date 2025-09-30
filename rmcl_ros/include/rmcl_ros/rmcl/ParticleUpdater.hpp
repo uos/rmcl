@@ -62,7 +62,6 @@ class ParticleUpdaterDynamic
 public:
   virtual ~ParticleUpdaterDynamic() = default;
 
-
   virtual ParticleUpdateDynamicResults update(
       const rmagine::MemoryView<rmagine::Transform, MemT> particle_poses,
       const rmagine::MemoryView<ParticleAttributes, MemT> particle_attrs,

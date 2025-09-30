@@ -564,8 +564,8 @@ void RmclNode::sensorUpdate(const sensor_msgs::msg::PointCloud2::ConstSharedPtr&
 void RmclNode::resampling()
 {
 
-  induceState(); // prototype. uncomment this for just computing the particle set
-
+  rmcl_msgs::msg::ParticleStats stats = estimateStats(); // prototype. uncomment this for just computing the particle set
+  publishStats(stats);
 
   std::unique_lock lock(data_mtx_);
 
@@ -581,10 +581,6 @@ void RmclNode::resampling()
       resampler_ = std::make_shared<ResidualResamplerCPU>(
         resampling_node_
       );
-
-      // resampler_gpu_ = std::make_shared<ResidualResamplerGPU>(
-      //   resampling_node_
-      // );
     } 
     else if(config_resampling_.type == "gladiator") 
     {
@@ -617,6 +613,8 @@ void RmclNode::resampling()
 
   prepareMemory(config_resampling_.compute);
 
+  resampler_->addStats(stats);
+
   if(config_resampling_.compute == "cpu")
   { 
     res = resampler_->update(
@@ -641,16 +639,6 @@ void RmclNode::resampling()
     );
 
     std::swap(particle_cloud_gpu_, particle_cloud_gpu_next_);
-
-    // prepareMemory("cpu");
-    // data_location_ = "gpu";
-
-    // std::cout << "Particles Debug:" << std::endl;
-    // for(size_t i=0; i<n_particles_; i++)
-    // {
-    //   const rm::Transform pose = particle_cloud_->poses[0];
-    //   std::cout << pose.t.x << ", " << pose.t.y << ", " << pose.t.z << std::endl;
-    // }
 
   } else {
     std::cout << "   ERROR: param value not known for 'compute': " << config_sensor_update_.compute << std::endl;
@@ -677,13 +665,14 @@ void RmclNode::resampling()
   // visualize();
 }
 
-void RmclNode::induceState()
+rmcl_msgs::msg::ParticleStats RmclNode::estimateStats()
 {
   std::shared_lock lock(data_mtx_);
 
+  rmcl_msgs::msg::ParticleStats stats;
+
   std::cout << "-------------------" << std::endl;
   std::cout << "{ // State Induction" << std::endl;
-
 
   rm::StopWatch sw;
   double el;
@@ -707,11 +696,20 @@ void RmclNode::induceState()
 
   // weight stats
   sw();
+
+  // WARNING:
+  // The following calculation is not completely correct
+  // correct would be: fit a gaussian with an addiational shift parameter
+  // when knowing the shift parameter, we can substract it from the actual likelihood values
+
   double L_sum = 0.0;
   double L_sum_sq = 0.0;
   double L_max = 0.0;
   double L_min = std::numeric_limits<double>::max();
   double L_n = static_cast<double>(particle_attrs.size());
+
+  rm::AABB bb_trans;
+  bb_trans.init();
 
   for(size_t i=0; i<particle_attrs.size(); i++)
   {
@@ -720,91 +718,81 @@ void RmclNode::induceState()
     L_sum_sq += v*v;
     L_max = std::max(L_max, v);
     L_min = std::min(L_min, v);
+    bb_trans.expand(particle_poses[i].t);
   }
 
-  double L_mean = L_sum / L_n;
-  double L_var  = L_sum_sq / L_n - L_mean * L_mean;
+  const double L_mean = L_sum / L_n;
+  const double L_var  = L_sum_sq / L_n - L_mean * L_mean;
+  
+  stats.likelihood.mean = L_mean;
+  stats.likelihood.sigma = sqrt(L_var);
+  stats.likelihood.min = L_min;
+  stats.likelihood.max = L_max;
+  
+  stats.shift = L_min; // Warning: this is wrong! We have to properly fit first
+  
+  stats.trans_bb_min.x = bb_trans.min.x;
+  stats.trans_bb_min.y = bb_trans.min.y;
+  stats.trans_bb_min.z = bb_trans.min.z;
+  stats.trans_bb_max.x = bb_trans.max.x;
+  stats.trans_bb_max.y = bb_trans.max.y;
+  stats.trans_bb_max.z = bb_trans.max.z;
+
+  stats.nparticles = n_induction_particles;
 
   el = sw();
   std::cout << "   - weight stats: " << el << "s" << std::endl;
 
   sw();
-  // geom stats
-  // rm::Transform Tbm = rm::karcher_mean(particle_poses, [&](size_t i){
-  //   return particle_attrs[i].likelihood.mean / L_sum;
-  // });
-
-  rm::Transform Tbm = rm::mock_mean(particle_poses, [&](size_t i){
+  
+  rm::Transform Tbm = rm::markley_mean(particle_poses, [&](size_t i){
     return particle_attrs[i].likelihood.mean / L_sum;
   });
+
+  stats.pose.pose.position.x = Tbm.t.x;
+  stats.pose.pose.position.y = Tbm.t.y;
+  stats.pose.pose.position.z = Tbm.t.z;
+  stats.pose.pose.orientation.x = Tbm.R.x;
+  stats.pose.pose.orientation.y = Tbm.R.y;
+  stats.pose.pose.orientation.z = Tbm.R.z;
+  stats.pose.pose.orientation.w = Tbm.R.w;
 
   el = sw();
 
   std::cout << "   - weight-aware geom stats: " << el << "s" << std::endl;
   std::cout << "   - Induced Pose: " << Tbm << std::endl;
 
-  geometry_msgs::msg::PoseWithCovarianceStamped Pbm;
 
-  Pbm.header.frame_id = "map";
-  Pbm.header.stamp = this->now();
+  // compute the covariance
 
-  Pbm.pose.pose.position.x = Tbm.t.x;
-  Pbm.pose.pose.position.y = Tbm.t.y;
-  Pbm.pose.pose.position.z = Tbm.t.z;
-  Pbm.pose.pose.orientation.x = Tbm.R.x;
-  Pbm.pose.pose.orientation.y = Tbm.R.y;
-  Pbm.pose.pose.orientation.z = Tbm.R.z;
-  Pbm.pose.pose.orientation.w = Tbm.R.w;
 
-  pub_pose_wc_->publish(Pbm);
+  // uppper 3x3 block
 
-  { // broadcast transform
+  rm::Matrix3x3 C11 = rm::Matrix3x3::Zeros();
+
+  float test_sum = 0.0;
+
+  for(size_t i=0; i<particle_poses.size(); i++)
+  {
+    float w = particle_attrs[i].likelihood.mean / L_sum;
+
+    // relative pose Transform other -> base
+    rm::Transform Tob = ~Tbm * particle_poses[i];
+
+    C11 += Tob.t.multT(Tob.t) * w;
+
     
-    // 1. get current transform between base and odom
-    try {
-      geometry_msgs::msg::TransformStamped Tbo_ros = tf_buffer_->lookupTransform(
-        config_general_.odom_frame, // to
-        config_general_.base_frame, // from
-        this->now(), // TODO: is this right?
-        tf2::durationFromSec(0.3));
-
-      // T_bnew_o_stamp = T.header.stamp;
-      
-      rm::Transform Tbo;
-      Tbo.t.x = Tbo_ros.transform.translation.x;
-      Tbo.t.y = Tbo_ros.transform.translation.y;
-      Tbo.t.z = Tbo_ros.transform.translation.z;
-      Tbo.R.x = Tbo_ros.transform.rotation.x;
-      Tbo.R.y = Tbo_ros.transform.rotation.y;
-      Tbo.R.z = Tbo_ros.transform.rotation.z;
-      Tbo.R.w = Tbo_ros.transform.rotation.w;
-
-      const rm::Transform Tom = Tbm * ~Tbo;
-      
-      geometry_msgs::msg::TransformStamped Tom_ros;
-      Tom_ros.transform.translation.x = Tom.t.x;
-      Tom_ros.transform.translation.y = Tom.t.y;
-      Tom_ros.transform.translation.z = Tom.t.z;
-      Tom_ros.transform.rotation.x = Tom.R.x;
-      Tom_ros.transform.rotation.y = Tom.R.y;
-      Tom_ros.transform.rotation.z = Tom.R.z;
-      Tom_ros.transform.rotation.w = Tom.R.w;
-
-      Tom_ros.header.frame_id = config_general_.map_frame;
-      Tom_ros.child_frame_id = config_general_.odom_frame;
-      Tom_ros.header.stamp = this->now();
-
-      tf_broadcaster_->sendTransform(Tom_ros);
-
-
-    } catch (const tf2::TransformException & ex) {
-      std::cout << "   Could not find transform from " 
-            << config_general_.base_frame << " to " 
-            << config_general_.odom_frame << ": " << ex.what() << std::endl;
-      // return res;
-    }
-
   }
+
+  stats.pose.covariance[6 * 0 + 0] = C11(0,0);
+  stats.pose.covariance[6 * 0 + 1] = C11(0,1);
+  stats.pose.covariance[6 * 0 + 2] = C11(0,2);
+  stats.pose.covariance[6 * 1 + 0] = C11(1,0);
+  stats.pose.covariance[6 * 1 + 1] = C11(1,1);
+  stats.pose.covariance[6 * 1 + 2] = C11(1,2);
+  stats.pose.covariance[6 * 2 + 0] = C11(2,0);
+  stats.pose.covariance[6 * 2 + 1] = C11(2,1);
+  stats.pose.covariance[6 * 2 + 2] = C11(2,2);
 
   // further ideas:
   // ask for probability (CDF) service: request AABB, return probability
@@ -836,10 +824,76 @@ void RmclNode::induceState()
 
   // mean
   // weighted mean
-  rm::Vector3f wmean = {0.0, 0.0, 0.0};
+  // rm::Vector3f wmean = {0.0, 0.0, 0.0};
   // for(size_t i=0; i<)
 
   std::cout << "} // State Induction" << std::endl;
+
+  return stats;
+}
+
+void RmclNode::publishStats(const rmcl_msgs::msg::ParticleStats& stats)
+{
+  
+  { // publish pose
+    geometry_msgs::msg::PoseWithCovarianceStamped Pbm;
+    Pbm.header.frame_id = "map";
+    Pbm.header.stamp = this->now();
+    Pbm.pose = stats.pose;
+    pub_pose_wc_->publish(Pbm);
+  }
+
+  { // broadcast transform
+    
+    rm::Transform Tbm;
+    Tbm.t.x = stats.pose.pose.position.x;
+    Tbm.t.y = stats.pose.pose.position.y;
+    Tbm.t.z = stats.pose.pose.position.z;
+    Tbm.R.x = stats.pose.pose.orientation.x;
+    Tbm.R.y = stats.pose.pose.orientation.y;
+    Tbm.R.z = stats.pose.pose.orientation.z;
+    Tbm.R.w = stats.pose.pose.orientation.w;
+
+    // 1. get current transform between base and odom
+    try {
+      geometry_msgs::msg::TransformStamped Tbo_ros = tf_buffer_->lookupTransform(
+        config_general_.odom_frame, // to
+        config_general_.base_frame, // from
+        this->now(), // TODO: is this right?
+        tf2::durationFromSec(0.3));
+      
+      rm::Transform Tbo;
+      Tbo.t.x = Tbo_ros.transform.translation.x;
+      Tbo.t.y = Tbo_ros.transform.translation.y;
+      Tbo.t.z = Tbo_ros.transform.translation.z;
+      Tbo.R.x = Tbo_ros.transform.rotation.x;
+      Tbo.R.y = Tbo_ros.transform.rotation.y;
+      Tbo.R.z = Tbo_ros.transform.rotation.z;
+      Tbo.R.w = Tbo_ros.transform.rotation.w;
+
+      const rm::Transform Tom = Tbm * ~Tbo;
+      
+      geometry_msgs::msg::TransformStamped Tom_ros;
+      Tom_ros.transform.translation.x = Tom.t.x;
+      Tom_ros.transform.translation.y = Tom.t.y;
+      Tom_ros.transform.translation.z = Tom.t.z;
+      Tom_ros.transform.rotation.x = Tom.R.x;
+      Tom_ros.transform.rotation.y = Tom.R.y;
+      Tom_ros.transform.rotation.z = Tom.R.z;
+      Tom_ros.transform.rotation.w = Tom.R.w;
+
+      Tom_ros.header.frame_id = config_general_.map_frame;
+      Tom_ros.child_frame_id = config_general_.odom_frame;
+      Tom_ros.header.stamp = this->now();
+
+      tf_broadcaster_->sendTransform(Tom_ros);
+
+    } catch (const tf2::TransformException & ex) {
+      std::cout << "   Could not find transform from " 
+            << config_general_.base_frame << " to " 
+            << config_general_.odom_frame << ": " << ex.what() << std::endl;
+    }
+  }
 }
 
 void RmclNode::visualize()

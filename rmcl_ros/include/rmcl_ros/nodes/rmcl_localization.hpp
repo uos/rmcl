@@ -46,6 +46,7 @@
 
 #include <std_srvs/srv/empty.hpp>
 #include <rmcl_msgs/srv/set_initial_pose.hpp>
+#include <rmcl_msgs/msg/particle_stats.hpp>
 
 namespace rm = rmagine;
 
@@ -265,7 +266,9 @@ private:
   // It is currently called after resampling step
   // - Allow to call it from a service? -> so that another module can ask for a summary of the localization process
   // - Stream induction info on a topic independend from the resampling step? 
-  void induceState(); 
+  rmcl_msgs::msg::ParticleStats estimateStats();
+  
+  void publishStats(const rmcl_msgs::msg::ParticleStats& stats);
 
   ///////////////////////////////////
   // VISUALIZATION
