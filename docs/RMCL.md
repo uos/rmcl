@@ -1,10 +1,10 @@
-# Raycasting Monte Carlo Localization (RMCL)
+# RMCL - Global 6D Localization in Meshes from 1D Range Measurements 
 
 > Note: RMCL is under development and heavy testing. 
 > Nevertheless we decided to pre-release the `v0` version in an unfinished state, because we think it can help other to see 
 > whats possible. Also we hope you can test this and perhaps help us in improving / finishing the last things.
 
-This node provides a practical, real-time implementation of Monte Carlo Localization (MCL) for global robot localization, accelerated by high-performance ray tracing over triangle meshes and geometric scene graphs. MCL has a decades-long track record; our focus is making it easy to deploy and tune on real robots. The pipeline scales across diverse hardware with parameters to meet tight compute and memory budgets (including for our smallest robots). The documentation begins with hands-on usage and configuration of `rmcl_localization_node`, followed by a concise overview of the underlying concepts and design choices.
+Raycasting Monte Carlo Localization (RMCL) provides a practical, real-time implementation of Monte Carlo Localization (MCL) for global robot localization, accelerated by high-performance ray tracing over triangle meshes and geometric scene graphs. MCL has a decades-long track record; our focus is making it easy to deploy and tune on real robots. The pipeline scales across diverse hardware with parameters to meet tight compute and memory budgets (including for our smallest robots). The documentation begins with hands-on usage and configuration of `rmcl_localization_node`, followed by a concise overview of the underlying concepts and design choices.
 
 ## Usage
 

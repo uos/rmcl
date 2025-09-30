@@ -64,9 +64,9 @@ Please reference the following paper when using the MICP-L method in your scient
 The paper is available on [IEEE Xplore](https://ieeexplore.ieee.org/document/10802360) and as preprint on [arXiv](https://arxiv.org/abs/2210.13904). The experiments are available at [https://github.com/amock/micp_experiments](https://github.com/amock/micp_experiments), but they are primarily compatible with the ROS 1 version.  
 See the older branches or commits for reference.
 
-## Raycasting Monte Carlo Localization (RMCL)
+## RMCL - Global 6D Localization in Meshes from 1D Range Measurements 
 
-The `rmcl_localization_node` provides a practical, real-time implementation of Monte Carlo Localization (MCL) for global robot localization, accelerated by high-performance ray tracing over triangle meshes and geometric scene graphs. MCL has a decades-long track record; our focus is making it easy to deploy and tune on real robots. The pipeline scales across diverse hardware with parameters to meet tight compute and memory budgets (including for our smallest robots). The documentation begins with hands-on usage and configuration of `rmcl_localization_node`, followed by a concise overview of the underlying concepts and design choices.
+Ray Casting Monte Carlo Localization (RMCL) provides a practical, real-time implementation of Monte Carlo Localization (MCL) for global robot localization, accelerated by high-performance ray tracing over triangle meshes and geometric scene graphs. MCL has a decades-long track record; our focus is making it easy to deploy and tune on real robots. The pipeline scales across diverse hardware with parameters to meet tight compute and memory budgets (including for our smallest robots). The documentation begins with hands-on usage and configuration of `rmcl_localization_node`, followed by a concise overview of the underlying concepts and design choices.
 
 ![Teaser](.resources/rmcl.gif)
 
