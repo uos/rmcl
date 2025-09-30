@@ -90,3 +90,10 @@ Possible Improvements:
 
 * Test if a bit of threading make things better: I think it would help to perform chunk-wise operations on the particle set for better asynchoronization
 * Provide plugin interface (mid-term)
+
+## Contribute
+
+Feel free to contribute. If you find one of the topics listed in the TODOs interesting, feel free to contact me, or open an issue here on GitHub.
+
+-- [Alexander Mock](github.com/amock).
+
