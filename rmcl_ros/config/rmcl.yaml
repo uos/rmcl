@@ -1,6 +1,6 @@
 rmcl_localization_node:
   ros__parameters:
-    base_frame: base_link
+    base_frame: base_footprint
     odom_frame: odom
     map_frame: map
 
@@ -9,13 +9,24 @@ rmcl_localization_node:
         name: test
         # source: TODO # set from launch file
 
-    max_particles: 400000
+    max_particles: 800000
+
+    initialization:
+      global:
+        box:
+          #      X       Y      Z    ROLL  PITCH   YAW
+          min: [-50.0, -50.0,  0.0,  0.0,   0.0, -3.141]
+          max: [ 50.0,  50.0,  2.0,  0.0,   0.0,  3.141]
+        particles: 800000
+      pose:
+        topic: /initialpose
+        particles: 50000
 
     motion_update: # per particle
       type: tf # TODO: check if we can make plugins?
       compute: gpu
       
-      rate: 50.0
+      rate: 30.0
       # weight_noise: 0.2
       forget_rate: 0.3 # per meter
       forget_rate_per_second: 0.01 # per second # TODO: make own "time update" from this
@@ -37,25 +48,28 @@ rmcl_localization_node:
       map: map
       debug: true
       enabled: true
+      topic: /lidar3d/points
 
     resampling: # a posteriori (sensor update) using fusing a priori (motion update) and likelihood field
       type: gladiator
-      compute: cpu
+      compute: gpu
 
       rate: 10.0
       # min_dist: 0.02 # TODO: impl
       # min_rot: 0.02 # TODO: impl
       debug: true
 
-      min_noise_tx: 0.15
-      min_noise_ty: 0.15
-      min_noise_tz: 0.05
+      min_noise_tx: 0.1
+      min_noise_ty: 0.1
+      min_noise_tz: 0.04
       min_noise_roll: 0.0
       min_noise_pitch: 0.0
-      min_noise_yaw: 0.03
+      min_noise_yaw: 0.02
 
       likelihood_forget_per_meter: 0.3
       likelihood_forget_per_radian: 0.6
+
+      max_induction_particles: 20000
 
     visualization:
       rate: 20.0

@@ -260,7 +260,7 @@ private:
 
   // 1. config
   struct {
-    unsigned int max_particles = 100000;
+    size_t max_particles = 100000;
     std::string base_frame;
     std::string odom_frame;
     std::string map_frame;
@@ -273,15 +273,16 @@ private:
   std::shared_ptr<tf2_ros::Buffer>               tf_buffer_;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-  size_t                                      n_particles_;
+  // currently used particles for motion update, sensor update, and resampling
+  size_t                                         n_particles_;
 
   // global data storage
 
+  // current data location: CPU/GPU
   std::string data_location_;
 
-  std::shared_mutex data_mtx_;  // protects vec
-
-
+  // protects particles from threading access (TODO: test if threading makes things smoother or not)
+  std::shared_mutex data_mtx_;
 
   // CPU
   ParticleCloud<rm::RAM>* particle_cloud_;
@@ -307,6 +308,20 @@ private:
   void initSamplesUniform();
   void initSamples(const geometry_msgs::msg::PoseWithCovarianceStamped& pose);
 
+  void updateInitializationParams();
+
+  struct {
+    std::string topic;
+    size_t n_particles;
+  } config_pose_initialization_;
+
+  struct {
+    std::vector<double> bb_min = {-50.0, -50.0, 0.0, 0.0, 0.0, -M_PI};
+    std::vector<double> bb_max = { 50.0,  50.0, 0.0, 0.0, 0.0,  M_PI};
+    size_t n_particles;
+  } config_global_initialization_;
+
+
   ///////////////////////////////
   // MOTION UPDATE
   ///////////////////////////////
@@ -330,7 +345,6 @@ private:
   // 3. functions
   void updateMotionUpdateParams();
   void motionUpdate();
-
   
   ///////////////////////////////////
   // SENSOR UPDATE
@@ -362,6 +376,8 @@ private:
 
     unsigned int samples = 10;
 
+    std::string topic;
+
   } config_sensor_update_;
 
   // 2. members
@@ -388,6 +404,8 @@ private:
     std::string compute;
 
     double rate = 10.0;
+
+    size_t max_induction_particles;
   
   } config_resampling_;
 
@@ -421,7 +439,7 @@ private:
   struct {
     bool enabled;
     double rate;
-    unsigned int max_particles;
+    size_t max_particles;
   } config_visualization_;
 
   // 2. members

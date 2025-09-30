@@ -13,6 +13,7 @@
     <!-- remap default topic to topic where the initial pose is published -->
     <remap from="pose_wc" to="/initialpose" />
     <remap from="points" to="/lidar3d/points" />
+    <!-- <remap from="points" to="/rgbd_camera/points" /> -->
 </node>
 
 </launch>

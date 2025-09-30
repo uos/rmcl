@@ -36,6 +36,9 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
   // general params
   updateGeneralParams();
 
+  // initialization params
+  updateInitializationParams();
+
   // general motion update params
   updateMotionUpdateParams();
 
@@ -50,14 +53,13 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
 
 
   sub_pose_wc_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    "pose_wc", 1, 
+    config_pose_initialization_.topic, 1, 
     [=](const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr& msg)
     {
       initSamples(*msg);
     });
-  // sub_pose_wc_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("pose_wc", 1);
 
-  pub_pose_wc_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("rmcl_pose", 1);
+  pub_pose_wc_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("rmcl/pose", 1);
 
   // motion update
   motion_update_timer_ = this->create_wall_timer(
@@ -67,7 +69,7 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
 
   // sensor update
   sub_pcl_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "points", 10, 
+    config_sensor_update_.topic, 10, 
     [=](const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg)
     {
       sensorUpdate(msg);
@@ -84,7 +86,7 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
     viz_timer_ = this->create_wall_timer(
       std::chrono::duration<float>(1.0 / config_visualization_.rate), [this](){ visualize(); });
 
-    pub_pcl_viz_ = this->create_publisher<sensor_msgs::msg::PointCloud>("particles", 10);
+    pub_pcl_viz_ = this->create_publisher<sensor_msgs::msg::PointCloud>("rmcl/particles", 10);
   }
   
   initMemory();
@@ -146,14 +148,16 @@ inline void convert(const std::array<double, 36>& Cin, rm::Matrix6x6& Cout)
 void RmclNode::initSamples(
   const geometry_msgs::msg::PoseWithCovarianceStamped& pose_wc)
 {
-  std::unique_lock lock(data_mtx_);
+  updateGeneralParams();
+  updateInitializationParams();
 
   std::cout << "initSamples from pose!" << std::endl;
 
 
+  size_t seed = this->now().nanoseconds();
 
-  static std::mt19937 gen;
-  static std::normal_distribution dist{0.0, 1.0}; // std normal dist
+  std::mt19937 rng(seed);
+  std::normal_distribution dist{0.0, 1.0}; // std normal dist
 
 
   rm::Matrix6x6 C;
@@ -203,18 +207,20 @@ void RmclNode::initSamples(
   // Transform from local to map = local -> pose -> map
   const rm::Transform Tlm = Tpm * Tlp;
 
+  std::unique_lock lock(data_mtx_);
+
   // set new working cloud
-  n_particles_ = config_general_.max_particles;
+  n_particles_ = std::min(config_general_.max_particles, config_pose_initialization_.n_particles);
   for(size_t i=0; i<n_particles_; i++)
   {
     rm::Matrix_<float, 6, 1> x;
     { // set random values from standard normal distribution
-      x(0,0) = dist(gen);
-      x(1,0) = dist(gen);
-      x(2,0) = dist(gen);
-      x(3,0) = dist(gen);
-      x(4,0) = dist(gen);
-      x(5,0) = dist(gen);
+      x(0,0) = dist(rng);
+      x(1,0) = dist(rng);
+      x(2,0) = dist(rng);
+      x(3,0) = dist(rng);
+      x(4,0) = dist(rng);
+      x(5,0) = dist(rng);
     }
     
     // deform dist using covariance
@@ -235,7 +241,7 @@ void RmclNode::initSamples(
   // forces copying data to GPU if required
   data_location_ = "cpu";
 
-  // as motion updater and sensor_updater possibly contain 
+  updateGeneralParams();// as motion updater and sensor_updater possibly contain 
   // statistics over history of data, the simplest thing is to
   // force them to reinitialize.
   // --> this could also be convinient as it forces the program to change plugins
@@ -253,16 +259,20 @@ void RmclNode::initSamples(
 
 void RmclNode::initSamplesUniform()
 {
-  static std::mt19937 gen;
-  static std::uniform_real_distribution<float> dist_x(-20.0, 15.0);
-  static std::uniform_real_distribution<float> dist_y(-40.0, 20.0);
-  static std::uniform_real_distribution<float> dist_z(-0.0, 2.0);
-  static std::uniform_real_distribution<float> dist_roll(0.0, 0.0);
-  static std::uniform_real_distribution<float> dist_pitch(0.0, 0.0);
-  static std::uniform_real_distribution<float> dist_yaw(-M_PI, M_PI);
-
   // 1M particles
   updateGeneralParams();
+
+  updateInitializationParams();
+  
+  size_t seed = this->now().nanoseconds();
+
+  std::mt19937 rng(seed);
+  std::uniform_real_distribution<float> dist_x(config_global_initialization_.bb_min[0], config_global_initialization_.bb_max[0]);
+  std::uniform_real_distribution<float> dist_y(config_global_initialization_.bb_min[1], config_global_initialization_.bb_max[1]);
+  std::uniform_real_distribution<float> dist_z(config_global_initialization_.bb_min[2], config_global_initialization_.bb_max[2]);
+  std::uniform_real_distribution<float> dist_roll(config_global_initialization_.bb_min[3], config_global_initialization_.bb_max[3]);
+  std::uniform_real_distribution<float> dist_pitch(config_global_initialization_.bb_min[4], config_global_initialization_.bb_max[4]);
+  std::uniform_real_distribution<float> dist_yaw(config_global_initialization_.bb_min[5], config_global_initialization_.bb_max[5]);
 
   // rm::Vector6f bla;
 
@@ -283,17 +293,18 @@ void RmclNode::initSamplesUniform()
   std::unique_lock lock(data_mtx_);
 
   // set new working cloud
-  n_particles_ = config_general_.max_particles;
+  n_particles_ = std::min(config_general_.max_particles, config_global_initialization_.n_particles);
+
   for(size_t i=0; i<n_particles_; i++)
   {
     rm::Transform Tbm;
-    Tbm.t = {dist_x(gen), dist_y(gen), dist_z(gen)};
-    Tbm.R = rm::EulerAngles{dist_roll(gen), dist_pitch(gen), dist_yaw(gen)};
+    Tbm.t = {dist_x(rng), dist_y(rng), dist_z(rng)};
+    Tbm.R = rm::EulerAngles{dist_roll(rng), dist_pitch(rng), dist_yaw(rng)};
   
     particle_cloud_->poses[i] = Tbm;
     ParticleAttributes p_attr;
     p_attr.likelihood = rm::Gaussian1D::Identity();
-    p_attr.likelihood.mean = 10.0;
+    // p_attr.likelihood.mean = 10.0;
     // p_attr.state_cov = cov_init;
     particle_cloud_->attrs[i] = p_attr;
   }
@@ -320,6 +331,18 @@ void RmclNode::updateGeneralParams()
   config_general_.max_particles = rmcl::get_parameter(this, "~max_particles", 1000000);
 }
 
+void RmclNode::updateInitializationParams()
+{
+  // pose initialization
+  config_pose_initialization_.topic = rmcl::get_parameter(this, "initialization.pose.topic", "/initialpose");
+  config_pose_initialization_.n_particles = rmcl::get_parameter(this, "initialization.pose.particles", 50000);
+  
+  // global initialization
+  config_global_initialization_.n_particles = rmcl::get_parameter(this, "initialization.global.particles", 50000);
+  config_global_initialization_.bb_min = rmcl::get_parameter(this, "initialization.global.box.min", config_global_initialization_.bb_min);
+  config_global_initialization_.bb_max = rmcl::get_parameter(this, "initialization.global.box.max", config_global_initialization_.bb_max);
+}
+
 void RmclNode::updateMotionUpdateParams()
 {
   config_motion_update_.type    = rmcl::get_parameter(motion_update_node_, "~type", "");
@@ -334,6 +357,7 @@ void RmclNode::updateSensorUpdateParams()
   config_sensor_update_.correspondence_type = rmcl::get_parameter(sensor_update_node_, "~correspondence_type", 0);
   config_sensor_update_.dist_sigma = rmcl::get_parameter(sensor_update_node_, "~dist_sigma", 2.0);
   config_sensor_update_.samples = rmcl::get_parameter(sensor_update_node_, "~samples", 100);
+  config_sensor_update_.topic = rmcl::get_parameter(sensor_update_node_, "~topic", "points");
 }
 
 void RmclNode::updateResamplingParams()
@@ -341,6 +365,7 @@ void RmclNode::updateResamplingParams()
   config_resampling_.type = rmcl::get_parameter(resampling_node_, "~type", "");
   config_resampling_.rate = rmcl::get_parameter(resampling_node_, "~rate", 20.0);
   config_resampling_.compute = rmcl::get_parameter(resampling_node_, "~compute", "");
+  config_resampling_.max_induction_particles = rmcl::get_parameter(resampling_node_, "~max_induction_particles", 50000);
 }
 
 void RmclNode::updateVisualizationParams()
@@ -651,10 +676,11 @@ void RmclNode::induceState()
   // copy cpu memory to this function
   // ParticleCloud<rm::RAM> particle_cloud = *particle_cloud_;
 
+  const size_t n_induction_particles = std::min(n_particles_, config_resampling_.max_induction_particles);
 
   // work slice
-  rm::MemoryView<rm::Transform, rm::RAM> particle_poses = particle_cloud_->poses(0, n_particles_);
-  rm::MemoryView<ParticleAttributes, rm::RAM> particle_attrs = particle_cloud_->attrs(0, n_particles_);
+  rm::MemoryView<rm::Transform, rm::RAM> particle_poses = particle_cloud_->poses(0, n_induction_particles);
+  rm::MemoryView<ParticleAttributes, rm::RAM> particle_attrs = particle_cloud_->attrs(0, n_induction_particles);
 
   el = sw();
 
@@ -803,7 +829,7 @@ void RmclNode::visualize()
 
   // std::cout << "-------------------" << std::endl;
   // std::cout << "{ // Visualize" << std::endl;
-  unsigned int n_viz_particles = std::min(config_visualization_.max_particles, (unsigned int)n_particles_);
+  const size_t n_viz_particles = std::min(config_visualization_.max_particles, n_particles_);
 
   // std::cout << "    - Visualize " << n_viz_particles << " particles..." << std::endl;
 
