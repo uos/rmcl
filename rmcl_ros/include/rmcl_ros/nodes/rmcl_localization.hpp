@@ -53,161 +53,13 @@ constexpr uint32_t MAX_N_MEAS = 10000;
 
 namespace rmcl
 {
-// struct BeliefStateStats
-// {
-//   /**
-//    * @brief how similar the belief state is to a normal distribution
-//    * between 0 and 1
-//    * 1: is likely to be a normal distribution
-//    * 0: is unlikely to be a normal distribution
-//   **/ 
-//   float normaly = 0.0;
 
-//   float likelihood = 0.0;
-
-//   // TODO: more dimensions
-//   rm::Matrix3x3 cov;
-//   rm::Vector3 mean;
-// };
-
-// struct RangeMeasurement
-// {
-//     rm::Vector      orig;
-//     rm::Vector      dir;
-//     float           range;
-//     rm::Matrix3x3   cov;
-
-//     inline rm::Vector3 mean() const
-//     {
-//       return orig + dir * range;
-//     }
-// };
-
-// /**
-//  * @brief this transforms a RangeMeasurement from one space to another
-//  * Remember: Measurements are only comparable in the same coordinate system!
-//  * Therefore, this function is very important
-//  */
-// RangeMeasurement transform(
-//   const rm::Transform& T,
-//   const RangeMeasurement& meas)
-// {
-//   RangeMeasurement ret;
-//   const rm::Matrix3x3 R = T.R;
-//   ret.dir = T.R * meas.dir;
-//   ret.orig = T * meas.orig;
-//   ret.range = meas.range;
-//   // seems the range is not effected by a rigid transformation
-//   // however, it will be effected by a transformation that include a scaling part
-//   ret.cov = R * meas.cov * R.T(); // TODO: check this
-//   return ret;
-// }
-
-// RangeMeasurement operator*(
-//   const rm::Transform& T,
-//   const RangeMeasurement& meas)
-// {
-//   return transform(T, meas);
-// }
-
-// float compute_z_score(
-//   const rm::Gaussian1D& g,
-//   float population_mean)
-// {
-//   constexpr float MAX_Z_SCORE = 1000000.0;
-
-//   // z score: how likely is g to be unlikely?
-//   if(g.n_meas < 1)
-//   {
-//     return MAX_Z_SCORE;
-//   }
-
-//   const double standard_error = g.sigma / sqrt(static_cast<double>(g.n_meas));
-//   if(standard_error < 0.000001)
-//   {
-//     return MAX_Z_SCORE;
-//   }
-
-//   const float z_score = (g.mean - population_mean) / standard_error;
-//   return std::min(z_score, MAX_Z_SCORE);
-// }
-
-// double normalCDF(double value)
-// {
-//    return 0.5 * erfc(-value * M_SQRT1_2);
-// }
-
-// float compute_p_value(
-//   const rm::Gaussian1D& g,
-//   float population_mean)
-// {
-//   const float z_score = compute_z_score(g, population_mean);
-//   // 2 * (1 + CDF(z_score))
-//   return 2.0 - erfc(-z_score * M_SQRT1_2);
-// }
-
-/**
- * good rmcl parameters are going to be guessed dependend on the beliefstate stats and the change of the belief state stats
- * some situations I want to cover:
- * 
- * 1. Surprise:
- * 
- * t0: belief state is very certain: 
- *     - unimodal
- *     - small covariances
- *     -> few particles (tracking)
- *     - high likelihood
- * 
- * Robot got kidnapped
- * 
- * t1: particles got a bad evaluation
- *      - unimodal
- *      - small covariances
- *      - low likelihood
- * 
- * difference when kidnapping the robot would be:
- * - quickly decreasing likelihood
- * 
- * How to overcome: react - increase particles, spread wider
- * 
- * (unimodal, small covariances, decreasing likelihood) -> increase number of particles
- * 
- * Note: I think, fitting a normal distribution to t1 would automalically give a "wider" spread, since all the likelihood values are low
- * 
- * -> sensor data we record are not the sensor data we expect: surprise
- * 
-*/ 
 struct RMCLParameters
 {
   size_t num_particles = 1;
   size_t max_evaluations = 1;
   size_t num_corrections = 0;
 };
-
-/**
- * computational thoughts:
- * 
- * we have to compute different things:
- * - N particles
- * - M measurements for sensor updates
- * 
- * - M corrections (when convergeged)
- * 
- * For corrections we need enough measurements per particles
- * 
- * Evaluation is faster than correction
- * 
- * What I propose:
- * 
- * Localization status:  Computation
- * - Bad:  (N = 1000000, M = 1, corr = false)              
- * - Medium: (N = 1000, M = 1000, corr = false) 
- * - Good: (N = 500, M = 1000, corr = true)
- * 
- * I want the transition to be flowing. But trigger the correction cannot be flowing.
- * Can we enable a 
- * 
-*/
 
 template<typename MemT>
 struct ParticleCloud
@@ -223,30 +75,9 @@ struct ParticleCloudView
   rm::MemoryView<ParticleAttributes, MemT>   attrs;
 };
 
-// template<typename MemT>
-// std::shared_ptr<ParticleCloudView<MemT> > make_view(
-//   rm::MemoryView<rm::Transform, MemT> poses,
-//   rm::MemoryView<ParticleAttributes, MemT> attrs)
-// {
-//   return std::make_shared<ParticleCloudView<MemT> >(ParticleCloudView<MemT>{poses, attrs});
-// }
-
-// template<typename MemT>
-// std::shared_ptr<ParticleCloudView<MemT> > make_view(
-//   const ParticleCloud& particle_cloud)
-// {
-//   return make_view(particle_cloud.poses, particle_cloud.attrs);
-// }
 
 /**
- * 
- * Plan:
- * 
- * Init a lot of particles
- * 
- * 
- * 
- * 
+ * The RMCLNode
 */
 class RmclNode : public rclcpp::Node
 {
@@ -324,8 +155,7 @@ private:
   } config_global_initialization_;
 
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr srv_global_initialization_;
-
-  // rclcpp::Service<std_srvs::srv::Empty>::SharedPtr 
+  rclcpp::Service<rmcl_msgs::srv::SetInitialPose>::SharedPtr srv_pose_initialization_; 
 
 
   ///////////////////////////////

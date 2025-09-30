@@ -59,6 +59,24 @@ RmclNode::RmclNode(const rclcpp::NodeOptions& options)
       initSamples(*msg);
     });
 
+  srv_global_initialization_ = this->create_service<std_srvs::srv::Empty>(
+    "rmcl/global_localization",
+    [=](const std::shared_ptr<rmw_request_id_t> /*header*/,
+           const std::shared_ptr<std_srvs::srv::Empty::Request> /*req*/,
+           std::shared_ptr<std_srvs::srv::Empty::Response> /*res*/) -> void
+      {
+        initSamplesUniform();
+      });
+
+  srv_pose_initialization_ = this->create_service<rmcl_msgs::srv::SetInitialPose>(
+    "rmcl/initial_pose_guess",
+    [=](const std::shared_ptr<rmw_request_id_t> /*header*/,
+           const std::shared_ptr<rmcl_msgs::srv::SetInitialPose::Request> req,
+           std::shared_ptr<rmcl_msgs::srv::SetInitialPose::Response> /*res*/) -> void
+      {
+        initSamples(req->pose);
+      });
+
   pub_pose_wc_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("rmcl/pose", 1);
 
   // motion update
@@ -234,7 +252,7 @@ void RmclNode::initSamples(
     particle_cloud_->poses[i] = Tlm * Pl;
     ParticleAttributes p_attr;
     p_attr.likelihood = rm::Gaussian1D::Identity();
-    p_attr.likelihood.mean = 0.1;
+    p_attr.likelihood.mean = 1.0;
     particle_cloud_->attrs[i] = p_attr;
   }
 
@@ -304,7 +322,8 @@ void RmclNode::initSamplesUniform()
     particle_cloud_->poses[i] = Tbm;
     ParticleAttributes p_attr;
     p_attr.likelihood = rm::Gaussian1D::Identity();
-    // p_attr.likelihood.mean = 10.0;
+    // keeping this zero can result in strange behavior when no sensor update can be done until the next resampling step
+    p_attr.likelihood.mean = 1.0; 
     // p_attr.state_cov = cov_init;
     particle_cloud_->attrs[i] = p_attr;
   }

@@ -9,11 +9,6 @@
     <param name="use_sim_time" value="true" />
     <param from="$(var config)" />
     <param name="map_server.map.source" value="$(find-pkg-share rmcl_examples_maps)/maps/$(var map).dae" />
-
-    <!-- remap default topic to topic where the initial pose is published -->
-    <remap from="pose_wc" to="/initialpose" />
-    <remap from="points" to="/lidar3d/points" />
-    <!-- <remap from="points" to="/rgbd_camera/points" /> -->
 </node>
 
 </launch>
