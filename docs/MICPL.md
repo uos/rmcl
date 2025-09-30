@@ -3,7 +3,7 @@
 MICP-L: Mesh-based ICP for Robot Localization Using Hardware-Accelerated Ray Casting.
 An approach to directly register range sensor data to a mesh in order to localize a mobile robot using hardware-accelerated ray casting correspondences (See publications).
 
-[![Teaser](.resources/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
+[![Teaser](../.resources/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
 
 |  Hilti: 6DoF Localization  | MulRan: Large-scale scenes |
 |:--:|:--:|
