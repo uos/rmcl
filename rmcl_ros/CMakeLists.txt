@@ -772,10 +772,6 @@ endif()
 #################
 # Finish package configuration
 
-install(DIRECTORY config launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
 ament_export_include_directories(
   include
 )
