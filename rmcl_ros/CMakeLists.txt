@@ -659,11 +659,11 @@ install(TARGETS
     o1dn_map_segmentation_embree
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin      
+    RUNTIME DESTINATION bin
 )
 
 add_library(scan_map_segmentation_embree SHARED
-    src/nodes/filter/o1dn_map_segmentation_embree.cpp)
+    src/nodes/filter/scan_map_segmentation_embree.cpp)
 
 target_link_libraries(scan_map_segmentation_embree
     rmcl_ros

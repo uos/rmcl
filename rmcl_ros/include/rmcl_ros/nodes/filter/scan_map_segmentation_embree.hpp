@@ -25,7 +25,7 @@ public:
   explicit ScanMapSegmentationEmbreeNode(
     const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
 
-  void scanCB(const rmcl_msgs::msg::O1DnStamped::ConstSharedPtr& msg) const;
+  void scanCB(const rmcl_msgs::msg::ScanStamped::ConstSharedPtr& msg) const;
 
 private:
 
