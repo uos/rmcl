@@ -75,6 +75,10 @@ Ray Casting Monte Carlo Localization (RMCL) provides a practical, real-time impl
 See the longer pre-release video [here](https://www.youtube.com/watch?v=whuEqYdkimI&list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI). Read more details [here](./docs/RMCL.md).
 
 
+### Publication
+
+Since Ray MCL is currently in a pre-release state, no formal publication is available yet. When using RMCL in your scientific work, please reference this software package, or one of the closely related work: [rmagine](github.com/uos/rmagine), [MICP-L](https://ieeexplore.ieee.org/document/10802360).
+
 # RMCL - Project
 
 ## Installation
