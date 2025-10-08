@@ -6,7 +6,7 @@
 
 <!-- ![RMCL](.resources/rmcl_logo_landscape_small.png) -->
 <div align="center">
-<h4 align="center">Software Tools for Mobile Robot Localization in 3D Meshes</h4>
+<h4 align="center">Mobile Robot Localization in 3D Triangle Meshes & Geometric Scene Graphs</h4>
 </div>
 
 <div align="center">
@@ -77,7 +77,21 @@ See the longer pre-release video [here](https://www.youtube.com/watch?v=whuEqYdk
 
 ### Publication
 
-Since Ray MCL is currently in a pre-release state, no formal publication is available yet. When using RMCL in your scientific work, please reference this software package, or one of the closely related work: [rmagine](github.com/uos/rmagine), [MICP-L](https://ieeexplore.ieee.org/document/10802360).
+Since **Ray MCL** is still in a pre-release stage, no formal publication is available at this time. When using **RMCL** in your scientific work, please reference one of the closely related projects such as [**rmagine**](https://github.com/uos/rmagine) or [**MICP-L**](https://ieeexplore.ieee.org/document/10802360), as many of their concepts have been incorporated into RMCL.
+Alternatively, you may cite this software package directly as follows:
+
+```bib
+@software{amock2025rmcl,
+  author = {Alexander Mock},
+  title = {{RMCL: Mobile Robot Localization in 3D Triangle Meshes \& Geometric Scene Graphs}},
+  license = {BSD-3-Clause},
+  url = {https://github.com/uos/rmcl},
+  version = {2.3},
+  year = {2025},
+  month = {10}
+}
+```
+
 
 # RMCL - Project
 
