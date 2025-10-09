@@ -9,11 +9,13 @@ Raycasting Monte Carlo Localization (RMCL) provides a practical, real-time imple
 
 For the following commands, we assume you have the [rmcl_examples](https://github.com/amock/rmcl_examples) installed. Just follow the instructions there.
 
-Start the RMCL node by running:
+Start the simulation by running
 
 ```bash
 ros2 launch rmcl_examples_sim start_robot_launch.py map:=avz
 ```
+
+Start the RMCL node by running
 
 ```bash
 ros2 launch rmcl_examples rmcl_rmcl.launch map:=avz
@@ -23,7 +25,7 @@ An RViz window will open, and you should see something like this:
 
 ![Teaser](../.resources/rmcl.gif)
 
-Trigger global localization by calling:
+Trigger global localization by calling
 
 ```bash
 ros2 service call /rmcl/global_localization std_srvs/srv/Empty {}

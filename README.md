@@ -6,7 +6,7 @@
 
 <!-- ![RMCL](.resources/rmcl_logo_landscape_small.png) -->
 <div align="center">
-<h4 align="center">Software Tools for Mobile Robot Localization in 3D Meshes</h4>
+<h4 align="center">Mobile Robot Localization in 3D Triangle Meshes & Geometric Scene Graphs</h4>
 </div>
 
 <div align="center">
@@ -31,7 +31,7 @@ This repository contains algorithms designed for map-based robot localization, s
 MICP-L: Mesh-based ICP for Robot Localization Using Hardware-Accelerated Ray Casting.
 An approach to directly register range sensor data to a mesh in order to localize a mobile robot using hardware-accelerated ray casting correspondences (See publications).
 
-[![Teaser](.resources/micp.gif)](http://www.youtube.com/watch?v=G-Z5K0bPFFU)
+[![Teaser](.resources/micpl.gif)](https://www.youtube.com/watch?v=G-Z5K0bPFFU&list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI)
 
 |  Hilti: 6DoF Localization  | MulRan: Large-scale scenes |
 |:--:|:--:|
@@ -70,7 +70,27 @@ Ray Casting Monte Carlo Localization (RMCL) provides a practical, real-time impl
 
 ![Teaser](.resources/rmcl.gif)
 
-Read more details [here](./docs/RMCL.md).
+[![RMCL-Teaser](.resources/rmcl.gif)](https://www.youtube.com/watch?v=whuEqYdkimI&list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI)
+
+See the longer pre-release video [here](https://www.youtube.com/watch?v=whuEqYdkimI&list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI). Read more details [here](./docs/RMCL.md).
+
+
+### Publication
+
+Since **Ray MCL** is still in a pre-release stage, no formal publication is available at this time. When using **RMCL** in your scientific work, please reference one of the closely related projects such as [**rmagine**](https://github.com/uos/rmagine) or [**MICP-L**](https://ieeexplore.ieee.org/document/10802360), as many of their concepts have been incorporated into RMCL.
+Alternatively, you may cite this software package directly as follows:
+
+```bib
+@software{amock2025rmcl,
+  author = {Alexander Mock},
+  title = {{RMCL: Mobile Robot Localization in 3D Triangle Meshes \& Geometric Scene Graphs}},
+  license = {BSD-3-Clause},
+  url = {https://github.com/uos/rmcl},
+  version = {2.3},
+  year = {2025},
+  month = {10}
+}
+```
 
 
 # RMCL - Project

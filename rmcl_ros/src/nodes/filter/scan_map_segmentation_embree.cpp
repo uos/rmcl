@@ -75,8 +75,8 @@ void ScanMapSegmentationEmbreeNode::scanCB(
 
   // Memory<Transform, VRAM_CUDA> T_ = T;
 
-  rm::O1DnModel model;
-  convert(msg->o1dn.info, model);
+  rm::SphericalModel model;
+  convert(msg->scan.info, model);
   scan_sim_->setModel(model);
 
   using ResultT = rm::Bundle<
