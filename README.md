@@ -68,8 +68,6 @@ See the older branches or commits for reference.
 
 Ray Casting Monte Carlo Localization (RMCL) provides a practical, real-time implementation of Monte Carlo Localization (MCL) for global robot localization, accelerated by high-performance ray tracing over triangle meshes and geometric scene graphs. MCL has a decades-long track record; our focus is making it easy to deploy and tune on real robots. The pipeline scales across diverse hardware with parameters to meet tight compute and memory budgets (including for our smallest robots). The documentation begins with hands-on usage and configuration of `rmcl_localization_node`, followed by a concise overview of the underlying concepts and design choices.
 
-![Teaser](.resources/rmcl.gif)
-
 [![RMCL-Teaser](.resources/rmcl.gif)](https://www.youtube.com/watch?v=whuEqYdkimI&list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI)
 
 See the longer pre-release video [here](https://www.youtube.com/watch?v=whuEqYdkimI&list=PL9wBuzh6ev07O2YzbjP4qbcretntl5axI). Read more details [here](./docs/RMCL.md).
@@ -86,7 +84,6 @@ Alternatively, you may cite this software package directly as follows:
   title = {{RMCL: Mobile Robot Localization in 3D Triangle Meshes \& Geometric Scene Graphs}},
   license = {BSD-3-Clause},
   url = {https://github.com/uos/rmcl},
-  version = {2.3},
   year = {2025},
   month = {10}
 }
