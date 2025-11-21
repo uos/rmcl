@@ -68,7 +68,10 @@ find_package(rmagine 2.3.2
         embree
         cuda
         optix
+        vulkan
+        vulkanCudaInterop
 )
+# not quite sure if it is vulkan_cuda_interop or vulkan-cuda-interop or vulkanCudaInterop
 
 if(rmagine_VERSION GREATER RMAGINE_MAX_VERSION)
     message(WARNING "Found Rmagine version: ${rmagine_VERSION} > Latest tested Rmagine version: ${RMAGINE_MAX_VERSION}. Compile at your own risk.")
@@ -94,6 +97,10 @@ if(TARGET rmagine::optix)
     option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
+if(TARGET rmagine::vulkan)
+    option(DISABLE_VULKAN "Disable Rmagine Vulkan backend Compilation" FALSE)
+endif()
+
 find_package(Eigen3 REQUIRED)
 
 set(RMCL_LIBRARIES rmcl)
@@ -108,6 +115,10 @@ endif()
 
 if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     list(APPEND RMCL_LIBRARIES rmcl-optix)
+endif()
+
+if(TARGET rmagine::vulkan AND NOT ${DISABLE_VULKAN})
+    list(APPEND RMCL_LIBRARIES rmcl-vulkan)
 endif()
 
 include_directories(
@@ -300,6 +311,43 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
 
     add_definitions(-DRMCL_OPTIX)
     set(RMCL_OPTIX True)
+endif()
+
+
+# VULKAN
+if(TARGET rmagine::vulkan AND NOT ${DISABLE_VULKAN})
+    add_library(rmcl-vulkan SHARED
+        # math
+        src/rmcl/registration/RCCVulkan.cpp
+    )
+
+    target_link_libraries(rmcl-vulkan
+        rmagine::vulkan
+        rmagine::vulkanCudaInterop
+        ${CUDA_LIBRARIES}
+    )
+
+    target_include_directories(rmcl-vulkan
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rmcl-${rmcl_VERSION}>
+    )
+
+    set_target_properties(rmcl-vulkan
+        PROPERTIES
+            SOVERSION ${rmcl_VERSION_MAJOR}
+            VERSION ${rmcl_VERSION}
+            # CXX_STANDARD 17
+    )
+
+    install(TARGETS rmcl-vulkan
+        EXPORT rmcl-targets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+
+    add_definitions(-DRMCL_VULKAN)
+    set(RMCL_VULKAN True)
 endif()
 
 ### INSTALL

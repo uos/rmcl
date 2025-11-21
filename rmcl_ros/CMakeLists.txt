@@ -437,6 +437,12 @@ if(RMCL_OPTIX)
     )
 endif(RMCL_OPTIX)
 
+if(RMCL_VULKAN)
+    target_link_libraries(micp_localization
+        rmcl-vulkan
+    )
+endif(RMCL_VULKAN)
+
 ament_target_dependencies(micp_localization
     rclcpp
     rclcpp_components
@@ -746,6 +752,16 @@ if(RMCL_OPTIX)
         rmcl-optix
     )
 endif(RMCL_OPTIX)
+
+if(RMCL_OPTIX)
+    message(WARNING "Linking CUDA + Vulkan related code")
+    target_link_libraries(rmcl_localization
+        rmcl_ros_cuda
+        rmcl-cuda
+        rmcl_ros_vulkan 
+        rmcl-vulkan
+    )
+endif(RMCL_OPTIX)#TODO: rmcl_ros_vulkan fehlt noch
 
 ament_target_dependencies(rmcl_localization 
     rclcpp
