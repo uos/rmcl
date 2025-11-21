@@ -15,7 +15,7 @@
 #include <random>
 #include <iostream>
 
-namespace rm = rmagine;
+namespace rm = rmagine;//test
 
 namespace rmcl
 {
