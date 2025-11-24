@@ -97,7 +97,7 @@ if(TARGET rmagine::optix)
     option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
-if(TARGET rmagine::vulkan)
+if(TARGET rmagine::vulkan AND TARGET rmagine::vulkanCudaInterop AND TARGET rmagine::cuda)
     option(DISABLE_VULKAN "Disable Rmagine Vulkan backend Compilation" FALSE)
 endif()
 
@@ -117,7 +117,7 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     list(APPEND RMCL_LIBRARIES rmcl-optix)
 endif()
 
-if(TARGET rmagine::vulkan AND NOT ${DISABLE_VULKAN})
+if(TARGET rmagine::vulkan AND TARGET rmagine::vulkanCudaInterop AND TARGET rmagine::cuda AND NOT ${DISABLE_VULKAN})
     list(APPEND RMCL_LIBRARIES rmcl-vulkan)
 endif()
 
@@ -315,7 +315,7 @@ endif()
 
 
 # VULKAN
-if(TARGET rmagine::vulkan AND NOT ${DISABLE_VULKAN})
+if(TARGET rmagine::vulkan AND TARGET rmagine::vulkanCudaInterop AND TARGET rmagine::cuda AND NOT ${DISABLE_VULKAN})
     add_library(rmcl-vulkan SHARED
         # math
         src/rmcl/registration/RCCVulkan.cpp
@@ -324,6 +324,7 @@ if(TARGET rmagine::vulkan AND NOT ${DISABLE_VULKAN})
     target_link_libraries(rmcl-vulkan
         rmagine::vulkan
         rmagine::vulkanCudaInterop
+        rmagine::cuda
         ${CUDA_LIBRARIES}
     )
 
