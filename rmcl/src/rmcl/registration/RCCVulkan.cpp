@@ -38,16 +38,10 @@ void RCCVulkanSpherical::find(const rm::Transform& Tbm_est)
   {
     rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, 
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
+
+    rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
+        model_cache_.getHeight(), model_cache_.getWidth(), 1);
   }
-
-  rmagine::Bundle<
-    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
-    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
-    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
-    > model_buffers_vulkan_;
-
-  rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-      model_cache_.getHeight(), model_cache_.getWidth(), 1);
   
   simulate(Tbm_est, model_buffers_vulkan_);
 
@@ -89,17 +83,10 @@ void RCCVulkanPinhole::find(const rm::Transform& Tbm_est)
   {
     rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, 
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
+
+    rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
+        model_cache_.getHeight(), model_cache_.getWidth(), 1);
   }
-
-  //TODO: mapping in gegenrichtung nutzen, sobald es in rmagine existiert
-  rmagine::Bundle<
-    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
-    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
-    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
-    > model_buffers_vulkan_;
-
-  rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-      model_cache_.getHeight(), model_cache_.getWidth(), 1);
   
   simulate(Tbm_est, model_buffers_vulkan_);
 
@@ -141,17 +128,11 @@ void RCCVulkanO1Dn::find(const rm::Transform& Tbm_est)
   {
     rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, 
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
+
+    rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
+        model_cache_.getHeight(), model_cache_.getWidth(), 1);
   }
 
-  rmagine::Bundle<
-    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
-    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
-    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
-    > model_buffers_vulkan_;
-
-  rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-      model_cache_.getHeight(), model_cache_.getWidth(), 1);
-  
   simulate(Tbm_est, model_buffers_vulkan_);
 
   model_buffers_.hits = model_buffers_vulkan_.hits;
@@ -192,17 +173,11 @@ void RCCVulkanOnDn::find(const rm::Transform& Tbm_est)
   {
     rm::resize_memory_bundle<rm::VRAM_CUDA>(model_buffers_, 
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
+
+    rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
+        model_cache_.getHeight(), model_cache_.getWidth(), 1);
   }
 
-  rmagine::Bundle<
-    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
-    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
-    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
-    > model_buffers_vulkan_;
-
-  rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-      model_cache_.getHeight(), model_cache_.getWidth(), 1);
-  
   simulate(Tbm_est, model_buffers_vulkan_);
 
   model_buffers_.hits = model_buffers_vulkan_.hits;

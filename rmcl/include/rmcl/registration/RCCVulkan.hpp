@@ -14,6 +14,8 @@
 
 #include <rmcl/registration/CorrespondencesCUDA.hpp>
 
+namespace rm = rmagine;
+
 namespace rmcl
 {
 
@@ -36,6 +38,13 @@ public:
 private:
 
   rmagine::SphericalModel model_cache_;
+
+  //TODO: mapping in gegenrichtung nutzen, sobald es in rmagine existiert
+  rmagine::Bundle<
+    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
+    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
+    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
+    > model_buffers_vulkan_;
 };
 
 
@@ -57,6 +66,13 @@ public:
 
 private:
   rmagine::PinholeModel model_cache_;
+
+  //TODO: mapping in gegenrichtung nutzen, sobald es in rmagine existiert
+  rmagine::Bundle<
+    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
+    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
+    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
+    > model_buffers_vulkan_;
 };
 
 
@@ -78,6 +94,13 @@ public:
 
 private:
   rmagine::O1DnModel model_cache_;
+
+  //TODO: mapping in gegenrichtung nutzen, sobald es in rmagine existiert
+  rmagine::Bundle<
+    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
+    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
+    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
+    > model_buffers_vulkan_;
 };
 
 class RCCVulkanOnDn
@@ -98,6 +121,13 @@ public:
 
 private:
   rmagine::OnDnModel model_cache_;
+
+  //TODO: mapping in gegenrichtung nutzen, sobald es in rmagine existiert
+  rmagine::Bundle<
+    rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
+    rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
+    rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
+    > model_buffers_vulkan_;
 };
 
 
