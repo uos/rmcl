@@ -91,6 +91,7 @@ void RCCVulkanPinhole::find(const rm::Transform& Tbm_est)
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
   }
 
+  //TODO: mapping in gegenrichtung nutzen, sobald es in rmagine existiert
   rmagine::Bundle<
     rmagine::Points<rm::DEVICE_LOCAL_VULKAN>,  // model points
     rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals

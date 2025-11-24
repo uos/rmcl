@@ -55,6 +55,8 @@ find_package(rmagine 2.3.2
         embree
         cuda
         optix
+        vulkan
+        vulkan-cuda-interop
 )
 
 find_package(rmcl 2.3.0 REQUIRED)

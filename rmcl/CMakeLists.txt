@@ -69,7 +69,7 @@ find_package(rmagine 2.3.2
         cuda
         optix
         vulkan
-        vulkanCudaInterop
+        vulkan-cuda-interop
 )
 # not quite sure if it is vulkan_cuda_interop or vulkan-cuda-interop or vulkanCudaInterop
 
@@ -97,7 +97,7 @@ if(TARGET rmagine::optix)
     option(DISABLE_OPTIX "Disable Rmagine OptiX backend Compilation" FALSE)
 endif()
 
-if(TARGET rmagine::vulkan AND TARGET rmagine::vulkanCudaInterop AND TARGET rmagine::cuda)
+if(TARGET rmagine::vulkan AND TARGET rmagine::vulkan-cuda-interop AND TARGET rmagine::cuda)
     option(DISABLE_VULKAN "Disable Rmagine Vulkan backend Compilation" FALSE)
 endif()
 
@@ -117,7 +117,7 @@ if(TARGET rmagine::optix AND NOT ${DISABLE_OPTIX})
     list(APPEND RMCL_LIBRARIES rmcl-optix)
 endif()
 
-if(TARGET rmagine::vulkan AND TARGET rmagine::vulkanCudaInterop AND TARGET rmagine::cuda AND NOT ${DISABLE_VULKAN})
+if(TARGET rmagine::vulkan AND TARGET rmagine::vulkan-cuda-interop AND TARGET rmagine::cuda AND NOT ${DISABLE_VULKAN})
     list(APPEND RMCL_LIBRARIES rmcl-vulkan)
 endif()
 
@@ -315,7 +315,7 @@ endif()
 
 
 # VULKAN
-if(TARGET rmagine::vulkan AND TARGET rmagine::vulkanCudaInterop AND TARGET rmagine::cuda AND NOT ${DISABLE_VULKAN})
+if(TARGET rmagine::vulkan AND TARGET rmagine::vulkan-cuda-interop AND TARGET rmagine::cuda AND NOT ${DISABLE_VULKAN})
     add_library(rmcl-vulkan SHARED
         # math
         src/rmcl/registration/RCCVulkan.cpp
@@ -323,7 +323,7 @@ if(TARGET rmagine::vulkan AND TARGET rmagine::vulkanCudaInterop AND TARGET rmagi
 
     target_link_libraries(rmcl-vulkan
         rmagine::vulkan
-        rmagine::vulkanCudaInterop
+        rmagine::vulkan-cuda-interop
         rmagine::cuda
         ${CUDA_LIBRARIES}
     )

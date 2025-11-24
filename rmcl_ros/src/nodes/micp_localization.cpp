@@ -189,7 +189,7 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   map_optix_ = rm::import_optix_map(map_filename_);
   #endif // RMCL_OPTIX
   #ifdef RMCL_VULKAN
-  map_optix_ = rm::import_vulkan_map(map_filename_);
+  map_vulkan_ = rm::import_vulkan_map(map_filename_);
   #endif // RMCL_VULKAN
   // loading general micp config
 
