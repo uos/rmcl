@@ -76,6 +76,11 @@ if(TARGET rmcl-optix)
     set(RMCL_OPTIX True)
 endif(TARGET rmcl-optix)
 
+if(TARGET rmcl-vulkan)
+    add_definitions(-DRMCL_VULKAN)
+    set(RMCL_VULKAN True)
+endif(TARGET rmcl-vulkan)
+
 
 include_directories(
     include
