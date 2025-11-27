@@ -160,6 +160,9 @@ private:
   rmagine::Transform initial_pose_guess_;
 
   double tf_rate_ = 100.0;
+
+  bool reset_time_measurement = false;
+  std::mutex timer_mutex_;
 };
 
 

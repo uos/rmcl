@@ -50,6 +50,8 @@
 #include <rmcl_msgs/msg/micp_stats.hpp>
 #include <rmcl_msgs/msg/micp_sensor_stats.hpp>
 
+#define MEASURE_TIMES
+
 using namespace std::chrono_literals;
 
 namespace rm = rmagine;
@@ -486,9 +488,19 @@ void MICPLocalizationNode::poseCB(
   // transform b -> m == transform b -> pc -> m
   const rm::Transform Tbm = T_pc_m * T_b_pc * pose_guess_offset_;
 
+  #ifdef MEASURE_TIMES
+    timer_mutex_.lock();
+  #endif
+
   mutex_.lock();
   Tom_ = Tbm * ~Tbo;
   mutex_.unlock();
+
+  #ifdef MEASURE_TIMES
+    reset_time_measurement = true;
+    timer_mutex_.unlock();
+  #endif
+
   std::cout << "Initial pose guess processed. Tom: " << Tom_ << std::endl;
 }
 
@@ -1098,8 +1110,22 @@ void MICPLocalizationNode::correctionLoop()
 
   const double desired_correction_time = 1.0 / correction_rate_max_;
 
+  #ifdef MEASURE_TIMES
+    double accumulated_el = 0.0;
+    uint64_t num_corrections = 0;
+  #endif
+
   while(rclcpp::ok() && !stop_correction_thread_)
   {
+    #ifdef MEASURE_TIMES
+      timer_mutex_.lock();
+      if(reset_time_measurement == true)
+      {
+        accumulated_el = 0.0;
+        num_corrections = 0;
+        reset_time_measurement = false;
+      }
+    #endif
     // RCLCPP_INFO_STREAM(this->get_logger(), "Latest data received vs now: " << data_stamp_latest_.seconds() << " vs " << this->get_clock()->now().seconds());
     
     // TODO: what if we have different computing units?
@@ -1122,6 +1148,19 @@ void MICPLocalizationNode::correctionLoop()
     const double el = sw();
     runtime_avg += (el - runtime_avg) * new_factor;
     const double wait_delay = desired_correction_time - runtime_avg;
+
+    #ifdef MEASURE_TIMES
+      accumulated_el += el;
+      num_corrections++;
+
+      if(num_corrections % 1000 == 0)
+      {
+        std::cout << "Average correction time after " << num_corrections << " corrections: " << (accumulated_el/num_corrections) << std::endl;
+      }
+      timer_mutex_.unlock();
+    #endif
+
+    //TODO:somehow reset both when new pose
 
     if(wait_delay > 0.0)
     {
