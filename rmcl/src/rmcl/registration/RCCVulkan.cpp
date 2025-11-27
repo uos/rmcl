@@ -40,14 +40,21 @@ void RCCVulkanSpherical::find(const rm::Transform& Tbm_est)
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
 
     rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-        model_cache_.getHeight(), model_cache_.getWidth(), 1);
+      model_cache_.getHeight(), model_cache_.getWidth(), 1);
+    
+    viewContainer.reset();
+    viewContainer = std::make_unique<ViewContainer>(model_buffers_vulkan_.hits, model_buffers_vulkan_.points, model_buffers_vulkan_.normals);
   }
   
   simulate(Tbm_est, model_buffers_vulkan_);
 
-  model_buffers_.hits = model_buffers_vulkan_.hits;
-  model_buffers_.points = model_buffers_vulkan_.points;
-  model_buffers_.normals = model_buffers_vulkan_.normals;
+  // model_buffers_.hits = model_buffers_vulkan_.hits;
+  // model_buffers_.points = model_buffers_vulkan_.points;
+  // model_buffers_.normals = model_buffers_vulkan_.normals;
+
+  model_buffers_.hits = viewContainer->hits_view;
+  model_buffers_.points = viewContainer->points_view;
+  model_buffers_.normals = viewContainer->normals_view;
 }
 
 
@@ -85,14 +92,21 @@ void RCCVulkanPinhole::find(const rm::Transform& Tbm_est)
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
 
     rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-        model_cache_.getHeight(), model_cache_.getWidth(), 1);
+      model_cache_.getHeight(), model_cache_.getWidth(), 1);
+    
+    viewContainer.reset();
+    viewContainer = std::make_unique<ViewContainer>(model_buffers_vulkan_.hits, model_buffers_vulkan_.points, model_buffers_vulkan_.normals);
   }
   
   simulate(Tbm_est, model_buffers_vulkan_);
 
-  model_buffers_.hits = model_buffers_vulkan_.hits;
-  model_buffers_.points = model_buffers_vulkan_.points;
-  model_buffers_.normals = model_buffers_vulkan_.normals;
+  // model_buffers_.hits = model_buffers_vulkan_.hits;
+  // model_buffers_.points = model_buffers_vulkan_.points;
+  // model_buffers_.normals = model_buffers_vulkan_.normals;
+
+  model_buffers_.hits = viewContainer->hits_view;
+  model_buffers_.points = viewContainer->points_view;
+  model_buffers_.normals = viewContainer->normals_view;
 }
 
 
@@ -130,14 +144,21 @@ void RCCVulkanO1Dn::find(const rm::Transform& Tbm_est)
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
 
     rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-        model_cache_.getHeight(), model_cache_.getWidth(), 1);
+      model_cache_.getHeight(), model_cache_.getWidth(), 1);
+    
+    viewContainer.reset();
+    viewContainer = std::make_unique<ViewContainer>(model_buffers_vulkan_.hits, model_buffers_vulkan_.points, model_buffers_vulkan_.normals);
   }
 
   simulate(Tbm_est, model_buffers_vulkan_);
 
-  model_buffers_.hits = model_buffers_vulkan_.hits;
-  model_buffers_.points = model_buffers_vulkan_.points;
-  model_buffers_.normals = model_buffers_vulkan_.normals;
+  // model_buffers_.hits = model_buffers_vulkan_.hits;
+  // model_buffers_.points = model_buffers_vulkan_.points;
+  // model_buffers_.normals = model_buffers_vulkan_.normals;
+
+  model_buffers_.hits = viewContainer->hits_view;
+  model_buffers_.points = viewContainer->points_view;
+  model_buffers_.normals = viewContainer->normals_view;
 }
 
 
@@ -175,14 +196,21 @@ void RCCVulkanOnDn::find(const rm::Transform& Tbm_est)
       model_cache_.getHeight(), model_cache_.getWidth(), 1);
 
     rm::resize_memory_bundle<rm::DEVICE_LOCAL_VULKAN>(model_buffers_vulkan_, 
-        model_cache_.getHeight(), model_cache_.getWidth(), 1);
+      model_cache_.getHeight(), model_cache_.getWidth(), 1);
+    
+    viewContainer.reset();
+    viewContainer = std::make_unique<ViewContainer>(model_buffers_vulkan_.hits, model_buffers_vulkan_.points, model_buffers_vulkan_.normals);
   }
 
   simulate(Tbm_est, model_buffers_vulkan_);
 
-  model_buffers_.hits = model_buffers_vulkan_.hits;
-  model_buffers_.points = model_buffers_vulkan_.points;
-  model_buffers_.normals = model_buffers_vulkan_.normals;
+  // model_buffers_.hits = model_buffers_vulkan_.hits;
+  // model_buffers_.points = model_buffers_vulkan_.points;
+  // model_buffers_.normals = model_buffers_vulkan_.normals;
+
+  model_buffers_.hits = viewContainer->hits_view;
+  model_buffers_.points = viewContainer->points_view;
+  model_buffers_.normals = viewContainer->normals_view;
 }
 
 

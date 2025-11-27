@@ -19,6 +19,29 @@ namespace rm = rmagine;
 namespace rmcl
 {
 
+/**
+ * this is not a very mice way to handle the views, but i could not find a better way right now...
+ * 
+ * views need to be recreated every time the results buffers get resized...
+ * 
+ * however using these views to copy from vulkan memory to cuda memory is faster than copying directly, 
+ * because you dont need to fetch a file descriptor every time.
+ */
+struct ViewContainer
+{
+  ViewContainer(rm::MemoryView<uint8_t, rm::DEVICE_LOCAL_VULKAN>& hits, 
+                rm::MemoryView<rm::Point, rm::DEVICE_LOCAL_VULKAN>& points, 
+                rm::MemoryView<rm::Vector, rm::DEVICE_LOCAL_VULKAN>& normals) :
+                hits_view(hits), points_view(points), normals_view(normals) {}
+
+  rmagine::MemoryView<uint8_t, rm::VULKAN_AS_CUDA> hits_view;
+  rmagine::MemoryView<rm::Point, rm::VULKAN_AS_CUDA> points_view;
+  rmagine::MemoryView<rm::Vector, rm::VULKAN_AS_CUDA> normals_view;
+};
+using ViewContainerPtr = std::unique_ptr<ViewContainer>;
+
+
+
 class RCCVulkanSpherical
 : public CorrespondencesCUDA
 , public rmagine::ModelSetter<rmagine::SphericalModel>
@@ -45,6 +68,8 @@ private:
     rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
     rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
     > model_buffers_vulkan_;
+
+  ViewContainerPtr viewContainer = nullptr;
 };
 
 
@@ -73,6 +98,8 @@ private:
     rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
     rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
     > model_buffers_vulkan_;
+
+  ViewContainerPtr viewContainer = nullptr;
 };
 
 
@@ -101,6 +128,8 @@ private:
     rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
     rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
     > model_buffers_vulkan_;
+
+  ViewContainerPtr viewContainer = nullptr;
 };
 
 class RCCVulkanOnDn
@@ -128,6 +157,8 @@ private:
     rmagine::Normals<rm::DEVICE_LOCAL_VULKAN>, // model normals
     rmagine::Hits<rm::DEVICE_LOCAL_VULKAN>     // correspondence mask
     > model_buffers_vulkan_;
+
+  ViewContainerPtr viewContainer = nullptr;
 };
 
 
