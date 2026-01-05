@@ -77,17 +77,18 @@ See the longer pre-release video [here](https://www.youtube.com/watch?v=whuEqYdk
 
 
 
-Since **Ray MCL** is still in a pre-release stage, no formal publication is available at this time. When using **RMCL** in your scientific work, please reference one of the closely related projects such as [**rmagine**](https://github.com/uos/rmagine) or [**MICP-L**](https://ieeexplore.ieee.org/document/10802360), as many of their concepts have been incorporated into RMCL.
+Since **Ray MCL** is still in a pre-release stage, no formal publication is available at this time. When using **RMCL** in your scientific work, please reference one of the closely related projects such as [**rmagine**](https://github.com/uos/rmagine) or [**MICP-L**](https://ieeexplore.ieee.org/document/10802360), as many of their concepts have been incorporated into RMCL, and are covered in
 
 ```bib
 @phdthesis{amock2025inverse,
   author = {Alexander Mock},
   title = {Inverse Sensor Modeling for 6D Mobile Robot Localization in Scene Graphs via Hardware-Accelerated Ray Tracing}
   year = {2025},
+  doi = {10.48693/802}
   school = "Universität Osnabrück"}
 ```
 
-Alternatively, you may cite this software package directly as follows:
+Available open access [**here**](https://osnadocs.ub.uni-osnabrueck.de/handle/ds-2025112613801). Alternatively, you may cite this software package directly as follows:
 
 ```bib
 @software{amock2025rmcl,
