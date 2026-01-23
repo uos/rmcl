@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 project(rmcl_ros
-	VERSION 2.3.0)
+	VERSION 2.4.0)
 
 # option(RMCL_ROS_BUILD_EXPERIMENTAL "Build Experimental Code" OFF)
 # option(RMCL_ROS_BUILD_MICP_EXPERIMENTS "Build Experiments" OFF)
@@ -48,7 +48,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 
 
-find_package(rmagine 2.3.2
+find_package(rmagine 2.4.0
     COMPONENTS
         core
     OPTIONAL_COMPONENTS
@@ -59,7 +59,7 @@ find_package(rmagine 2.3.2
         vulkan-cuda-interop
 )
 
-find_package(rmcl 2.3.0 REQUIRED)
+find_package(rmcl 2.4.0 REQUIRED)
 include_directories(${rmcl_INCLUDE_DIR})
 
 # TODO: we can do this better. maybe put definitions to each target?
@@ -610,11 +610,6 @@ install(TARGETS
 # )
 
 
-
-
-
-
-
 #########
 # FILTER / SEGMENTATION
 #####
@@ -707,11 +702,6 @@ install(TARGETS
 
 endif(TARGET rmcl-embree)
 
-
-
-
-
-
 ###################
 #### RMCL Node ####
 ###################
@@ -751,7 +741,6 @@ if(RMCL_CUDA)
 endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
-    message(WARNING "Linking CUDA + OptiX related code")
     target_link_libraries(rmcl_localization
         rmcl_ros_cuda
         rmcl-cuda
