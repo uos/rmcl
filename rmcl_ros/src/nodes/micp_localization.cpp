@@ -43,8 +43,14 @@
 #include <rmcl/registration/RCCOptix.hpp>
 #endif // RMCL_OPTIX
 
+#ifdef RMCL_VULKAN
+#include <rmcl/registration/RCCVulkan.hpp>
+#endif // RMCL_VULKAN
+
 #include <rmcl_msgs/msg/micp_stats.hpp>
 #include <rmcl_msgs/msg/micp_sensor_stats.hpp>
+
+#define MEASURE_TIMES
 
 using namespace std::chrono_literals;
 
@@ -184,6 +190,9 @@ MICPLocalizationNode::MICPLocalizationNode(const rclcpp::NodeOptions& options)
   #ifdef RMCL_OPTIX
   map_optix_ = rm::import_optix_map(map_filename_);
   #endif // RMCL_OPTIX
+  #ifdef RMCL_VULKAN
+  map_vulkan_ = rm::import_vulkan_map(map_filename_);
+  #endif // RMCL_VULKAN
   // loading general micp config
 
   const ParamTree<rclcpp::Parameter>::SharedPtr sensors_param_tree 
@@ -343,6 +352,10 @@ void MICPLocalizationNode::printSetup()
   std::cout << "- " << TC_BACKENDS << "Optix (GPU)" << TC_END << std::endl;
   #endif // RMCL_OPTIX
 
+  #ifdef RMCL_VULKAN
+  std::cout << "- " << TC_BACKENDS << "Vulkan (GPU)" << TC_END << std::endl;
+  #endif // RMCL_VULKAN
+
   std::cout << std::endl;
   std::cout << "-------------------------" << std::endl;
   std::cout << "     --- FRAMES ---      " << std::endl;
@@ -475,9 +488,19 @@ void MICPLocalizationNode::poseCB(
   // transform b -> m == transform b -> pc -> m
   const rm::Transform Tbm = T_pc_m * T_b_pc * pose_guess_offset_;
 
+  #ifdef MEASURE_TIMES
+    timer_mutex_.lock();
+  #endif
+
   mutex_.lock();
   Tom_ = Tbm * ~Tbo;
   mutex_.unlock();
+
+  #ifdef MEASURE_TIMES
+    reset_time_measurement = true;
+    timer_mutex_.unlock();
+  #endif
+
   std::cout << "Initial pose guess processed. Tom: " << Tom_ << std::endl;
 }
 
@@ -671,7 +694,89 @@ MICPSensorPtr MICPLocalizationNode::loadSensor(
     #else
     throw std::runtime_error("backend 'optix' not compiled / not found");
     #endif // RMCL_OPTIX
-  } 
+  }
+  else if(corr_backend == "vulkan")
+  {
+    #ifdef RMCL_VULKAN
+
+    std::shared_ptr<MICPSensorCUDA> sensor_gpu;
+    
+    if(model_type == "spherical")
+    {
+      sensor_gpu = std::make_shared<MICPSphericalSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCVulkanSpherical>(map_vulkan_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "pinhole")
+    {
+      sensor_gpu = std::make_shared<MICPPinholeSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCVulkanPinhole>(map_vulkan_);
+      }
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "o1dn")
+    {
+      sensor_gpu = std::make_shared<MICPO1DnSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCVulkanO1Dn>(map_vulkan_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else if(model_type == "ondn")
+    {
+      sensor_gpu = std::make_shared<MICPOnDnSensorCUDA>(nh_sensor);
+      if(corr_type == "RC")
+      {
+        sensor_gpu->correspondences_ = std::make_shared<RCCVulkanOnDn>(map_vulkan_);
+      } 
+      else
+      {
+        // ERROR
+        std::cout << "Correspondence Type not implemented: " << corr_type << " for backend " << corr_backend << std::endl;
+        return sensor;
+      }
+    }
+    else 
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor model (vulkan) '" << model_type << "'.");
+      return sensor;
+    }
+
+    if(!sensor_gpu)
+    {
+      RCLCPP_ERROR_STREAM(get_logger(), "Unknown error in sensor initialization (vulkan) '" << sensor_name << "'.");
+      return sensor;
+    }
+
+    sensor_gpu->correspondences_->params = umeyama_params;
+    sensor_gpu->correspondences_->adaptive_max_dist_min = adaptive_max_dist_min;
+    sensor = sensor_gpu;
+
+    #else
+    throw std::runtime_error("backend 'vulkan' not compiled / not found");
+    #endif // RMCL_VULKAN
+  }
   else 
   {
     RCLCPP_ERROR_STREAM(get_logger(), "Backend '" << corr_backend << "' not implemented.");
@@ -1005,8 +1110,22 @@ void MICPLocalizationNode::correctionLoop()
 
   const double desired_correction_time = 1.0 / correction_rate_max_;
 
+  #ifdef MEASURE_TIMES
+    double accumulated_el = 0.0;
+    uint64_t num_corrections = 0;
+  #endif
+
   while(rclcpp::ok() && !stop_correction_thread_)
   {
+    #ifdef MEASURE_TIMES
+      timer_mutex_.lock();
+      if(reset_time_measurement == true)
+      {
+        accumulated_el = 0.0;
+        num_corrections = 0;
+        reset_time_measurement = false;
+      }
+    #endif
     // RCLCPP_INFO_STREAM(this->get_logger(), "Latest data received vs now: " << data_stamp_latest_.seconds() << " vs " << this->get_clock()->now().seconds());
     
     // TODO: what if we have different computing units?
@@ -1029,6 +1148,19 @@ void MICPLocalizationNode::correctionLoop()
     const double el = sw();
     runtime_avg += (el - runtime_avg) * new_factor;
     const double wait_delay = desired_correction_time - runtime_avg;
+
+    #ifdef MEASURE_TIMES
+      accumulated_el += el;
+      num_corrections++;
+
+      if(num_corrections % 1000 == 0)
+      {
+        std::cout << "Average correction time after " << num_corrections << " corrections: " << (accumulated_el/num_corrections) << std::endl;
+      }
+      timer_mutex_.unlock();
+    #endif
+
+    //TODO:somehow reset both when new pose
 
     if(wait_delay > 0.0)
     {

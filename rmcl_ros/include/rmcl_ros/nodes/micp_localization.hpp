@@ -32,6 +32,10 @@
 #include <rmagine/map/OptixMap.hpp>
 #endif // RMCL_OPTIX
 
+#ifdef RMCL_VULKAN
+#include <rmagine/map/VulkanMap.hpp>
+#endif // RMCL_VULKAN
+
 #include <rmcl_msgs/msg/micp_stats.hpp>
 #include <rmcl_msgs/msg/micp_sensor_stats.hpp>
 
@@ -102,6 +106,10 @@ private:
   rmagine::OptixMapPtr  map_optix_;
   #endif // RMCL_OPTIX
   
+  #ifdef RMCL_VULKAN
+  rmagine::VulkanMapPtr  map_vulkan_;
+  #endif // RMCL_VULKAN
+  
   std::thread correction_thread_;
   bool stop_correction_thread_ = false;
 
@@ -152,6 +160,9 @@ private:
   rmagine::Transform initial_pose_guess_;
 
   double tf_rate_ = 100.0;
+
+  bool reset_time_measurement = false;
+  std::mutex timer_mutex_;
 };
 
 
