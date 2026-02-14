@@ -22,8 +22,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Compile in ROS 2 jazzy WS
-        uses: 'ros-industrial/industrial_ci@master'
-        env:
-          ROS_DISTRO: jazzy
-          ROS_REPO: main
+      - name: Build and Test
+        uses: ros-tooling/action-ros-ci@0.3.13
+        with:
+          target-ros2-distro: jazzy
+          vcs-repo-file-url: $GITHUB_WORKSPACE/source_dependencies.yaml
+          rosdep-check: true
