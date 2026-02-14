@@ -5,10 +5,12 @@
     <version>2.4.0</version>
     <description>The RMCL package. Software Tools for Mobile Robot Localization in 3D Meshes.</description>
 
-    <maintainer email="amock@uos.de">Alexander Mock</maintainer>
-
+    <maintainer email="alexander.mock@naturerobots.com">Alexander Mock</maintainer>
+    <maintainer email="lniecksch@uos.de">Lennart Niecksch</maintainer>
     <license>BSD-3-Clause</license>
-    <author email="amock@uos.de">Alexander Mock</author>
+
+    <url>https://github.com/uos/rmcl</url>
+    <author email="alexander.mock@naturerobots.com">Alexander Mock</author>
 
     <buildtool_depend>ament_cmake</buildtool_depend>
 
