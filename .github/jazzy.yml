@@ -1,0 +1,29 @@
+name: jazzy
+on:
+  push:
+    branches:
+      - 'main'
+      - 'jazzy'
+  pull_request:
+    branches:
+      - 'main'
+      - 'jazzy'
+  workflow_dispatch:
+    branches:
+      - '*'
+jobs:
+  ros_jazzy:
+    name: jazzy
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Compile in ROS 2 jazzy WS
+        uses: 'ros-industrial/industrial_ci@master'
+        env:
+          ROS_DISTRO: jazzy
+          ROS_REPO: main

@@ -1,0 +1,29 @@
+name: humble
+on:
+  push:
+    branches:
+      - 'main'
+      - 'humble'
+  pull_request:
+    branches:
+      - 'main'
+      - 'humble'
+  workflow_dispatch:
+    branches:
+      - '*'
+jobs:
+  ros_humble:
+    name: humble
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Compile in ROS 2 humble WS
+        uses: 'ros-industrial/industrial_ci@master'
+        env:
+          ROS_DISTRO: humble
+          ROS_REPO: main
