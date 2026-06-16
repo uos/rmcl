@@ -18,7 +18,7 @@
 #include <tf2_ros/message_filter.hpp>
 #include <tf2_ros/create_timer_ros.hpp>
 
-#include <message_filters/subscriber.h>
+#include <message_filters/subscriber.hpp>
 
 #include <rmagine/math/statistics.h>
 #include <rmagine/math/linalg.h>
