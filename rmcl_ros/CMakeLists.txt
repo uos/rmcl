@@ -41,6 +41,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(rmcl_msgs REQUIRED)
 find_package(image_transport REQUIRED)
@@ -117,6 +118,7 @@ target_link_libraries(rmcl_ros PUBLIC
     ${sensor_msgs_TARGETS}
     ${rmcl_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
+    ${tf2_TARGETS}
     ${tf2_ros_TARGETS}
     ${visualization_msgs_TARGETS}
     ${std_srvs_TARGETS}
@@ -149,6 +151,7 @@ if(TARGET rmcl-embree)
         ${sensor_msgs_TARGETS}
         ${rmcl_msgs_TARGETS}
         ${geometry_msgs_TARGETS}
+        ${tf2_TARGETS}
         ${tf2_ros_TARGETS}
         ${visualization_msgs_TARGETS}
         ${std_srvs_TARGETS}
@@ -220,6 +223,7 @@ if(RMCL_CUDA)
         ${sensor_msgs_TARGETS}
         ${rmcl_msgs_TARGETS}
         ${geometry_msgs_TARGETS}
+        ${tf2_TARGETS}
         ${tf2_ros_TARGETS}
         ${std_srvs_TARGETS}
     )
@@ -386,6 +390,7 @@ if(RMCL_CUDA)
             ${sensor_msgs_TARGETS}
             ${rmcl_msgs_TARGETS}
             ${geometry_msgs_TARGETS}
+            ${tf2_TARGETS}
             ${tf2_ros_TARGETS}
             ${std_srvs_TARGETS}
         )
@@ -421,6 +426,7 @@ target_link_libraries(micp_localization PUBLIC
     ${rclcpp_components_TARGETS}
     ${geometry_msgs_TARGETS}
     ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
     ${tf2_ros_TARGETS}
     ${rmcl_msgs_TARGETS}
     ${image_transport_TARGETS}
@@ -666,6 +672,7 @@ target_link_libraries(scan_map_segmentation_embree PUBLIC
     ${rclcpp_components_TARGETS}
     ${geometry_msgs_TARGETS}
     ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
     ${tf2_ros_TARGETS}
     ${rmcl_msgs_TARGETS}
     ${std_srvs_TARGETS}
@@ -712,6 +719,7 @@ target_link_libraries(rmcl_localization PUBLIC
     ${rclcpp_components_TARGETS}
     ${geometry_msgs_TARGETS}
     ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
     ${tf2_ros_TARGETS}
     ${visualization_msgs_TARGETS}
     ${rmcl_msgs_TARGETS}
