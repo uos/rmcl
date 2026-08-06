@@ -10,7 +10,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/buffer.h>
+#include <tf2_ros/buffer.hpp>
 
 #include <std_msgs/msg/float64.hpp>
 

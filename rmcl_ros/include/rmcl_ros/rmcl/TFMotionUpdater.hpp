@@ -11,7 +11,7 @@
 #include "MotionUpdater.hpp"
 
 #include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/buffer.h>
+#include <tf2_ros/buffer.hpp>
 
 #include <rmagine/map/MapMap.hpp>
 
