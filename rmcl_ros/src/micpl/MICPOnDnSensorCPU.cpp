@@ -44,7 +44,11 @@ void MICPOnDnSensorCPU::connectToTopic(const std::string& topic_name)
   rclcpp::SubscriptionOptions sub_options;
   sub_options.callback_group = cb_group_;
   rclcpp::QoS qos(10); // = rclcpp::SystemDefaultsQoS();
-  data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile(), sub_options); // delete "get_rmw_..." for rolling
+#if ROS_DISTRO_NUMBER <= ROS_DISTRO_JAZZY
+  data_sub_.subscribe(nh_, topic_name, qos.get_rmw_qos_profile(), sub_options);
+#else
+  data_sub_.subscribe(nh_, topic_name, qos, sub_options);
+#endif
   
   tf_filter_->registerCallback(&MICPOnDnSensorCPU::updateMsg, this);
 
