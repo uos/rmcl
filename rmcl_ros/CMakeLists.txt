@@ -36,6 +36,9 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${rmcl_ros_SOURCE_DIR}/cmake)
 
+include(RosDistroNumber)
+rmcl_define_ros_distro_number()
+
 find_package(ament_cmake REQUIRED)
 
 find_package(rclcpp REQUIRED)
