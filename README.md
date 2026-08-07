@@ -123,6 +123,7 @@ colcon build
 | ------ | -- | ------------ | ----- | ----- |
 | Humble | Ubuntu 22.04 | x86\_64 | [![ros2-humble build](https://img.shields.io/github/check-runs/uos/rmcl/main?checkName=ros2-humble%20%2F%20build)](https://github.com/uos/rmcl/actions/workflows/ros2_humble.yml) | [![ros2-humble tests](https://img.shields.io/github/check-runs/uos/rmcl/main?checkName=ros2-humble%20%2F%20tests)](https://github.com/uos/rmcl/actions/workflows/ros2_humble.yml) |
 | Jazzy | Ubuntu 24.04 | x86\_64 | [![ros2-jazzy build](https://img.shields.io/github/check-runs/uos/rmcl/main?checkName=ros2-jazzy%20%2F%20build)](https://github.com/uos/rmcl/actions/workflows/ros2_jazzy.yml) | [![ros2-jazzy tests](https://img.shields.io/github/check-runs/uos/rmcl/main?checkName=ros2-jazzy%20%2F%20tests)](https://github.com/uos/rmcl/actions/workflows/ros2_jazzy.yml) |
+| Lyrical | Ubuntu 26.04 | x86\_64 | [![ros2-lyrical build](https://img.shields.io/github/check-runs/uos/rmcl/main?checkName=ros2-lyrical%20%2F%20build)](https://github.com/uos/rmcl/actions/workflows/ros2_lyrical.yml) | [![ros2-lyrical tests](https://img.shields.io/github/check-runs/uos/rmcl/main?checkName=ros2-lyrical%20%2F%20tests)](https://github.com/uos/rmcl/actions/workflows/ros2_lyrical.yml) |
 
 ## Mesh Navigation
 

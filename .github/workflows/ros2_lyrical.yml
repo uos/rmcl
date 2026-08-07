@@ -1,0 +1,20 @@
+name: ros2_lyrical
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+  workflow_dispatch:
+    branches:
+      - '*'
+
+jobs:
+  lyrical:
+    name: ros2-lyrical
+    uses: ./.github/workflows/ros2_template.yml
+    with:
+      docker_base_image: rostooling/setup-ros-docker:ubuntu-resolute-latest
+      ros_distro: lyrical

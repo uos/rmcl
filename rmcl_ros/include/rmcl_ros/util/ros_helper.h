@@ -4,6 +4,14 @@
 #include <rclcpp/rclcpp.hpp>
 #include <optional>
 
+// ROS_DISTRO_NUMBER (A=1, B=2, ...) is injected by CMake from the first letter
+// of $ROS_DISTRO. Named distro thresholds for use with `#if ROS_DISTRO_NUMBER <= ...`.
+#define ROS_DISTRO_HUMBLE 8
+#define ROS_DISTRO_IRON 9
+#define ROS_DISTRO_JAZZY 10
+#define ROS_DISTRO_KILTED 11
+#define ROS_DISTRO_LYRICAL 12
+
 namespace rmcl
 {
 

@@ -43,8 +43,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <memory>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.hpp>
+#include <tf2_ros/buffer.hpp>
 #include <image_transport/image_transport.hpp>
 
 namespace rmcl

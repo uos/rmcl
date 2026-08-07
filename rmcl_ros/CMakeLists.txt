@@ -36,11 +36,15 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${rmcl_ros_SOURCE_DIR}/cmake)
 
+include(RosDistroNumber)
+rmcl_define_ros_distro_number()
+
 find_package(ament_cmake REQUIRED)
 
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(rmcl_msgs REQUIRED)
 find_package(image_transport REQUIRED)
@@ -109,19 +113,18 @@ target_include_directories(rmcl_ros PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(rmcl_ros
+target_link_libraries(rmcl_ros PUBLIC
     rmcl
     rmagine::core
-)
-
-ament_target_dependencies(rmcl_ros
-    rclcpp
-    sensor_msgs
-    rmcl_msgs
-    geometry_msgs
-    tf2_ros
-    visualization_msgs
-    std_srvs
+    # ROS
+    rclcpp::rclcpp
+    ${sensor_msgs_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 install(TARGETS rmcl_ros
@@ -142,20 +145,19 @@ if(TARGET rmcl-embree)
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
 
-    target_link_libraries(rmcl_embree_ros
+    target_link_libraries(rmcl_embree_ros PUBLIC
         rmcl-embree
         rmagine::core
         rmagine::embree
-    )
-
-    ament_target_dependencies(rmcl_embree_ros
-        rclcpp
-        sensor_msgs
-        rmcl_msgs
-        geometry_msgs
-        tf2_ros
-        visualization_msgs
-        std_srvs
+        # ROS
+        rclcpp::rclcpp
+        ${sensor_msgs_TARGETS}
+        ${rmcl_msgs_TARGETS}
+        ${geometry_msgs_TARGETS}
+        ${tf2_TARGETS}
+        ${tf2_ros_TARGETS}
+        ${visualization_msgs_TARGETS}
+        ${std_srvs_TARGETS}
     )
 
     install(TARGETS rmcl_embree_ros
@@ -215,19 +217,18 @@ if(RMCL_CUDA)
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
     )
-    target_link_libraries(rmcl_ros_cuda
+    target_link_libraries(rmcl_ros_cuda PUBLIC
         rmcl_ros
         rmcl-cuda
         rmagine::cuda
-    )
-
-    ament_target_dependencies(rmcl_ros_cuda
-        rclcpp
-        sensor_msgs
-        rmcl_msgs
-        geometry_msgs
-        tf2_ros
-        std_srvs
+        # ROS
+        rclcpp::rclcpp
+        ${sensor_msgs_TARGETS}
+        ${rmcl_msgs_TARGETS}
+        ${geometry_msgs_TARGETS}
+        ${tf2_TARGETS}
+        ${tf2_ros_TARGETS}
+        ${std_srvs_TARGETS}
     )
 
     install(TARGETS rmcl_ros_cuda
@@ -380,22 +381,21 @@ if(RMCL_CUDA)
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<INSTALL_INTERFACE:include>)
 
-        target_link_libraries(rmcl_ros_optix
+        target_link_libraries(rmcl_ros_optix PUBLIC
             rmcl
             rmcl_ros
             rmcl-cuda
             rmcl_ros_cuda
             rmcl-optix
             rmagine::optix
-        )
-
-        ament_target_dependencies(rmcl_ros_optix
-            rclcpp
-            sensor_msgs
-            rmcl_msgs
-            geometry_msgs
-            tf2_ros
-            std_srvs
+            # ROS
+            rclcpp::rclcpp
+            ${sensor_msgs_TARGETS}
+            ${rmcl_msgs_TARGETS}
+            ${geometry_msgs_TARGETS}
+            ${tf2_TARGETS}
+            ${tf2_ros_TARGETS}
+            ${std_srvs_TARGETS}
         )
 
         install(TARGETS rmcl_ros_optix
@@ -421,46 +421,45 @@ target_include_directories(micp_localization
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(micp_localization
+target_link_libraries(micp_localization PUBLIC
     rmcl_ros
     rmagine::core
+    # ROS
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${image_transport_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 if(RMCL_EMBREE)
-    target_link_libraries(micp_localization
+    target_link_libraries(micp_localization PUBLIC
         rmcl-embree
     )
 endif(RMCL_EMBREE)
     
 if(RMCL_CUDA)
-    target_link_libraries(micp_localization
+    target_link_libraries(micp_localization PUBLIC
         rmcl_ros_cuda
     )
 endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
-    target_link_libraries(micp_localization
+    target_link_libraries(micp_localization PUBLIC
         rmcl-optix
     )
 endif(RMCL_OPTIX)
 
 if(RMCL_VULKAN)
-    target_link_libraries(micp_localization
+    target_link_libraries(micp_localization PUBLIC
         rmcl-vulkan
     )
 endif(RMCL_VULKAN)
-
-ament_target_dependencies(micp_localization
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2_ros
-    rmcl_msgs
-    image_transport
-    visualization_msgs
-    std_srvs
-)
 
 rclcpp_components_register_node(micp_localization
     PLUGIN "rmcl::MICPLocalizationNode" 
@@ -478,21 +477,19 @@ add_library(conv_pc2_to_scan SHARED
     src/nodes/conversion/pc2_to_scan.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(conv_pc2_to_scan
+target_link_libraries(conv_pc2_to_scan PUBLIC
     rmcl_ros
-)
-
-ament_target_dependencies(conv_pc2_to_scan
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2
-    tf2_ros
-    rmcl_msgs
-    image_transport
-    visualization_msgs
-    std_srvs
+    # ROS
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${image_transport_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 rclcpp_components_register_node(conv_pc2_to_scan 
@@ -512,20 +509,19 @@ add_library(conv_pc2_to_o1dn SHARED
     src/nodes/conversion/pc2_to_o1dn.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(conv_pc2_to_o1dn
+target_link_libraries(conv_pc2_to_o1dn PUBLIC
     rmcl_ros
-)
-
-ament_target_dependencies(conv_pc2_to_o1dn
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2
-    tf2_ros
-    rmcl_msgs
-    image_transport
-    visualization_msgs
+    # ROS
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${image_transport_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 rclcpp_components_register_node(conv_pc2_to_o1dn 
@@ -544,21 +540,19 @@ add_library(conv_scan_to_scan SHARED
     src/nodes/conversion/scan_to_scan.cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(conv_scan_to_scan
+target_link_libraries(conv_scan_to_scan PUBLIC
     rmcl_ros
-)
-
-ament_target_dependencies(conv_scan_to_scan
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2
-    tf2_ros
-    rmcl_msgs
-    image_transport
-    visualization_msgs
-    std_srvs
+    # ROS
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${image_transport_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 rclcpp_components_register_node(conv_scan_to_scan 
@@ -617,17 +611,17 @@ add_library(map_segmentation SHARED
     src/nodes/filter/map_segmentation.cpp
 )
 
-ament_target_dependencies(map_segmentation
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2
-    tf2_ros
-    rmcl_msgs
-    image_transport
-    visualization_msgs
-    std_srvs
+target_link_libraries(map_segmentation PUBLIC
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${image_transport_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 install(TARGETS 
@@ -643,20 +637,19 @@ if(TARGET rmcl-embree)
 add_library(o1dn_map_segmentation_embree SHARED
     src/nodes/filter/o1dn_map_segmentation_embree.cpp)
 
-target_link_libraries(o1dn_map_segmentation_embree
+target_link_libraries(o1dn_map_segmentation_embree PUBLIC
     rmcl_ros
     rmcl-embree
     map_segmentation
-)
-
-ament_target_dependencies(o1dn_map_segmentation_embree
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2_ros
-    rmcl_msgs
-    std_srvs
+    # ROS
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 rclcpp_components_register_node(o1dn_map_segmentation_embree 
@@ -673,20 +666,19 @@ install(TARGETS
 add_library(scan_map_segmentation_embree SHARED
     src/nodes/filter/scan_map_segmentation_embree.cpp)
 
-target_link_libraries(scan_map_segmentation_embree
+target_link_libraries(scan_map_segmentation_embree PUBLIC
     rmcl_ros
     rmcl-embree
     map_segmentation
-)
-
-ament_target_dependencies(scan_map_segmentation_embree
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2_ros
-    rmcl_msgs
-    std_srvs
+    # ROS
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 rclcpp_components_register_node(scan_map_segmentation_embree 
@@ -720,43 +712,44 @@ target_include_directories(rmcl_localization
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(rmcl_localization
+target_link_libraries(rmcl_localization PUBLIC
     rmcl_ros
     Eigen3::Eigen
     rmagine::core
     rmagine::embree
+    # ROS
+    rclcpp::rclcpp
+    ${rclcpp_components_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${tf2_TARGETS}
+    ${tf2_ros_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${rmcl_msgs_TARGETS}
+    ${std_srvs_TARGETS}
 )
 
 if(RMCL_EMBREE)
-    target_link_libraries(rmcl_localization
+    target_link_libraries(rmcl_localization PUBLIC
         rmcl-embree
         rmcl_embree_ros
     )
 endif(RMCL_EMBREE)
     
 if(RMCL_CUDA)
-    target_link_libraries(rmcl_localization
+    target_link_libraries(rmcl_localization PUBLIC
         rmcl-cuda
     )
 endif(RMCL_CUDA)
 
 if(RMCL_OPTIX)
-    target_link_libraries(rmcl_localization
+    target_link_libraries(rmcl_localization PUBLIC
         rmcl_ros_cuda
         rmcl-cuda
         rmcl_ros_optix
         rmcl-optix
     )
 endif(RMCL_OPTIX)
-
-ament_target_dependencies(rmcl_localization 
-    rclcpp
-    rclcpp_components
-    geometry_msgs
-    sensor_msgs
-    tf2_ros
-    visualization_msgs
-)
 
 rclcpp_components_register_node(rmcl_localization PLUGIN "rmcl::RmclNode" EXECUTABLE rmcl_localization_node)
 
